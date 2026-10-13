@@ -38,7 +38,8 @@ The number of keys therefore does not simply equal the number of rendered rows. 
 - **Semantic nodes only** — user messages and model-visible text are included; tool, edit, read, reasoning, command, partial, and other internal rows are excluded.
 - **Continuous-output merging** — adjacent model text remains one key until non-output content breaks continuity; output from separate stages stays independent.
 - **Fixed-window browsing** — when nodes exceed the limit, a fixed number is shown around the current reading position; selecting a top or bottom boundary reveals earlier or later history.
-- **Continuous hover wave** — the whole rail is an interactive hit area, so gaps between keys still select the nearest node and smoothly adjust neighboring widths.
+- **Continuous hover wave** — select the nearest visible pitch within its painted width, with a short width transition; blank margins and hidden member pitches are inert.
+- **Click-only grey-key disclosure** — distant grey runs share one standard key at the middle pitch. Hover shows the count; the first click reveals members, and a member click navigates. Leaving, blurring or pressing Escape retires disclosure without stretching or moving keys.
 - **Safe text previews** — the hover card shows a title and excerpt, follows light/dark themes, stays inside the viewport, and always writes content as plain text.
 - **Fast paragraph jumps** — click a key or press Enter/Space to scroll to the beginning of its message row.
 - **Reading-position tracking** — scrolling immediately darkens and lengthens the current key and recenters the fixed window.

@@ -166,7 +166,18 @@ let passed = 0
 async function check(name, run) { await run(); passed++; console.log(`ok ${passed} - ${name}`) }
 const piano = () => document.querySelector('.smcp-unified')
 const key = id => [...document.querySelectorAll('.smcp-bar')].find(b => b.dataset.key === id)
-const press = async k => { piano().dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true })); await frame() }
+const press = async k => {
+  // These legacy cases test navigation, not disclosure. Explicitly expand a
+  // selected history group before asking its member to navigate. The separate
+  // rail-collapse suite checks that the first activation never navigates.
+  if (k === 'Enter' || k === ' ') {
+    const focused = document.getElementById(piano().getAttribute('aria-activedescendant'))
+    if (focused?.dataset.collapsed === 'true') {
+      piano().dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true })); await frame()
+    }
+  }
+  piano().dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true })); await frame()
+}
 
 await check('exactly one visible and accessible rail; native component stays mounted', () => {
   assert.equal(piano().hidden, false)
@@ -335,8 +346,11 @@ await check('composer replacement as a scrollport sibling invalidates cached lay
   assert.ok(Math.abs(Number.parseFloat(piano().style.top) - before) < 1)
 })
 
-await check('unloaded Turns appear without creating fake assistant segments', () => {
+await check('unloaded Turns remain in the model and disclose without fake assistant segments', async () => {
   assert.equal(globalThis.__smcpDebug.total, 13)
+  const group = document.querySelector('.smcp-bar[data-collapsed="true"]')
+  assert.ok(group)
+  group.click(); await frame()
   assert.equal(key('turn:1').dataset.unloaded, 'true')
   assert.equal(key('segment:a1::output:0'), undefined)
 })
@@ -346,7 +360,8 @@ await check('full-history Home/End keys work independently of maxVisible', async
   assert.ok(globalThis.__smcpDebug.windowStart > 0)
   assert.ok(document.querySelectorAll('.smcp-bar').length <= 5)
   await press('Home')
-  assert.ok(key('turn:1'))
+  assert.equal(globalThis.__smcpDebug.windowStart, 0)
+  assert.ok(document.getElementById(piano().getAttribute('aria-activedescendant')))
 })
 await check('unrelated Session publications do not wake the Piano render loop', async () => {
   const before = globalThis.__smcpDebug.perf.renders

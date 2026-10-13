@@ -15,7 +15,7 @@ DSH 0.1.5-rc.2 尚无独立 navigator slot。为使现有安装直接可用，�
 - `session.projections.faceOf('turnOutline')` + Chat target 的 `navigation.items()` 提供完整轮次读模型。
 - 已加载的可见段来自 PR #1 的 keyed Chat source。
 - 官方 `TurnNavigator` 和 `ChatView` 保持挂载。Piano 的轮次点击转发到真实官方按钮；未加载历史的 `loadThrough`、分页锚点、落点、底部跟随及阅读恢复均由原 ChatView 执行。
-- 接管成功后，仅对该视图的官方 nav 设置 `display:none!important` 和 `aria-hidden`；禁用/卸载/契约失配逐项恢复原值。不读取 React Fiber、不覆写函数、不修改 DSH 安装文件、不加载其他会话。
+- 接管成功后，仅对该视图的官方 nav 设置 `visibility:hidden!important` 和 `aria-hidden`，保留虚拟列表依赖的 border box；禁用/卸载/契约失配逐项恢复原值。不读取 React Fiber、不覆写函数、不修改 DSH 安装文件、不加载其他会话。
 - 细粒度已加载段先通过官方轮次动作取消旧跳转，再定位该行，交由官方 scroll/scrollend 监听保存最终阅读位置。
 - Escape、正文滚轮/触摸/阅读键通过官方的已加载轮次动作撤销待落地跳转，然后保持阅读位置。**这是取消跳转意图，不是中止官方共享的网络分页请求。** 已发请求可以完成，但不得再把阅读位置拉回旧目标。
 
