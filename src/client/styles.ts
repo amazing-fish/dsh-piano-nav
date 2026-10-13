@@ -31,7 +31,10 @@ const CSS = `
   opacity: .78;
   pointer-events: none;
   transform-origin: left center;
-  transition: top 110ms cubic-bezier(.2, .8, .2, 1), width 82ms cubic-bezier(.2, .8, .2, 1), background-color 100ms ease, opacity 100ms ease;
+  /* #16 v2 (review): height must transition with top — a collapsed run
+     changing 48px→2px snapped instantly while top kept animating, fanning
+     keys out from the bar's edge instead of its center. */
+  transition: top 110ms cubic-bezier(.2, .8, .2, 1), height 110ms cubic-bezier(.2, .8, .2, 1), width 82ms cubic-bezier(.2, .8, .2, 1), background-color 100ms ease, opacity 100ms ease;
 }
 .smcp-bar-current,
 .smcp-bar-hover {
