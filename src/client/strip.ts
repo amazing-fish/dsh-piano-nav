@@ -230,6 +230,11 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let active: string | null = null
   let selected: string | null = null
   let browseStart: string | null = null
+  // #16 v2 (review): the unlimited per-key neighborhood is reserved for
+  // explicit wheel browsing. A plain hover also seeds browseStart (window
+  // pinning), so browsing must not derive from browseStart alone — touching a
+  // merged bar must bloom only the run's ±3 neighborhood.
+  let wheelBrowsing = false
   let windowStart = 0
   let pointerInside = false
   let requestedTurn: number | null = null
@@ -606,7 +611,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const selectedIdx = visibleItems.findIndex(item => item.key === selected)
     const activeIdx = visibleItems.findIndex(item => item.key === active)
     const browseIdx = browseStart === null ? -1 : visibleItems.findIndex(item => item.key === browseStart)
-    const browsing = browseStart !== null
+    const browsing = wheelBrowsing && browseStart !== null
     const focusIndex = selectedIdx >= 0 ? selectedIdx : activeIdx >= 0 ? activeIdx : browseIdx
     railSlots = computeRailSlots(visiblePositions, focusIndex, activeIdx, config.keyHeight, height, browsing ? Number.MAX_SAFE_INTEGER : NEIGHBORHOOD)
     visibleItems.forEach((item, index) => {
@@ -678,7 +683,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     // timing-sensitive when sessions switch during an in-flight history load.
     owner.cancel()
     fallback('binding')
-    binding = next; nodes = []; selected = active = browseStart = null
+    binding = next; nodes = []; selected = active = browseStart = null; wheelBrowsing = false
     sessionLoadingOlder = next?.session.getSnapshot().loadingOlder ?? false
     requestedTurn = failedTurn = null; localFailure = false
     debug.sessionId = id === undefined ? undefined : String(id)
@@ -735,7 +740,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const ticket = ++activation
     failedTurn = null; localFailure = false
     requestedTurn = item.anchorKey === null ? item.turn : null
-    selected = item.key; active = item.key; browseStart = null
+    selected = item.key; active = item.key; browseStart = null; wheelBrowsing = false
     strip.focus({ preventScroll: true })
     void landing.navigate(item).then(ok => {
       if (!alive || ticket !== activation || ok === undefined) return
@@ -784,12 +789,12 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     selected = next
     schedule(DIRTY_VIEW)
   }
-  const pointerLeave = (): void => { pointerInside = false; selected = null; browseStart = null; schedule(DIRTY_VIEW) }
+  const pointerLeave = (): void => { pointerInside = false; selected = null; browseStart = null; wheelBrowsing = false; schedule(DIRTY_VIEW) }
   // #16 v2: focus no longer participates in the layout (a retained
   // document.activeElement kept the rail stuck open in v1); blur only retires
   // keyboard browse state so the layout re-centers on the active key.
   const blurCollapse = (): void => {
-    if (!pointerInside) { selected = null; browseStart = null }
+    if (!pointerInside) { selected = null; browseStart = null; wheelBrowsing = false }
     schedule(DIRTY_VIEW)
   }
   const click = (event: MouseEvent): void => {
@@ -803,7 +808,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (event.deltaY === 0 || items.length === 0) return
     event.preventDefault()
     const index = Math.max(0, Math.min(items.length - Math.max(1, visibleItems.length), windowStart + Math.sign(event.deltaY) * 3))
-    browseStart = items[index]?.key ?? null; selected = null; schedule(DIRTY_VIEW)
+    browseStart = items[index]?.key ?? null; selected = null; wheelBrowsing = true; schedule(DIRTY_VIEW)
   }
   const cancelLocal = (): void => {
     activation++; landing.cancel()
@@ -811,7 +816,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const cancel = (): void => { cancelLocal(); owner.cancel() }
   const keydown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape') { event.preventDefault(); cancel(); selected = null; browseStart = null; return }
+    if (event.key === 'Escape') { event.preventDefault(); cancel(); selected = null; browseStart = null; wheelBrowsing = false; return }
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault(); activate(itemByKey.get(selected ?? active ?? '') ?? items[windowStart]); return
     }
@@ -836,7 +841,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const onScroll = (): void => {
     const clearBrowse = !pointerInside && document.activeElement !== strip && browseStart !== null
-    if (clearBrowse) browseStart = null
+    if (clearBrowse) { browseStart = null; wheelBrowsing = false }
     schedule(DIRTY_READER | (clearBrowse ? DIRTY_VIEW : 0))
   }
   let composerSeat = scrollport.querySelector<HTMLElement>('[data-composer-seat]')
