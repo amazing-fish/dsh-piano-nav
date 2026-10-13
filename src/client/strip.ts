@@ -181,6 +181,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let height = 0
   let capacity = 1
   let stripViewportTop = 0
+  let stripViewportLeft = 0
   let readingLineY = 0
   let hitTestXs: number[] = []
   let visibleItems: PianoItem[] = []
@@ -436,6 +437,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     capacity = Math.min(config.maxVisible, Math.max(1, Math.floor((height - config.keyHeight) / config.keyGap) + 1))
     top = Math.max(8, (scrollRect.top - rootRect.top) + (available - height) / 2)
     stripViewportTop = rootRect.top + top
+    stripViewportLeft = rootRect.left + left
     readingLineY = scrollRect.top + Math.min(120, scrollport.clientHeight * .18)
     hitTestXs = flowRect.width > 0
       ? [flowRect.left + flowRect.width / 2, Math.min(flowRect.right - 1, flowRect.left + 18)]
@@ -555,9 +557,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       writeClass(button, 'smcp-bar-hover', item.key === selected)
       writeStyle(button, 'top', `${visiblePositions[index] - config.keyHeight / 2}px`)
       writeStyle(button, 'height', `${config.keyHeight}px`)
-      const base = item.key === active ? 24 : 10
-      const wave = focusIndex < 0 ? 0 : Math.exp(-((index - focusIndex) ** 2) / (2 * 1.35 ** 2))
-      writeStyle(button, 'width', `${base + (48 - base) * wave}px`)
+      writeStyle(button, 'width', `${barWidth(item, index, focusIndex)}px`)
     })
     const focused = focusIndex < 0 ? undefined : visibleItems[focusIndex]
     if (focused !== undefined) {
@@ -661,17 +661,37 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     })
     schedule()
   }
-  const nearest = (clientY: number): PianoItem | undefined => {
-    if (visibleItems.length === 0) return undefined
+  // #19 hover hot-zone gate: the pointer only counts as hovering a key when
+  // it lies within the key's RENDERED width plus a small tolerance. The
+  // renderer and the hit gate must share one width model, so the visible hot
+  // zone always equals what is on screen — moving through the blank right
+  // margin retires the selection and clicking it activates nothing.
+  const BAR_HIT_TOLERANCE = 3
+  const barWidth = (item: PianoItem, index: number, focusIndex: number): number => {
+    const base = item.key === active ? 24 : 10
+    const wave = focusIndex < 0 ? 0 : Math.exp(-((index - focusIndex) ** 2) / (2 * 1.35 ** 2))
+    return base + (48 - base) * wave
+  }
+  const nearestIndex = (clientY: number): number => {
+    if (visibleItems.length === 0) return -1
     let best = 0
     const y = clientY - stripViewportTop
     for (let i = 1; i < visiblePositions.length; i++) {
       if (Math.abs(visiblePositions[i] - y) < Math.abs(visiblePositions[best] - y)) best = i
     }
-    return visibleItems[best]
+    return best
+  }
+  const keyHitAt = (clientX: number, clientY: number): number => {
+    const index = nearestIndex(clientY)
+    if (index < 0) return -1
+    const item = visibleItems[index]
+    if (item === undefined) return -1
+    const focusIndex = visibleItems.findIndex(entry => entry.key === selected)
+    return clientX - stripViewportLeft <= barWidth(item, index, focusIndex) + BAR_HIT_TOLERANCE ? index : -1
   }
   const pointerMove = (event: PointerEvent): void => {
-    const next = nearest(event.clientY)?.key ?? null
+    const hit = keyHitAt(event.clientX, event.clientY)
+    const next = hit < 0 ? null : visibleItems[hit].key
     const changed = !pointerInside || next !== selected
     pointerInside = true
     browseStart ??= items[windowStart]?.key ?? null
@@ -682,7 +702,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   const pointerLeave = (): void => { pointerInside = false; selected = null; browseStart = null; schedule(DIRTY_VIEW) }
   const click = (event: MouseEvent): void => {
     const key = (event.target as HTMLElement).closest<HTMLElement>('[data-key]')?.dataset.key
-    activate(key === undefined ? nearest(event.clientY) : itemByKey.get(key))
+    if (key !== undefined) { activate(itemByKey.get(key)); return }
+    const hit = keyHitAt(event.clientX, event.clientY)
+    if (hit >= 0) activate(visibleItems[hit])
   }
   const wheel = (event: WheelEvent): void => {
     if (event.deltaY === 0 || items.length === 0) return
