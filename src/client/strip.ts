@@ -11,6 +11,8 @@ import type { KeyDescriptor } from './keys.ts'
 import { buildQuestionKeys } from './question-keys.ts'
 import { buildPianoItems, buildPianoItemsForTurn, mergeNavigationTurns } from './navigation-model.ts'
 import type { NavigationTurn, PianoItem } from './navigation-model.ts'
+import { projectRailSlots } from './rail-slots.ts'
+import type { RailSlot } from './rail-slots.ts'
 import { createNativeNavigation } from './native-navigation.ts'
 import { createSemanticLanding } from './semantic-landing.ts'
 import { SEMANTIC_CSS, semanticLabel, landingFailure } from './semantic-style.ts'
@@ -186,6 +188,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let hitTestXs: number[] = []
   let visibleItems: PianoItem[] = []
   let visiblePositions: number[] = []
+  let visibleSlots: RailSlot[] = []
+  const expandedKeys = new Set<string>()
   let tooltipKey: string | null = null
   const buttons = new Map<string, HTMLButtonElement>()
   const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, hitTests: 0, barWrites: 0 }
@@ -227,6 +231,15 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     tooltip.classList.remove('smcp-tooltip-visible')
     strip.removeAttribute('aria-describedby')
   }
+  const collapsedCopy = (count: number): string => {
+    const language = settings.getSnapshot().language
+    return language === 'en' ? `${count} history keys · Click to expand`
+      : language === 'zh-TW' ? `${count} 個歷史琴鍵 · 點擊展開` : `${count} 个历史琴键 · 点击展开`
+  }
+  const slotForKey = (key: string | null): RailSlot | undefined => {
+    const index = key === null ? -1 : (itemIndexByKey.get(key) ?? -1) - windowStart
+    return visibleSlots.find(slot => index >= slot.start && index < slot.end)
+  }
   const fallback = (reason: string): void => {
     activation++; landing.cancel()
     owner.release()
@@ -237,20 +250,20 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     debug.nativeReject = owner.lastReject
     debug.nativeSkip = owner.lastSkip
   }
+  const flushRender = (): void => {
+    if (!alive) return
+    const pending = dirty
+    dirty = 0
+    try { render(pending) }
+    catch {
+      fallback('contract')
+      if (!warned) { warned = true; console.warn('[dsh-sm-context-piano] navigator contract changed; native UI restored') }
+    }
+  }
   const schedule = (flags = DIRTY_VIEW): void => {
     dirty |= flags
     if (!alive || frame !== 0) return
-    frame = window.requestAnimationFrame(() => {
-      frame = 0
-      if (!alive) return
-      const pending = dirty
-      dirty = 0
-      try { render(pending) }
-      catch {
-        fallback('contract')
-        if (!warned) { warned = true; console.warn('[dsh-sm-context-piano] navigator contract changed; native UI restored') }
-      }
-    })
+    frame = window.requestAnimationFrame(() => { frame = 0; flushRender() })
   }
   const clearStreamRefresh = (discardDirty = false): void => {
     if (streamRefresh !== undefined) window.clearTimeout(streamRefresh)
@@ -515,7 +528,12 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const manual = browseStart === null ? -1 : itemIndexByKey.get(browseStart) ?? -1
     windowStart = manual < 0 ? visibleWindow(items.length, center, capacity).start
       : Math.max(0, Math.min(items.length - capacity, manual))
+    const previousStart = visibleItems[0]?.key
     visibleItems = items.slice(windowStart, windowStart + capacity)
+    if (previousStart !== visibleItems[0]?.key) expandedKeys.clear()
+    for (const key of expandedKeys) if (!visibleItems.some(item => item.key === key)) expandedKeys.delete(key)
+    const protectedTurns = new Set([busyTurn, requestedTurn, failedTurn].filter((turn): turn is number => turn !== null))
+    visibleSlots = projectRailSlots(visibleItems, (itemIndexByKey.get(active ?? '') ?? -1) - windowStart, expandedKeys, protectedTurns)
     const stripTop = `${top}px`
     const stripLeft = `${left}px`
     const stripHeight = `${height}px`
@@ -524,10 +542,13 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (strip.style.left !== stripLeft) strip.style.left = stripLeft
     if (strip.style.height !== stripHeight) strip.style.height = stripHeight
     visiblePositions = stackPositions(visibleItems.length, height, config.keyGap, config.keyHeight)
-    const retained = new Set(visibleItems.map(item => item.key))
+    const retained = new Set(visibleSlots.map(slot => slot.item.key))
     for (const [key, button] of buttons) if (!retained.has(key)) { button.remove(); buttons.delete(key) }
-    const focusIndex = visibleItems.findIndex(item => item.key === selected)
-    visibleItems.forEach((item, index) => {
+    const focusedSlot = slotForKey(selected)
+    const focusIndex = focusedSlot?.index ?? -1
+    visibleSlots.forEach(slot => {
+      const { item, index } = slot
+      const collapsed = slot.end - slot.start > 1
       let button = buttons.get(item.key)
       if (button === undefined) {
         button = document.createElement('button')
@@ -537,44 +558,50 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
         buttons.set(item.key, button); strip.append(button)
       }
       writeData(button, 'turn', String(item.turn))
-      writeData(button, 'role', item.role)
-      writeData(button, 'kind', item.kind ?? 'turn')
-      writeData(button, 'unloaded', String(item.anchorKey === null))
+      writeData(button, 'role', collapsed ? 'turn' : item.role)
+      writeData(button, 'kind', collapsed ? 'output' : item.kind ?? 'turn')
+      writeData(button, 'collapsed', String(collapsed))
+      writeData(button, 'count', String(slot.end - slot.start))
+      writeData(button, 'unloaded', String(!collapsed && item.anchorKey === null))
       // A turn that needs the official load action but whose button is
       // currently virtualized out of the native window cannot be activated;
       // native disabled suppresses the delegated click. Reconcile re-enables
       // the key on a later frame once the window covers the button again.
-      const navBlocked = item.anchorKey === null && !owner.hasButton(item.turn)
+      const navBlocked = !collapsed && item.anchorKey === null && !owner.hasButton(item.turn)
       if (navBlocked !== button.hasAttribute('disabled')) {
         if (navBlocked) button.setAttribute('disabled', '')
         else button.removeAttribute('disabled')
         perf.barWrites++
       }
-      writeAttr(button, 'aria-label', `${copy('turn', item.turn)} · ${semanticLabel(item, config.language)}: ${item.title}`)
+      writeAttr(button, 'aria-label', collapsed ? collapsedCopy(slot.end - slot.start) : `${copy('turn', item.turn)} · ${semanticLabel(item, config.language)}: ${item.title}`)
+      if (collapsed) writeAttr(button, 'aria-expanded', 'false')
+      else if (button.hasAttribute('aria-expanded')) { button.removeAttribute('aria-expanded'); perf.barWrites++ }
       writeAttr(button, 'aria-current', String(item.key === active))
       writeAttr(button, 'aria-busy', String(item.turn === busyTurn))
       writeClass(button, 'smcp-bar-current', item.key === active)
-      writeClass(button, 'smcp-bar-hover', item.key === selected)
+      writeClass(button, 'smcp-bar-hover', slot === focusedSlot)
       writeStyle(button, 'top', `${visiblePositions[index] - config.keyHeight / 2}px`)
       writeStyle(button, 'height', `${config.keyHeight}px`)
       writeStyle(button, 'width', `${barWidth(item, index, focusIndex)}px`)
     })
-    const focused = focusIndex < 0 ? undefined : visibleItems[focusIndex]
-    if (focused !== undefined) {
-      const previewChanged = tooltipKey !== focused.key
+    const focused = selected === null || focusedSlot === undefined ? undefined : itemByKey.get(selected)
+    if (focused !== undefined && focusedSlot !== undefined) {
+      const collapsed = focusedSlot.end - focusedSlot.start > 1
+      const previewIdentity = `${focused.key}:${collapsed ? focusedSlot.end - focusedSlot.start : 1}:${config.language}`
+      const previewChanged = tooltipKey !== previewIdentity
       const contentChanged = previewChanged || (pending & (DIRTY_NODES | DIRTY_KEYED_NODES | DIRTY_TURNS)) !== 0
       if (contentChanged) {
-        tooltipKey = focused.key
-        badge.textContent = semanticLabel(focused, config.language)
-        title.textContent = focused.title
-        body.textContent = focused.preview
+        tooltipKey = previewIdentity
+        badge.textContent = collapsed ? collapsedCopy(focusedSlot.end - focusedSlot.start) : semanticLabel(focused, config.language)
+        title.textContent = collapsed ? `${copy('turn', visibleItems[focusedSlot.start].turn)} – ${copy('turn', visibleItems[focusedSlot.end - 1].turn)}` : focused.title
+        body.textContent = collapsed ? '' : focused.preview
       }
       if (contentChanged || (pending & DIRTY_LAYOUT) !== 0) {
         tooltip.style.left = `${Math.max(8, Math.min(left + 64, width - (tooltip.offsetWidth || 400) - 8))}px`
         tooltip.style.top = `${Math.max(8, Math.min(top + visiblePositions[focusIndex] - 48, root.clientHeight - (tooltip.offsetHeight || 150) - 8))}px`
       }
       tooltip.classList.add('smcp-tooltip-visible')
-      strip.setAttribute('aria-activedescendant', buttons.get(focused.key)!.id)
+      strip.setAttribute('aria-activedescendant', buttons.get(focusedSlot.item.key)!.id)
       strip.setAttribute('aria-describedby', tooltip.id)
     } else {
       closePreview(); strip.removeAttribute('aria-activedescendant')
@@ -582,7 +609,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     status.textContent = localFailure ? landingFailure(config.language)
       : busyTurn !== null ? copy('loading', busyTurn) : failedTurn !== null ? copy('failed', failedTurn) : ''
     strip.hidden = false; owner.claim()
-    debug.mode = 'piano'; debug.hiddenReason = null; debug.nativeReject = null; debug.nativeSkip = owner.lastSkip; debug.bars = visibleItems.length; debug.windowStart = windowStart
+    debug.mode = 'piano'; debug.hiddenReason = null; debug.nativeReject = null; debug.nativeSkip = owner.lastSkip; debug.bars = visibleSlots.length; debug.windowStart = windowStart
   }
   const bind = (): void => {
     const id = selection.getSnapshot()
@@ -596,6 +623,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     owner.cancel()
     fallback('binding')
     binding = next; nodes = []; selected = active = browseStart = null
+    expandedKeys.clear()
     sessionLoadingOlder = next?.session.getSnapshot().loadingOlder ?? false
     requestedTurn = failedTurn = null; localFailure = false
     debug.sessionId = id === undefined ? undefined : String(id)
@@ -673,19 +701,22 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     return base + (48 - base) * wave
   }
   const nearestIndex = (clientY: number): number => {
-    if (visibleItems.length === 0) return -1
+    if (visibleSlots.length === 0) return -1
     let best = 0
     const y = clientY - stripViewportTop
-    for (let i = 1; i < visiblePositions.length; i++) {
-      if (Math.abs(visiblePositions[i] - y) < Math.abs(visiblePositions[best] - y)) best = i
+    for (let i = 1; i < visibleSlots.length; i++) {
+      if (Math.abs(visiblePositions[visibleSlots[i].index] - y) < Math.abs(visiblePositions[visibleSlots[best].index] - y)) best = i
     }
     return best
   }
   const keyHitAt = (clientX: number, clientY: number): number => {
     const index = nearestIndex(clientY)
     if (index < 0) return -1
-    const item = visibleItems[index]
-    if (item === undefined) return -1
+    const slot = visibleSlots[index]
+    if (slot === undefined) return -1
+    // Hidden members must not leave a tall invisible click/hover region.
+    if (Math.abs(clientY - stripViewportTop - visiblePositions[slot.index]) > settings.getSnapshot().keyGap / 2) return -1
+    const item = slot.item
     // Follow the PAINTED width: barWidth is the animation TARGET, and the
     // .smcp-bar width transition runs 82ms, so a freshly selected key would
     // accept hits in space it has not painted yet while a retired selection
@@ -693,13 +724,14 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     // exists after the first render; the formula only backs the pre-mount edge.
     const button = buttons.get(item.key)
     const painted = button === undefined
-      ? barWidth(item, index, visibleItems.findIndex(entry => entry.key === selected))
+      ? barWidth(item, slot.index, slotForKey(selected)?.index ?? -1)
       : button.getBoundingClientRect().width
-    return clientX - stripViewportLeft <= painted + BAR_HIT_TOLERANCE ? index : -1
+    const x = clientX - stripViewportLeft
+    return x >= -BAR_HIT_TOLERANCE && x <= painted + BAR_HIT_TOLERANCE ? index : -1
   }
   const pointerMove = (event: PointerEvent): void => {
     const hit = keyHitAt(event.clientX, event.clientY)
-    const next = hit < 0 ? null : visibleItems[hit].key
+    const next = hit < 0 ? null : visibleSlots[hit].item.key
     const changed = !pointerInside || next !== selected
     pointerInside = true
     browseStart ??= items[windowStart]?.key ?? null
@@ -707,16 +739,35 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     selected = next
     schedule(DIRTY_VIEW)
   }
-  const pointerLeave = (): void => { pointerInside = false; selected = null; browseStart = null; schedule(DIRTY_VIEW) }
+  const retireExpansion = (): void => { expandedKeys.clear(); selected = null; browseStart = null; schedule(DIRTY_VIEW) }
+  const pointerLeave = (): void => { pointerInside = false; retireExpansion() }
+  const engage = (key: string | null): void => {
+    // Home/End followed by Enter, or a second activation after disclosure,
+    // can arrive before rAF. Apply the queued projection before resolving it.
+    if (frame !== 0) { window.cancelAnimationFrame(frame); frame = 0; flushRender() }
+    if (!nativeReady || strip.hidden) return
+    const slot = slotForKey(key)
+    if (slot === undefined) return
+    if (slot.end - slot.start > 1) {
+      for (let index = slot.start; index < slot.end; index++) expandedKeys.add(visibleItems[index].key)
+      selected = key
+      browseStart = visibleItems[0]?.key ?? null
+      strip.focus({ preventScroll: true })
+      schedule(DIRTY_VIEW)
+      return
+    }
+    activate(itemByKey.get(key ?? ''))
+  }
   const click = (event: MouseEvent): void => {
     const key = (event.target as HTMLElement).closest<HTMLElement>('[data-key]')?.dataset.key
-    if (key !== undefined) { activate(itemByKey.get(key)); return }
+    if (key !== undefined) { engage(key); return }
     const hit = keyHitAt(event.clientX, event.clientY)
-    if (hit >= 0) activate(visibleItems[hit])
+    if (hit >= 0) engage(visibleSlots[hit].item.key)
   }
   const wheel = (event: WheelEvent): void => {
     if (event.deltaY === 0 || items.length === 0) return
     event.preventDefault()
+    expandedKeys.clear()
     const index = Math.max(0, Math.min(items.length - Math.max(1, visibleItems.length), windowStart + Math.sign(event.deltaY) * 3))
     browseStart = items[index]?.key ?? null; selected = null; schedule(DIRTY_VIEW)
   }
@@ -726,9 +777,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const cancel = (): void => { cancelLocal(); owner.cancel() }
   const keydown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape') { event.preventDefault(); cancel(); selected = null; browseStart = null; return }
+    if (event.key === 'Escape') { event.preventDefault(); cancel(); retireExpansion(); return }
     if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault(); activate(itemByKey.get(selected ?? active ?? '') ?? items[windowStart]); return
+      event.preventDefault(); engage(selected ?? active ?? items[windowStart]?.key ?? null); return
     }
     if (!['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) return
     event.preventDefault()
@@ -858,6 +909,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   resize?.observe(root); resize?.observe(flow); resize?.observe(scrollport)
   if (composerSeat !== null) resize?.observe(composerSeat)
   strip.addEventListener('pointermove', pointerMove); strip.addEventListener('pointerleave', pointerLeave)
+  strip.addEventListener('blur', retireExpansion)
   strip.addEventListener('click', click); strip.addEventListener('wheel', wheel, { passive: false }); strip.addEventListener('keydown', keydown)
   scrollport.addEventListener('scroll', onScroll, { passive: true }); scrollport.addEventListener('wheel', cancel, { passive: true })
   scrollport.addEventListener('touchstart', readerPointer, { passive: true }); scrollport.addEventListener('pointerdown', readerPointer, { passive: true })
