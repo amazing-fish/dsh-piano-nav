@@ -30,6 +30,73 @@ export function stackPositions(count: number, height = railHeight(DEFAULT_SETTIN
   const top = (height - ((count - 1) * pitch + markHeight)) / 2 + markHeight / 2
   return Array.from({ length: count }, (_, index) => top + index * pitch)
 }
+
+/**
+ * #16 v2 — vertical merge layout. Keys within focus±NEIGHBORHOOD (plus the
+ * active key) keep their per-key pitch slots; every other maximal run of
+ * consecutive keys stacks into ONE bar at the run's pitch center, its height
+ * scaling with the run's length (capped at half the rail). The stack shares
+ * one center so the pointer gate and the renderer agree; a collapsed run
+ * expands simply by its buttons transitioning apart onto their pitch slots.
+ */
+export interface RailSlot {
+  /** Button top, px relative to the strip. */
+  top: number
+  /** Button height, px. */
+  height: number
+  /** Button width, px. */
+  width: number
+  /** Vertical center, px relative to the strip (hit-test anchor). */
+  center: number
+  /** Window index of the collapsed run's center key, or -1 when per-key. */
+  groupCenter: number
+}
+
+export function computeRailSlots(
+  positions: number[],
+  focusIndex: number,
+  activeIndex: number,
+  keyHeight: number,
+  railHeight: number,
+  neighborhood: number,
+): RailSlot[] {
+  const count = positions.length
+  const slots: RailSlot[] = new Array(count)
+  const perKey = (index: number): boolean =>
+    (focusIndex >= 0 && Math.abs(index - focusIndex) <= neighborhood) || index === activeIndex
+  const wave = (index: number): number =>
+    focusIndex < 0 ? 0 : Math.exp(-((index - focusIndex) ** 2) / (2 * 1.35 ** 2))
+  for (let index = 0; index < count; index++) {
+    if (perKey(index)) {
+      const base = index === activeIndex ? 24 : 10
+      slots[index] = {
+        top: positions[index] - keyHeight / 2,
+        height: keyHeight,
+        width: base + (48 - base) * wave(index),
+        center: positions[index],
+        groupCenter: -1,
+      }
+    }
+  }
+  // Maximal runs of non-per-key indexes collapse into one stacked bar each.
+  let runStart = -1
+  for (let index = 0; index <= count; index++) {
+    const inRun = index < count && slots[index] === undefined
+    if (inRun && runStart < 0) runStart = index
+    if (!inRun && runStart >= 0) {
+      const runEnd = index - 1
+      const runLength = runEnd - runStart + 1
+      const groupCenter = runStart + (runLength >> 1)
+      const centerY = (positions[runStart] + positions[runEnd]) / 2
+      const barHeight = Math.max(keyHeight * 2, Math.min(railHeight * .5, runLength * 3))
+      for (let member = runStart; member <= runEnd; member++) {
+        slots[member] = { top: centerY - barHeight / 2, height: barHeight, width: 10, center: centerY, groupCenter }
+      }
+      runStart = -1
+    }
+  }
+  return slots
+}
 let instanceCount = 0
 
 const DIRTY_NODES = 1 << 0
@@ -188,21 +255,13 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let visiblePositions: number[] = []
   let tooltipKey: string | null = null
   const buttons = new Map<string, HTMLButtonElement>()
-  // Shared key-width model (#16): the renderer and the pointer hit gate must
-  // agree, so the visible hot zone always equals what is on screen.
+  // #16 v2 (vertical merge): keys far from the focus key stack into one bar.
   const BAR_ACTIVE_BASE = 24
   const BAR_BASE = 10
   const BAR_WAVE_MAX = 48
-  const BAR_COLLAPSED = 3
   const BAR_HIT_TOLERANCE = 3
-  /** The rail is collapsed (idle grey keys drawn as a hairline) until something engages it. */
-  const railOpen = (): boolean => pointerInside || selected !== null || browseStart !== null || document.activeElement === strip
-  const barWidth = (item: PianoItem, index: number, focusIndex: number): number => {
-    const base = item.key === active ? BAR_ACTIVE_BASE : BAR_BASE
-    if (!railOpen() && item.key !== active) return BAR_COLLAPSED
-    const wave = focusIndex < 0 ? 0 : Math.exp(-((index - focusIndex) ** 2) / (2 * 1.35 ** 2))
-    return base + (BAR_WAVE_MAX - base) * wave
-  }
+  const NEIGHBORHOOD = 3
+  let railSlots: RailSlot[] = []
   const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, hitTests: 0, barWrites: 0 }
   const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0 }, perf }
   const writeData = (button: HTMLButtonElement, name: string, value: string): void => {
@@ -541,7 +600,15 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     visiblePositions = stackPositions(visibleItems.length, height, config.keyGap, config.keyHeight)
     const retained = new Set(visibleItems.map(item => item.key))
     for (const [key, button] of buttons) if (!retained.has(key)) { button.remove(); buttons.delete(key) }
-    const focusIndex = visibleItems.findIndex(item => item.key === selected)
+    // #16 v2: the focus key drives the vertical-merge layout. Active wheel
+    // browsing (browseStart) keeps every window slot per-key; otherwise keys
+    // beyond focus±NEIGHBORHOOD stack into one bar per maximal run.
+    const selectedIdx = visibleItems.findIndex(item => item.key === selected)
+    const activeIdx = visibleItems.findIndex(item => item.key === active)
+    const browseIdx = browseStart === null ? -1 : visibleItems.findIndex(item => item.key === browseStart)
+    const browsing = browseStart !== null
+    const focusIndex = selectedIdx >= 0 ? selectedIdx : activeIdx >= 0 ? activeIdx : browseIdx
+    railSlots = computeRailSlots(visiblePositions, focusIndex, activeIdx, config.keyHeight, height, browsing ? Number.MAX_SAFE_INTEGER : NEIGHBORHOOD)
     visibleItems.forEach((item, index) => {
       let button = buttons.get(item.key)
       if (button === undefined) {
@@ -570,11 +637,12 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       writeAttr(button, 'aria-busy', String(item.turn === busyTurn))
       writeClass(button, 'smcp-bar-current', item.key === active)
       writeClass(button, 'smcp-bar-hover', item.key === selected)
-      writeStyle(button, 'top', `${visiblePositions[index] - config.keyHeight / 2}px`)
-      writeStyle(button, 'height', `${config.keyHeight}px`)
-      writeStyle(button, 'width', `${barWidth(item, index, focusIndex)}px`)
+      const slot = railSlots[index]
+      writeStyle(button, 'top', `${slot.top}px`)
+      writeStyle(button, 'height', `${slot.height}px`)
+      writeStyle(button, 'width', `${slot.width}px`)
     })
-    const focused = focusIndex < 0 ? undefined : visibleItems[focusIndex]
+    const focused = selectedIdx < 0 ? undefined : visibleItems[selectedIdx]
     if (focused !== undefined) {
       const previewChanged = tooltipKey !== focused.key
       const contentChanged = previewChanged || (pending & (DIRTY_NODES | DIRTY_KEYED_NODES | DIRTY_TURNS)) !== 0
@@ -586,7 +654,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       }
       if (contentChanged || (pending & DIRTY_LAYOUT) !== 0) {
         tooltip.style.left = `${Math.max(8, Math.min(left + 64, width - (tooltip.offsetWidth || 400) - 8))}px`
-        tooltip.style.top = `${Math.max(8, Math.min(top + visiblePositions[focusIndex] - 48, root.clientHeight - (tooltip.offsetHeight || 150) - 8))}px`
+        tooltip.style.top = `${Math.max(8, Math.min(top + railSlots[selectedIdx].center - 48, root.clientHeight - (tooltip.offsetHeight || 150) - 8))}px`
       }
       tooltip.classList.add('smcp-tooltip-visible')
       strip.setAttribute('aria-activedescendant', buttons.get(focused.key)!.id)
@@ -676,25 +744,28 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     })
     schedule()
   }
-  // #16: nearest is index-based so the pointer hit gate can consult the same
-  // width model the renderer used for that key.
+  // #16: nearest is index-based over the rail layout so the pointer hit gate
+  // can consult the same slots the renderer used; a hit inside a collapsed
+  // run resolves to the run's center key, which makes touching the merged bar
+  // "select the grey part" — the run then expands around it on re-layout.
   const nearestIndex = (clientY: number): number => {
-    if (visibleItems.length === 0) return -1
-    let best = 0
+    if (railSlots.length === 0) return -1
+    let best = -1
     const y = clientY - stripViewportTop
-    for (let i = 1; i < visiblePositions.length; i++) {
-      if (Math.abs(visiblePositions[i] - y) < Math.abs(visiblePositions[best] - y)) best = i
+    for (let i = 0; i < railSlots.length; i++) {
+      if (best < 0 || Math.abs(railSlots[i].center - y) < Math.abs(railSlots[best].center - y)) best = i
     }
-    return best
+    if (best < 0) return -1
+    const slot = railSlots[best]
+    return slot.groupCenter >= 0 ? slot.groupCenter : best
   }
   /** Pointer counts as hovering a key only within its rendered width + tolerance (#16). */
   const keyHitAt = (clientX: number, clientY: number): number => {
     const index = nearestIndex(clientY)
     if (index < 0) return -1
-    const item = visibleItems[index]
-    if (item === undefined) return -1
-    const focusIndex = visibleItems.findIndex(entry => entry.key === selected)
-    return clientX - stripViewportLeft <= barWidth(item, index, focusIndex) + BAR_HIT_TOLERANCE ? index : -1
+    const slot = railSlots[index]
+    if (slot === undefined) return -1
+    return clientX - stripViewportLeft <= slot.width + BAR_HIT_TOLERANCE ? index : -1
   }
   const pointerMove = (event: PointerEvent): void => {
     const index = keyHitAt(event.clientX, event.clientY)
@@ -714,10 +785,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     schedule(DIRTY_VIEW)
   }
   const pointerLeave = (): void => { pointerInside = false; selected = null; browseStart = null; schedule(DIRTY_VIEW) }
-  // #16 (review): activeElement feeds railOpen, so BOTH focus and blur must
-  // re-render — a guarded blur skip left the last expanded widths on screen
-  // after click → pointer-leave → blur, and Tab focus could not expand.
-  const focusExpand = (): void => schedule(DIRTY_VIEW)
+  // #16 v2: focus no longer participates in the layout (a retained
+  // document.activeElement kept the rail stuck open in v1); blur only retires
+  // keyboard browse state so the layout re-centers on the active key.
   const blurCollapse = (): void => {
     if (!pointerInside) { selected = null; browseStart = null }
     schedule(DIRTY_VIEW)
@@ -874,7 +944,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   if (composerSeat !== null) resize?.observe(composerSeat)
   strip.addEventListener('pointermove', pointerMove); strip.addEventListener('pointerleave', pointerLeave)
   strip.addEventListener('click', click); strip.addEventListener('wheel', wheel, { passive: false }); strip.addEventListener('keydown', keydown)
-  strip.addEventListener('blur', blurCollapse); strip.addEventListener('focus', focusExpand)
+  strip.addEventListener('blur', blurCollapse)
   scrollport.addEventListener('scroll', onScroll, { passive: true }); scrollport.addEventListener('wheel', cancel, { passive: true })
   scrollport.addEventListener('touchstart', readerPointer, { passive: true }); scrollport.addEventListener('pointerdown', readerPointer, { passive: true })
   scrollport.addEventListener('keydown', readerKey)
