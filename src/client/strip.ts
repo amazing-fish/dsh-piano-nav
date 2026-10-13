@@ -181,12 +181,28 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let height = 0
   let capacity = 1
   let stripViewportTop = 0
+  let stripViewportLeft = 0
   let readingLineY = 0
   let hitTestXs: number[] = []
   let visibleItems: PianoItem[] = []
   let visiblePositions: number[] = []
   let tooltipKey: string | null = null
   const buttons = new Map<string, HTMLButtonElement>()
+  // Shared key-width model (#16): the renderer and the pointer hit gate must
+  // agree, so the visible hot zone always equals what is on screen.
+  const BAR_ACTIVE_BASE = 24
+  const BAR_BASE = 10
+  const BAR_WAVE_MAX = 48
+  const BAR_COLLAPSED = 3
+  const BAR_HIT_TOLERANCE = 3
+  /** The rail is collapsed (idle grey keys drawn as a hairline) until something engages it. */
+  const railOpen = (): boolean => pointerInside || selected !== null || browseStart !== null || document.activeElement === strip
+  const barWidth = (item: PianoItem, index: number, focusIndex: number): number => {
+    const base = item.key === active ? BAR_ACTIVE_BASE : BAR_BASE
+    if (!railOpen() && item.key !== active) return BAR_COLLAPSED
+    const wave = focusIndex < 0 ? 0 : Math.exp(-((index - focusIndex) ** 2) / (2 * 1.35 ** 2))
+    return base + (BAR_WAVE_MAX - base) * wave
+  }
   const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, hitTests: 0, barWrites: 0 }
   const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0 }, perf }
   const writeData = (button: HTMLButtonElement, name: string, value: string): void => {
@@ -436,6 +452,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     capacity = Math.min(config.maxVisible, Math.max(1, Math.floor((height - config.keyHeight) / config.keyGap) + 1))
     top = Math.max(8, (scrollRect.top - rootRect.top) + (available - height) / 2)
     stripViewportTop = rootRect.top + top
+    stripViewportLeft = rootRect.left + left
     readingLineY = scrollRect.top + Math.min(120, scrollport.clientHeight * .18)
     hitTestXs = flowRect.width > 0
       ? [flowRect.left + flowRect.width / 2, Math.min(flowRect.right - 1, flowRect.left + 18)]
@@ -555,9 +572,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       writeClass(button, 'smcp-bar-hover', item.key === selected)
       writeStyle(button, 'top', `${visiblePositions[index] - config.keyHeight / 2}px`)
       writeStyle(button, 'height', `${config.keyHeight}px`)
-      const base = item.key === active ? 24 : 10
-      const wave = focusIndex < 0 ? 0 : Math.exp(-((index - focusIndex) ** 2) / (2 * 1.35 ** 2))
-      writeStyle(button, 'width', `${base + (48 - base) * wave}px`)
+      writeStyle(button, 'width', `${barWidth(item, index, focusIndex)}px`)
     })
     const focused = focusIndex < 0 ? undefined : visibleItems[focusIndex]
     if (focused !== undefined) {
@@ -661,17 +676,36 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     })
     schedule()
   }
-  const nearest = (clientY: number): PianoItem | undefined => {
-    if (visibleItems.length === 0) return undefined
+  // #16: nearest is index-based so the pointer hit gate can consult the same
+  // width model the renderer used for that key.
+  const nearestIndex = (clientY: number): number => {
+    if (visibleItems.length === 0) return -1
     let best = 0
     const y = clientY - stripViewportTop
     for (let i = 1; i < visiblePositions.length; i++) {
       if (Math.abs(visiblePositions[i] - y) < Math.abs(visiblePositions[best] - y)) best = i
     }
-    return visibleItems[best]
+    return best
+  }
+  /** Pointer counts as hovering a key only within its rendered width + tolerance (#16). */
+  const keyHitAt = (clientX: number, clientY: number): number => {
+    const index = nearestIndex(clientY)
+    if (index < 0) return -1
+    const item = visibleItems[index]
+    if (item === undefined) return -1
+    const focusIndex = visibleItems.findIndex(entry => entry.key === selected)
+    return clientX - stripViewportLeft <= barWidth(item, index, focusIndex) + BAR_HIT_TOLERANCE ? index : -1
   }
   const pointerMove = (event: PointerEvent): void => {
-    const next = nearest(event.clientY)?.key ?? null
+    const index = keyHitAt(event.clientX, event.clientY)
+    if (index < 0) {
+      // Blank margin right of the rendered keys: not a hover. pointerInside
+      // stays true so sliding back onto a key keeps the browse anchor, but
+      // the selection retires (and with it the preview tooltip).
+      if (selected !== null) { selected = null; schedule(DIRTY_VIEW) }
+      return
+    }
+    const next = visibleItems[index].key
     const changed = !pointerInside || next !== selected
     pointerInside = true
     browseStart ??= items[windowStart]?.key ?? null
@@ -680,9 +714,13 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     schedule(DIRTY_VIEW)
   }
   const pointerLeave = (): void => { pointerInside = false; selected = null; browseStart = null; schedule(DIRTY_VIEW) }
+  const blurCollapse = (): void => { if (selected !== null || browseStart !== null) schedule(DIRTY_VIEW) }
   const click = (event: MouseEvent): void => {
     const key = (event.target as HTMLElement).closest<HTMLElement>('[data-key]')?.dataset.key
-    activate(key === undefined ? nearest(event.clientY) : itemByKey.get(key))
+    if (key !== undefined) { activate(itemByKey.get(key)); return }
+    const index = keyHitAt(event.clientX, event.clientY)
+    if (index < 0) return // blank margin: activating the nearest key would be unexpected
+    activate(visibleItems[index])
   }
   const wheel = (event: WheelEvent): void => {
     if (event.deltaY === 0 || items.length === 0) return
@@ -829,6 +867,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   if (composerSeat !== null) resize?.observe(composerSeat)
   strip.addEventListener('pointermove', pointerMove); strip.addEventListener('pointerleave', pointerLeave)
   strip.addEventListener('click', click); strip.addEventListener('wheel', wheel, { passive: false }); strip.addEventListener('keydown', keydown)
+  strip.addEventListener('blur', blurCollapse)
   scrollport.addEventListener('scroll', onScroll, { passive: true }); scrollport.addEventListener('wheel', cancel, { passive: true })
   scrollport.addEventListener('touchstart', readerPointer, { passive: true }); scrollport.addEventListener('pointerdown', readerPointer, { passive: true })
   scrollport.addEventListener('keydown', readerKey)
