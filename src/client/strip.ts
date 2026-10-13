@@ -714,7 +714,14 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     schedule(DIRTY_VIEW)
   }
   const pointerLeave = (): void => { pointerInside = false; selected = null; browseStart = null; schedule(DIRTY_VIEW) }
-  const blurCollapse = (): void => { if (selected !== null || browseStart !== null) schedule(DIRTY_VIEW) }
+  // #16 (review): activeElement feeds railOpen, so BOTH focus and blur must
+  // re-render — a guarded blur skip left the last expanded widths on screen
+  // after click → pointer-leave → blur, and Tab focus could not expand.
+  const focusExpand = (): void => schedule(DIRTY_VIEW)
+  const blurCollapse = (): void => {
+    if (!pointerInside) { selected = null; browseStart = null }
+    schedule(DIRTY_VIEW)
+  }
   const click = (event: MouseEvent): void => {
     const key = (event.target as HTMLElement).closest<HTMLElement>('[data-key]')?.dataset.key
     if (key !== undefined) { activate(itemByKey.get(key)); return }
@@ -867,7 +874,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   if (composerSeat !== null) resize?.observe(composerSeat)
   strip.addEventListener('pointermove', pointerMove); strip.addEventListener('pointerleave', pointerLeave)
   strip.addEventListener('click', click); strip.addEventListener('wheel', wheel, { passive: false }); strip.addEventListener('keydown', keydown)
-  strip.addEventListener('blur', blurCollapse)
+  strip.addEventListener('blur', blurCollapse); strip.addEventListener('focus', focusExpand)
   scrollport.addEventListener('scroll', onScroll, { passive: true }); scrollport.addEventListener('wheel', cancel, { passive: true })
   scrollport.addEventListener('touchstart', readerPointer, { passive: true }); scrollport.addEventListener('pointerdown', readerPointer, { passive: true })
   scrollport.addEventListener('keydown', readerKey)
