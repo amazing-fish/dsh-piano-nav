@@ -686,8 +686,16 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (index < 0) return -1
     const item = visibleItems[index]
     if (item === undefined) return -1
-    const focusIndex = visibleItems.findIndex(entry => entry.key === selected)
-    return clientX - stripViewportLeft <= barWidth(item, index, focusIndex) + BAR_HIT_TOLERANCE ? index : -1
+    // Follow the PAINTED width: barWidth is the animation TARGET, and the
+    // .smcp-bar width transition runs 82ms, so a freshly selected key would
+    // accept hits in space it has not painted yet while a retired selection
+    // would reject still-visible bar pixels mid-collapse. The button always
+    // exists after the first render; the formula only backs the pre-mount edge.
+    const button = buttons.get(item.key)
+    const painted = button === undefined
+      ? barWidth(item, index, visibleItems.findIndex(entry => entry.key === selected))
+      : button.getBoundingClientRect().width
+    return clientX - stripViewportLeft <= painted + BAR_HIT_TOLERANCE ? index : -1
   }
   const pointerMove = (event: PointerEvent): void => {
     const hit = keyHitAt(event.clientX, event.clientY)
