@@ -191,6 +191,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let visibleSlots: RailSlot[] = []
   const expandedKeys = new Set<string>()
   let tooltipKey: string | null = null
+  let tooltipPosition: string | null = null
   const buttons = new Map<string, HTMLButtonElement>()
   const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, hitTests: 0, barWrites: 0 }
   const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0 }, perf }
@@ -228,13 +229,14 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const closePreview = (): void => {
     tooltipKey = null
+    tooltipPosition = null
     tooltip.classList.remove('smcp-tooltip-visible')
     strip.removeAttribute('aria-describedby')
   }
   const collapsedCopy = (count: number): string => {
     const language = settings.getSnapshot().language
-    return language === 'en' ? `${count} history keys · Click to expand`
-      : language === 'zh-TW' ? `${count} 個歷史琴鍵 · 點擊展開` : `${count} 个历史琴键 · 点击展开`
+    return language === 'en' ? `AI · Process output (${count} segments) · Click to expand`
+      : language === 'zh-TW' ? `AI · 過程輸出（${count} 段）· 點擊展開` : `AI · 过程输出（${count} 段）· 点击展开`
   }
   const slotForKey = (key: string | null): RailSlot | undefined => {
     const index = key === null ? -1 : (itemIndexByKey.get(key) ?? -1) - windowStart
@@ -541,13 +543,13 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (strip.style.transform !== 'none') strip.style.transform = 'none'
     if (strip.style.left !== stripLeft) strip.style.left = stripLeft
     if (strip.style.height !== stripHeight) strip.style.height = stripHeight
-    visiblePositions = stackPositions(visibleItems.length, height, config.keyGap, config.keyHeight)
+    visiblePositions = stackPositions(visibleSlots.length, height, config.keyGap, config.keyHeight)
     const retained = new Set(visibleSlots.map(slot => slot.item.key))
     for (const [key, button] of buttons) if (!retained.has(key)) { button.remove(); buttons.delete(key) }
     const focusedSlot = slotForKey(selected)
-    const focusIndex = focusedSlot?.index ?? -1
+    const focusIndex = focusedSlot?.displayIndex ?? -1
     visibleSlots.forEach(slot => {
-      const { item, index } = slot
+      const { item, displayIndex: index } = slot
       const collapsed = slot.end - slot.start > 1
       let button = buttons.get(item.key)
       if (button === undefined) {
@@ -558,7 +560,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
         buttons.set(item.key, button); strip.append(button)
       }
       writeData(button, 'turn', String(item.turn))
-      writeData(button, 'role', collapsed ? 'turn' : item.role)
+      writeData(button, 'role', item.role)
       writeData(button, 'kind', collapsed ? 'output' : item.kind ?? 'turn')
       writeData(button, 'collapsed', String(collapsed))
       writeData(button, 'count', String(slot.end - slot.start))
@@ -593,10 +595,12 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       if (contentChanged) {
         tooltipKey = previewIdentity
         badge.textContent = collapsed ? collapsedCopy(focusedSlot.end - focusedSlot.start) : semanticLabel(focused, config.language)
-        title.textContent = collapsed ? `${copy('turn', visibleItems[focusedSlot.start].turn)} – ${copy('turn', visibleItems[focusedSlot.end - 1].turn)}` : focused.title
+        title.textContent = collapsed ? copy('turn', focused.turn) : focused.title
         body.textContent = collapsed ? '' : focused.preview
       }
-      if (contentChanged || (pending & DIRTY_LAYOUT) !== 0) {
+      const nextTooltipPosition = `${left}:${width}:${top}:${visiblePositions[focusIndex]}`
+      if (contentChanged || (pending & DIRTY_LAYOUT) !== 0 || tooltipPosition !== nextTooltipPosition) {
+        tooltipPosition = nextTooltipPosition
         tooltip.style.left = `${Math.max(8, Math.min(left + 64, width - (tooltip.offsetWidth || 400) - 8))}px`
         tooltip.style.top = `${Math.max(8, Math.min(top + visiblePositions[focusIndex] - 48, root.clientHeight - (tooltip.offsetHeight || 150) - 8))}px`
       }
@@ -705,7 +709,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     let best = 0
     const y = clientY - stripViewportTop
     for (let i = 1; i < visibleSlots.length; i++) {
-      if (Math.abs(visiblePositions[visibleSlots[i].index] - y) < Math.abs(visiblePositions[visibleSlots[best].index] - y)) best = i
+      if (Math.abs(visiblePositions[i] - y) < Math.abs(visiblePositions[best] - y)) best = i
     }
     return best
   }
@@ -715,7 +719,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const slot = visibleSlots[index]
     if (slot === undefined) return -1
     // Hidden members must not leave a tall invisible click/hover region.
-    if (Math.abs(clientY - stripViewportTop - visiblePositions[slot.index]) > settings.getSnapshot().keyGap / 2) return -1
+    if (Math.abs(clientY - stripViewportTop - visiblePositions[index]) > settings.getSnapshot().keyGap / 2) return -1
     const item = slot.item
     // Follow the PAINTED width: barWidth is the animation TARGET, and the
     // .smcp-bar width transition runs 82ms, so a freshly selected key would
@@ -724,7 +728,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     // exists after the first render; the formula only backs the pre-mount edge.
     const button = buttons.get(item.key)
     const painted = button === undefined
-      ? barWidth(item, slot.index, slotForKey(selected)?.index ?? -1)
+      ? barWidth(item, slot.displayIndex, slotForKey(selected)?.displayIndex ?? -1)
       : button.getBoundingClientRect().width
     const x = clientX - stripViewportLeft
     return x >= -BAR_HIT_TOLERANCE && x <= painted + BAR_HIT_TOLERANCE ? index : -1

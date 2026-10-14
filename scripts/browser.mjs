@@ -64,8 +64,6 @@ const start = async () => {
 const selectTurn = async turn => {
   await rail().focus(); await rail().press('Home')
   for (let i = 1; i < turn; i++) await rail().press('ArrowDown')
-  const disclosure = await rail().evaluate(el => document.getElementById(el.getAttribute('aria-activedescendant'))?.dataset.collapsed === 'true')
-  if (disclosure) { await rail().press('Enter'); await page.waitForFunction(() => document.getElementById(document.querySelector('.smcp-unified').getAttribute('aria-activedescendant'))?.dataset.collapsed !== 'true') }
   await rail().press('Enter')
 }
 const rowTop = key => page.locator(`[data-chat-anchor-key="${key}"]`).evaluate(el => el.getBoundingClientRect().top - el.closest('[data-conversation-scroll]').getBoundingClientRect().top)
@@ -79,7 +77,8 @@ try {
     const visible = await page.locator('nav,[role="navigation"]').evaluateAll(els => els.filter(el => getComputedStyle(el).display !== 'none' && el.getAttribute('aria-hidden') !== 'true').length)
     assert.equal(visible, 1)
     await rail().focus(); await rail().press('Home')
-    assert.equal(await rail().evaluate(el => document.getElementById(el.getAttribute('aria-activedescendant'))?.dataset.collapsed), 'true')
+    assert.equal(await page.locator('.smcp-bar[data-key="turn:1"]').getAttribute('data-unloaded'), 'true')
+    assert.equal(await page.locator('.smcp-bar[data-collapsed="true"]').count(), 0)
     assert.ok(await page.locator('.smcp-bar').count() <= 8)
   })
   await test('unloaded jump uses original ChatView paging, landing and restoration', async () => {
