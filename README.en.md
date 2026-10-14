@@ -39,7 +39,7 @@ The number of keys therefore does not simply equal the number of rendered rows. 
 - **Continuous-output merging** — adjacent model text remains one key until non-output content breaks continuity; output from separate stages stays independent.
 - **Fixed-window browsing** — when nodes exceed the limit, a fixed number is shown around the current reading position; selecting a top or bottom boundary reveals earlier or later history.
 - **Continuous hover wave** — select the nearest visible pitch within its painted width, with a short width transition; blank margins and hidden member pitches are inert.
-- **Click-only grey-key disclosure** — distant grey runs share one standard key at the middle pitch. Hover shows the count; the first click reveals members, and a member click navigates. Leaving, blurring or pressing Escape retires disclosure without stretching or moving keys.
+- **Click-only process-output disclosure** — distant consecutive AI process outputs within one turn share one standard key, reclaiming hidden pitches in a compact stack. History-turn entries remain separate. Hover shows the segment count; the first click reveals members, and a member click navigates. Leaving, blurring or pressing Escape retires disclosure while key height stays constant.
 - **Safe text previews** — the hover card shows a title and excerpt, follows light/dark themes, stays inside the viewport, and always writes content as plain text.
 - **Fast paragraph jumps** — click a key or press Enter/Space to scroll to the beginning of its message row.
 - **Reading-position tracking** — scrolling immediately darkens and lengthens the current key and recenters the fixed window.
@@ -89,6 +89,7 @@ dsh plugin --profile web add link:C:/path/to/dsh-sm-context-piano
 | --- | --- |
 | Move the pointer over the rail | Select the nearest key, expand the wave, and show its paragraph preview |
 | Click a key or the current rail position | Jump to the paragraph currently being previewed |
+| Click an AI process group | Reveal members in a compact stack; a member click navigates, while history-turn entries still activate directly |
 | Scroll the transcript | Update the current key and the fixed visible window |
 | `ArrowUp` / `ArrowDown` | Move between keys visible in the current window |
 | `Home` / `End` | Select the first or last key in the current window |
