@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import { projectRailSlots } from '../src/client/rail-slots.ts'
+import { buildNavigationNodes } from '../src/client/keys.ts'
+import { buildPianoItems } from '../src/client/navigation-model.ts'
 import { attachKeyStrip, stackPositions } from '../src/client/strip.ts'
 import { installStyles } from '../src/client/styles.ts'
 import { railFixtureData } from './rail-fixture-data.mjs'
@@ -26,6 +28,11 @@ assert.deepEqual(slots(twoTurns, -1).map(s => [s.start, s.end]), [[0, 4], [4, 8]
 assert.equal(slots([], -1).length, 0)
 console.log('rail projection: process-only semantics, independent history, Turn boundaries, display indices and protection passed')
 
+const foldedTurns = Array.from({ length: 12 }, (_, i) => ({ turn: i + 1, prompt: '', response: '', anchor: { kind: 'loaded', key: `h${i}-0` } }))
+const foldedNodes = foldedTurns.flatMap(({ turn }, i) => [0, 1].map(step => ({ key: `h${i}-${step}`, kind: 'assistant-step', visibility: 'hidden', location: { turn: { turn } }, data: { blocks: [{ kind: 'text', text: `Process ${step}` }] } })))
+const foldedItems = buildPianoItems(foldedTurns, buildNavigationNodes(foldedNodes), String)
+assert.deepEqual(projectRailSlots(foldedItems, -1, new Set(), new Set()).map(slot => slot.end - slot.start), Array(12).fill(2), 'all twelve folded history turns produce their own complete grey key')
+
 const observable = initial => {
   let value = initial
   const listeners = new Set()
@@ -39,7 +46,7 @@ const until = async ready => {
   }
 }
 let passed = 0
-async function check(name, run, historyOnly = false) {
+async function check(name, run, historyOnly = false, options = {}) {
   const dom = new JSDOM('<!doctype html><body><main><div data-conversation-scroll><section><nav aria-label="Turns"></nav><div data-chat-flow></div></section></div></main></body>', { pretendToBeVisual: true })
   const { window } = dom, { document } = window
   Object.assign(globalThis, { window, document, Event: window.Event, MutationObserver: window.MutationObserver })
@@ -49,9 +56,13 @@ async function check(name, run, historyOnly = false) {
   root.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1280, height: 900 })
   scroll.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1280, height: 800 })
   flow.getBoundingClientRect = () => ({ left: 300, top: 0, right: 1060, width: 760, height: 1000 })
-  const data = railFixtureData(historyOnly), nodeMap = new Map(data.nodes.map(node => [node.key, node]))
+  const data = railFixtureData(historyOnly, options), nodeMap = new Map(data.nodes.map(node => [node.key, node]))
   data.nodes.forEach((node, index) => {
     const row = document.createElement('article'); row.dataset.chatAnchorKey = node.key
+    if (node.visibility === 'hidden') {
+      row.setAttribute('hidden', 'until-found'); row.dataset.turnProcessHidden = 'true'
+      row.addEventListener('beforematch', () => row.removeAttribute('hidden'))
+    }
     row.getBoundingClientRect = () => ({ top: index * 40 - scroll.scrollTop, left: 300, width: 760, height: 35 })
     flow.append(row)
   })
@@ -63,7 +74,12 @@ async function check(name, run, historyOnly = false) {
     button.setAttribute('aria-label', `${data.navigation.some(item => item.turn === turn) ? 'Jump' : 'Load'} ${turn}`)
     button.addEventListener('click', () => clicks.push(turn)); native.append(button)
   }
-  const target = observable({ order: data.nodes.map(node => node.key), nodes: { get: key => nodeMap.get(key), source: key => observable(nodeMap.get(key)) }, navigation: { items: () => data.navigation } })
+  const sources = new Map()
+  const store = { get: key => nodeMap.get(key), source: key => {
+    if (!sources.has(key)) sources.set(key, observable(nodeMap.get(key)))
+    return sources.get(key)
+  } }
+  const target = observable({ order: data.nodes.map(node => node.key), nodes: store, navigation: { items: () => data.navigation } })
   const outline = observable(data.outline)
   const session = { ...observable({ loadingOlder: false }), sessionId: 's1', projections: { faceOf: () => outline } }
   const binding = { session }, selection = observable('s1')
@@ -94,7 +110,7 @@ async function check(name, run, historyOnly = false) {
   const press = async key => { rail().dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })); await settle() }
   try {
     await until(() => rail()?.hidden === false)
-    await run({ window, document, rail, bars, collapsed, point, pointer, mockWidth, press, settle, clicks, settings, selection, native, scroll, compact, read })
+    await run({ window, document, rail, bars, collapsed, point, pointer, mockWidth, press, settle, clicks, settings, selection, native, scroll, compact, read, target, sources, nodeMap, flow, data, until })
     passed++; console.log(`ok ${passed} - ${name}`)
   } finally { stop(); stylesStop(); dom.window.close() }
 }
@@ -108,12 +124,14 @@ await check('seven process outputs collapse into four compact slots spanning 38p
   assert.equal(bars().find(b => b.getAttribute('aria-current') === 'true').dataset.kind, 'final')
 })
 await check('hover changes only feedback and wave, never expands or navigates', async ({ bars, collapsed, point, pointer, document, clicks }) => {
+  const projections = globalThis.__smcpDebug.perf.railProjections
   const p = point(collapsed()); await pointer(p.x, p.y)
   assert.equal(bars().length, 4); assert.equal(collapsed().style.width, '48px')
   assert.match(document.querySelector('.smcp-tooltip').textContent, /AI · Process output \(7 segments\) · Click to expand/)
   const history = bars().find(b => b.dataset.key === 'turn:2')
   assert.ok(Math.abs(Number.parseFloat(history.style.width) - (10 + 38 * Math.exp(-1 / (2 * 1.35 ** 2)))) < 0.00001, 'wave follows adjacent displayed keys')
   assert.deepEqual(clicks, [])
+  assert.equal(globalThis.__smcpDebug.perf.railProjections, projections, 'hover reuses the full projection instead of scanning history again')
 })
 await check('first click expands compactly without scrolling; member click delegates once', async ({ rail, bars, collapsed, settle, clicks, compact, scroll }) => {
   const top = scroll.scrollTop
@@ -125,12 +143,12 @@ await check('first click expands compactly without scrolling; member click deleg
   bars().find(b => b.dataset.key === 'turn:1').click()
   assert.deepEqual(clicks, [1])
 })
-await check('pointer leave collapses even while the rail retains focus', async ({ rail, bars, collapsed, window, settle, scroll, compact }) => {
+await check('pointer leave and blur preserve explicit expansion and only retire hover', async ({ rail, bars, collapsed, window, settle, scroll, compact }) => {
   const top = scroll.scrollTop
   collapsed().click(); await settle()
   rail().dispatchEvent(new window.Event('pointerleave')); await settle()
-  assert.equal(rail().ownerDocument.activeElement, rail()); assert.equal(bars().length, 4)
-  compact(4); assert.equal(scroll.scrollTop, top)
+  assert.equal(rail().ownerDocument.activeElement, rail()); compact(10)
+  rail().blur(); await settle(); compact(10); assert.equal(scroll.scrollTop, top)
 })
 await check('focus and keyboard browsing do not expand; Enter is explicit disclosure', async ({ rail, bars, collapsed, press, document, clicks }) => {
   rail().focus(); await press('Home')
@@ -149,9 +167,8 @@ await check('blank right margin and hidden pitch slots are inert', async ({ rail
   rail().dispatchEvent(new window.MouseEvent('click', { clientX: p.x, clientY: p.y - 24, bubbles: true })); await settle()
   assert.equal(bars().length, 4); assert.deepEqual(clicks, [])
 })
-await check('Escape, blur and session change retire disclosure state', async ({ rail, bars, collapsed, press, settle, selection }) => {
+await check('Escape and session change retire disclosure state', async ({ bars, collapsed, press, settle, selection }) => {
   collapsed().click(); await settle(); await press('Escape'); assert.equal(bars().length, 4)
-  collapsed().click(); await settle(); rail().blur(); await settle(); assert.equal(bars().length, 4)
   collapsed().click(); await settle(); selection.set('s2'); await settle(); assert.equal(bars().length, 4)
 })
 await check('live height settings apply equally to collapsed and ordinary keys', async ({ bars, settings, settle, collapsed, compact }) => {
@@ -198,3 +215,51 @@ await check('same selected key repositions tooltip as reading changes compressio
   assert.equal(document.getElementById(rail().getAttribute('aria-activedescendant')), history)
 })
 console.log(`${passed} rail collapse interaction tests passed`)
+
+await check('folded history projects a complete 12-output group at the window edge and fits every member on expansion', async ({ bars, collapsed, settings, settle, press, compact, clicks }) => {
+  settings.set({ ...settings.getSnapshot(), maxVisible: 15 }); await settle()
+  assert.equal(collapsed().dataset.count, '12')
+  assert.equal(bars().filter(b => b.dataset.role === 'turn').length, 12, 'history turns keep separate entries')
+  collapsed().click(); await settle()
+  assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 12)
+  assert.equal(collapsed(), null); compact(15); assert.deepEqual(clicks, [])
+  await press('Escape'); assert.equal(collapsed().dataset.count, '12')
+}, false, { processCount: 12, hidden: true, leadingHistory: 11 })
+
+await check('passive scrolling and keyed/structural streaming updates cannot retire the expanded history window', async ({ rail, bars, collapsed, settle, read, target, nodeMap, sources, window, data }) => {
+  collapsed().click(); await settle()
+  const memberKeys = () => bars().filter(b => b.dataset.kind === 'output').map(b => b.dataset.key).sort()
+  const before = memberKeys()
+  rail().dispatchEvent(new window.Event('pointerleave')); rail().blur(); await read('u3')
+  assert.deepEqual(memberKeys(), before)
+  const final = { ...nodeMap.get('f3'), data: { ...nodeMap.get('f3').data, blocks: [{ kind: 'text', text: 'Streaming update' }] } }
+  nodeMap.set('f3', final); sources.get('f3').set(final)
+  await new Promise(resolve => setTimeout(resolve, 150)); await settle()
+  assert.deepEqual(memberKeys(), before)
+  const first = { ...nodeMap.get('u3'), key: 'prepended', data: { content: [{ type: 'text', text: 'Inserted input' }] } }
+  nodeMap.set(first.key, first)
+  target.set({ ...target.getSnapshot(), order: [first.key, ...data.nodes.map(node => node.key)] }); await settle()
+  assert.deepEqual(memberKeys(), before)
+}, false, { processCount: 12, hidden: true, leadingHistory: 11 })
+
+await check('hidden output navigation reveals its native process wrapper before precise landing', async ({ bars, collapsed, settle, clicks, flow, scroll, until }) => {
+  collapsed().click(); await settle()
+  const member = bars().find(b => b.dataset.key.includes('p11::output'))
+  assert.ok(member); member.click()
+  await until(() => clicks.length === 1); await settle()
+  assert.equal(flow.querySelector('[data-chat-anchor-key="p11"]').hasAttribute('hidden'), false)
+  assert.deepEqual(clicks, [1]); assert.equal(scroll.scrollTop, 22 * 40 - 24)
+}, false, { processCount: 12, hidden: true })
+
+await check('longer-than-capacity groups retain every member for keyboard browsing and wheel explicitly retires expansion', async ({ rail, bars, collapsed, settings, settle, press, window, clicks, document }) => {
+  settings.set({ ...settings.getSnapshot(), maxVisible: 5 }); await settle()
+  assert.equal(collapsed().dataset.count, '12')
+  collapsed().click(); await settle(); assert.equal(bars().length, 5)
+  assert.ok(document.getElementById(rail().getAttribute('aria-activedescendant')), 'oversized expansion selects a visible member')
+  await press('Home')
+  for (let i = 0; i < 11; i++) await press('ArrowDown')
+  assert.ok(document.getElementById(rail().getAttribute('aria-activedescendant')).dataset.key.includes('p11::output'))
+  rail().dispatchEvent(new window.WheelEvent('wheel', { deltaY: -100, cancelable: true })); await settle()
+  assert.equal(collapsed().dataset.count, '12'); assert.deepEqual(clicks, [])
+}, false, { processCount: 12, hidden: true })
+console.log(`${passed} total rail interaction tests passed`)

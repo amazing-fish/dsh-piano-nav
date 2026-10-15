@@ -117,10 +117,11 @@ test('duplicate call ids across root nodes cannot produce duplicate or first-win
   const b = ask('same', [{ id: 'two', question: 'Two?' }], [{ id: 'two', selected: ['B'] }]); b.key = 'other-root'
   assert.deepEqual(buildNavigationNodes([a, b]), [])
 })
-test('hidden node material never appears as final or interactive preview', () => {
+test('Chat folding preserves authoritative assistant meaning without admitting hidden interactive nodes', () => {
   const question = ask(); question.visibility = 'hidden'; assert.deepEqual(buildNavigationNodes([question]), [])
   const final = assistant('f', 1, 2, 'private'); final.visibility = 'hidden'
-  assert.deepEqual(buildNavigationNodes([final, tail(final)]), [])
+  const keys = buildNavigationNodes([final, tail(final)])
+  assert.equal(keys.length, 1); assert.equal(keys[0].kind, 'final'); assert.equal(keys[0].anchorKey, 'f')
 })
 test('bounded untrusted JSON and cyclic call trees cannot freeze projection', () => {
   const huge = ask(); huge.data.root.argsRaw = ' '.repeat(262145); assert.deepEqual(buildNavigationNodes([huge]), [])

@@ -29,6 +29,24 @@ assert.equal(await landing.navigate({ ...question, kind: 'final', anchorKey: 'fi
 assert.equal(await old, undefined)
 assert.equal(clicks.length, count + 1); assert.equal(clicks.at(-1).anchorKey, 'final1')
 assert.equal(await landing.navigate({ ...question, anchorKey: 'missing' }), false)
+const process = document.createElement('article')
+process.dataset.chatAnchorKey = 'process1'; process.dataset.turnProcessHidden = 'true'
+process.setAttribute('hidden', 'until-found'); flow.append(process)
+let processReveals = 0
+process.addEventListener('beforematch', () => { processReveals++; process.removeAttribute('hidden') })
+const output = { ...question, kind: 'output', anchorKey: 'process1' }
+landing.refresh(); assert.equal(landing.canReveal('process1'), true)
+assert.equal(await landing.navigate(output), true)
+assert.equal(processReveals, 1); assert.equal(toggles, 1, 'output landing must not touch question disclosure')
+assert.equal(clicks.at(-1).anchorKey, 'process1'); assert.equal(process.hasAttribute('hidden'), false)
+process.setAttribute('hidden', 'true')
+assert.equal(await landing.navigate(output), false, 'ordinary hidden rows cannot be revealed')
+process.setAttribute('hidden', 'until-found')
+const cancelledOutput = landing.navigate(output); landing.cancel(); assert.equal(await cancelledOutput, undefined)
+process.setAttribute('hidden', 'until-found')
+const supersededOutput = landing.navigate(output)
+assert.equal(await landing.navigate({ ...question, kind: 'final', anchorKey: 'final1' }), true)
+assert.equal(await supersededOutput, undefined)
 landing.cancel(); dom.window.close()
 console.log('semantic DOM: reveal, disclosure, repeat visit, privacy, cancellation, supersession and missing-anchor checks passed')
 

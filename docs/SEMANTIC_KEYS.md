@@ -18,6 +18,14 @@ Keys jump to native `call:<callId>` anchors. A compacted process row is revealed
 
 The short local disclosure transaction is cancelled on new navigation, reader input, fallback, session switch and disposal. It does not call `loadThrough`; original ChatView remains the only history-navigation owner.
 
+## Folded process outputs and the rail window
+
+Assistant text remains structural navigation data when Chat marks its process rows `visibility: hidden`. Hidden nodes break prose continuity on both sides; unrelated hidden user/tool nodes remain excluded. The closing-message identity still determines final-result meaning independently of display visibility. Only visible or natively revealable process anchors become Piano items; ordinary hidden containers remain unavailable. Output/final landing shares the cancellable `beforematch` reveal transaction above, without touching question-card controls.
+
+Project complete same-Turn process runs before selecting the bounded display window. Counts describe the full run, rather than a raw-item slice at a window edge. Expansion frames all members when they fit; longer groups retain fixed key spacing and capacity, with arrow-key browsing to every member. History placeholders remain independent, and active ±2 / busy, requested and failed-Turn protections still apply.
+
+Explicit expansion is keyed to surviving items, independent of hover, focus, transcript scrolling and streaming publications. Escape, member navigation, rail-wheel browsing and session changes retire it. Pointer leave/blur clear only the preview. Regression fixtures cover default-hidden process nodes, a 12-member run beside 11 history entries, passive updates, oversized groups and native reveal-before-scroll landing.
+
 ## Semantic palette and accessibility
 
 Colour follows the navigation meaning rather than only the speaker:

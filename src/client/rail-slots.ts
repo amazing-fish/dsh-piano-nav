@@ -1,14 +1,27 @@
-/** Bounded display projection; full-history items and navigation stay intact. */
+/** Full display projection before windowing, so a run is never counted partially. */
 import type { PianoItem } from './navigation-model.ts'
 
 export interface RailSlot {
   item: PianoItem
-  /** Representative member in the original window, used only for identity. */
+  /** Representative member in the full item list, used only for identity. */
   sourceIndex: number
   /** Consecutive visible pitch; hidden members never occupy display space. */
   displayIndex: number
   start: number
   end: number
+}
+
+/** Locate the display slot containing an original item index. */
+export function railSlotIndex(slots: readonly RailSlot[], itemIndex: number): number {
+  let low = 0, high = slots.length - 1
+  while (low <= high) {
+    const middle = (low + high) >>> 1
+    const slot = slots[middle]
+    if (itemIndex < slot.start) high = middle - 1
+    else if (itemIndex >= slot.end) low = middle + 1
+    else return middle
+  }
+  return -1
 }
 
 export function projectRailSlots(

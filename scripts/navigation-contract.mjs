@@ -34,13 +34,22 @@ test('adjacent visible outputs in the same Turn still merge', () => {
   assert.match(keys[0].preview, /first[\s\S]*second/)
 })
 
-test('hidden assistant content is excluded and breaks continuity', () => {
+test('folded assistant process output stays navigable and breaks continuity on both sides', () => {
   const keys = buildNavigationNodes([
     assistant('a', 1, 'first'), assistant('hidden', 1, 'not visible', { visibility: 'hidden' }),
     assistant('b', 1, 'second'),
   ])
-  assert.equal(keys.length, 2)
-  assert.ok(keys.every(key => !key.preview.includes('not visible')))
+  assert.equal(keys.length, 3)
+  assert.deepEqual(keys.map(key => key.anchorKey), ['a', 'hidden', 'b'])
+  assert.equal(keys[1].preview, 'not visible')
+})
+
+test('hidden legacy assistant output participates while non-assistant hidden nodes remain excluded', () => {
+  const keys = buildNavigationNodes([
+    assistant('legacy', 1, 'Process', { kind: 'assistant', visibility: 'hidden' }),
+    { key: 'hidden-user', kind: 'user', visibility: 'hidden', data: { content: [{ type: 'text', text: 'Excluded' }] } },
+  ])
+  assert.deepEqual(keys.map(key => key.anchorKey), ['legacy'])
 })
 
 test('reasoning and tools split visible output without leaking into preview', () => {

@@ -1,4 +1,4 @@
-/** User inputs, visible assistant runs, final answers and human question exchanges. */
+/** Conversation structure, independent of Chat's process-folding display state. */
 import type { ChatConversationViewNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { buildQuestionKeys } from './question-keys.ts'
 
@@ -91,7 +91,7 @@ function finalKeys(nodes: readonly ChatConversationViewNode[]): Set<string> {
   const candidates = new Map<number, ChatConversationViewNode[]>()
   for (const node of nodes) {
     const turn = turnOf(node)
-    if (turn === null || failed.has(turn) || !ASSISTANT_KINDS.has(node.kind) || node.visibility === 'hidden') continue
+    if (turn === null || failed.has(turn) || !ASSISTANT_KINDS.has(node.kind)) continue
     const tail = closing.get(turn)
     if (tail === undefined) continue
     const data = record(node.data)
@@ -115,7 +115,11 @@ export function buildNavigationNodesWithQuestions(
   const result: KeyDescriptor[] = []
   let continuable: KeyDescriptor | null = null
   for (const node of nodes) {
-    if (node.visibility === 'hidden') { continuable = null; continue }
+    const hidden = node.visibility === 'hidden'
+    if (hidden) {
+      continuable = null
+      if (!ASSISTANT_KINDS.has(node.kind)) continue
+    }
     const data = record(node.data)
     if (USER_KINDS.has(node.kind)) {
       continuable = null
@@ -148,7 +152,7 @@ export function buildNavigationNodesWithQuestions(
       }
       if (index < output.runs.length - 1) continuable = null
     }
-    if (!output.endsWithText) continuable = null
+    if (hidden || !output.endsWithText) continuable = null
   }
   return result
 }

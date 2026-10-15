@@ -55,7 +55,8 @@ export function createSemanticLanding(flow: HTMLElement, owner: Owner) {
     async navigate(item: PianoItem): Promise<boolean | undefined> {
       cancel()
       const ticket = generation
-      if (item.kind !== 'question' && item.kind !== 'answer') return owner.navigate(item.turn, item.anchorKey)
+      const interactive = item.kind === 'question' || item.kind === 'answer'
+      if (!interactive && item.kind !== 'output' && item.kind !== 'final') return owner.navigate(item.turn, item.anchorKey)
       if (item.anchorKey === null) return owner.navigate(item.turn, null)
       // A new local target supersedes an old history jump before disclosure.
       owner.cancel()
@@ -80,6 +81,7 @@ export function createSemanticLanding(flow: HTMLElement, owner: Owner) {
         }
         if (!valid()) return undefined
         if (row.closest('[hidden]') !== null) return false
+        if (!interactive) return owner.navigate(item.turn, item.anchorKey)
         const callId = item.anchorKey.startsWith('call:') ? item.anchorKey.slice(5) : ''
         if (callId === '' || row.dataset.chatCallId !== callId) return false
         const card = [...row.querySelectorAll<HTMLElement>('[data-tool="ask_user_question"]')]

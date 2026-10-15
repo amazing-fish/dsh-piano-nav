@@ -40,7 +40,7 @@ SessionBinding
 
 `chat-source.ts` 只负责读取和订阅。结构变化重排订阅；相同 key 的 source 被替换时释放旧订阅；移除节点、卸载和切换会话时释放全部订阅。微任务合并同一批变更，已排队的旧会话回调在 dispose 后失效。不新建持久化索引，不自行加载历史。
 
-`keys.ts` 保留原有输出段投影，同时排除 `visibility: hidden`，优先采用官方 location 的 Turn identity。不同 Turn 或无法确定同属一轮的相邻输出不推测性合并；工具、推理和隐藏节点仍切断连续性。预览只写入 textContent。
+`keys.ts` 保留原有输出段投影，纳入 `visibility: hidden` 的 assistant/assistant-step 过程节点，优先采用官方 location 的 Turn identity；其他 hidden 节点仍排除。不同 Turn 或无法确定同属一轮的相邻输出不推测性合并；工具、推理和隐藏节点前后仍切断连续性。隐藏输出只有具备原生 `hidden="until-found"` 过程展开回调的 DOM 锚点才进入可导航列表；点击时先通过 `beforematch` 展开再滚动，普通 hidden 容器不强制打开。预览只写入 textContent。
 
 `strip.ts` 绑定官方 Chat target，并处理同一 Session ID 的 binding 实例替换。定位仍使用现有 DOM 锚点，但排除 hidden 行及其后代；点击时重新测量坐标，避免沿用流式重排前的缓存位置。只操作已有共享 scrollport，不修改官方 Navigator、ChatView、DOM 私有事件或模块私有函数。
 

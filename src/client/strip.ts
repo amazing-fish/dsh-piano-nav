@@ -11,7 +11,7 @@ import type { KeyDescriptor } from './keys.ts'
 import { buildQuestionKeys } from './question-keys.ts'
 import { buildPianoItems, buildPianoItemsForTurn, mergeNavigationTurns } from './navigation-model.ts'
 import type { NavigationTurn, PianoItem } from './navigation-model.ts'
-import { projectRailSlots } from './rail-slots.ts'
+import { projectRailSlots, railSlotIndex } from './rail-slots.ts'
 import type { RailSlot } from './rail-slots.ts'
 import { createNativeNavigation } from './native-navigation.ts'
 import { createSemanticLanding } from './semantic-landing.ts'
@@ -166,6 +166,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let selected: string | null = null
   let browseStart: string | null = null
   let windowStart = 0
+  let windowSlotStart = 0
   let pointerInside = false
   let requestedTurn: number | null = null
   let failedTurn: number | null = null
@@ -186,14 +187,21 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let stripViewportLeft = 0
   let readingLineY = 0
   let hitTestXs: number[] = []
-  let visibleItems: PianoItem[] = []
+  let railSlots: RailSlot[] = []
   let visiblePositions: number[] = []
   let visibleSlots: RailSlot[] = []
   const expandedKeys = new Set<string>()
+  let projectionDirty = true
+  let projectedActive: string | null = null
+  let projectedProtection = ''
+  const clearExpansion = (): void => {
+    if (expandedKeys.size === 0) return
+    expandedKeys.clear(); projectionDirty = true
+  }
   let tooltipKey: string | null = null
   let tooltipPosition: string | null = null
   const buttons = new Map<string, HTMLButtonElement>()
-  const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, hitTests: 0, barWrites: 0 }
+  const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, railProjections: 0, hitTests: 0, barWrites: 0 }
   const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0 }, perf }
   const writeData = (button: HTMLButtonElement, name: string, value: string): void => {
     if (button.dataset[name] === value) return
@@ -239,7 +247,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       : language === 'zh-TW' ? `AI · 過程輸出（${count} 段）· 點擊展開` : `AI · 过程输出（${count} 段）· 点击展开`
   }
   const slotForKey = (key: string | null): RailSlot | undefined => {
-    const index = key === null ? -1 : (itemIndexByKey.get(key) ?? -1) - windowStart
+    const index = key === null ? -1 : itemIndexByKey.get(key) ?? -1
     return visibleSlots.find(slot => index >= slot.start && index < slot.end)
   }
   const fallback = (reason: string): void => {
@@ -312,8 +320,20 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     return nativeActiveTurn === null ? null : itemByKey.has(`turn:${nativeActiveTurn}`) ? `turn:${nativeActiveTurn}` : null
   }
   const segmentAvailable = (segment: KeyDescriptor): boolean => owner.rowFor(segment.anchorKey) !== null
-    || ((segment.kind === 'question' || segment.kind === 'answer') && landing.canReveal(segment.anchorKey))
+    || ((segment.kind === 'question' || segment.kind === 'answer' || segment.kind === 'output' || segment.kind === 'final')
+      && landing.canReveal(segment.anchorKey))
+  const projectSlots = (): RailSlot[] => {
+    const protection = `${busyTurn}:${requestedTurn}:${failedTurn}`
+    if (projectionDirty || projectedActive !== active || projectedProtection !== protection) {
+      railSlots = projectRailSlots(items, itemIndexByKey.get(active ?? '') ?? -1, expandedKeys,
+        new Set([busyTurn, requestedTurn, failedTurn].filter((turn): turn is number => turn !== null)))
+      projectionDirty = false; projectedActive = active; projectedProtection = protection
+      perf.railProjections++
+    }
+    return railSlots
+  }
   const rebuildItemIndex = (): void => {
+    projectionDirty = true
     itemByKey = new Map()
     itemIndexByKey = new Map()
     firstItemByAnchor = new Map()
@@ -367,6 +387,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (range === undefined || range.count !== nextItems.length) return false
     const previous = items.slice(range.start, range.start + range.count)
     if (previous.some((item, index) => item.key !== nextItems[index]?.key)) return false
+    projectionDirty = true
     const anchorsStable = previous.every((item, index) => item.anchorKey === nextItems[index]?.anchorKey)
     if (!anchorsStable) {
       const oldKeys = new Set(previous.map(item => item.key))
@@ -527,15 +548,13 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (selected !== null && !itemByKey.has(selected)) selected = null
     const centerKey = selected !== null && (document.activeElement === strip || pointerInside || busyTurn !== null) ? selected : active
     const center = Math.max(0, centerKey === null ? 0 : itemIndexByKey.get(centerKey) ?? 0)
-    const manual = browseStart === null ? -1 : itemIndexByKey.get(browseStart) ?? -1
-    windowStart = manual < 0 ? visibleWindow(items.length, center, capacity).start
-      : Math.max(0, Math.min(items.length - capacity, manual))
-    const previousStart = visibleItems[0]?.key
-    visibleItems = items.slice(windowStart, windowStart + capacity)
-    if (previousStart !== visibleItems[0]?.key) expandedKeys.clear()
-    for (const key of expandedKeys) if (!visibleItems.some(item => item.key === key)) expandedKeys.delete(key)
-    const protectedTurns = new Set([busyTurn, requestedTurn, failedTurn].filter((turn): turn is number => turn !== null))
-    visibleSlots = projectRailSlots(visibleItems, (itemIndexByKey.get(active ?? '') ?? -1) - windowStart, expandedKeys, protectedTurns)
+    for (const key of expandedKeys) if (!itemByKey.has(key)) { expandedKeys.delete(key); projectionDirty = true }
+    railSlots = projectSlots()
+    const manual = railSlotIndex(railSlots, browseStart === null ? -1 : itemIndexByKey.get(browseStart) ?? -1)
+    windowSlotStart = manual < 0 ? visibleWindow(railSlots.length, railSlotIndex(railSlots, center), capacity).start
+      : Math.max(0, Math.min(railSlots.length - capacity, manual))
+    visibleSlots = railSlots.slice(windowSlotStart, windowSlotStart + capacity).map((slot, displayIndex) => ({ ...slot, displayIndex }))
+    windowStart = visibleSlots[0]?.start ?? 0
     const stripTop = `${top}px`
     const stripLeft = `${left}px`
     const stripHeight = `${height}px`
@@ -627,7 +646,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     owner.cancel()
     fallback('binding')
     binding = next; nodes = []; selected = active = browseStart = null
-    expandedKeys.clear()
+    clearExpansion()
     sessionLoadingOlder = next?.session.getSnapshot().loadingOlder ?? false
     requestedTurn = failedTurn = null; localFailure = false
     debug.sessionId = id === undefined ? undefined : String(id)
@@ -684,6 +703,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const ticket = ++activation
     failedTurn = null; localFailure = false
     requestedTurn = item.anchorKey === null ? item.turn : null
+    clearExpansion()
     selected = item.key; active = item.key; browseStart = null
     strip.focus({ preventScroll: true })
     void landing.navigate(item).then(ok => {
@@ -743,8 +763,13 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     selected = next
     schedule(DIRTY_VIEW)
   }
-  const retireExpansion = (): void => { expandedKeys.clear(); selected = null; browseStart = null; schedule(DIRTY_VIEW) }
-  const pointerLeave = (): void => { pointerInside = false; retireExpansion() }
+  const retireExpansion = (): void => { clearExpansion(); selected = null; browseStart = null; schedule(DIRTY_VIEW) }
+  const clearHover = (): void => {
+    selected = null
+    if (expandedKeys.size === 0) browseStart = null
+    schedule(DIRTY_VIEW)
+  }
+  const pointerLeave = (): void => { pointerInside = false; clearHover() }
   const engage = (key: string | null): void => {
     // Home/End followed by Enter, or a second activation after disclosure,
     // can arrive before rAF. Apply the queued projection before resolving it.
@@ -753,9 +778,14 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const slot = slotForKey(key)
     if (slot === undefined) return
     if (slot.end - slot.start > 1) {
-      for (let index = slot.start; index < slot.end; index++) expandedKeys.add(visibleItems[index].key)
-      selected = key
-      browseStart = visibleItems[0]?.key ?? null
+      for (let index = slot.start; index < slot.end; index++) expandedKeys.add(items[index].key)
+      projectionDirty = true
+      selected = slot.end - slot.start > capacity ? items[slot.start].key : key
+      const nextSlots = projectSlots()
+      const runStart = railSlotIndex(nextSlots, slot.start)
+      const count = Math.min(capacity, slot.end - slot.start)
+      const start = Math.max(0, Math.min(nextSlots.length - capacity, runStart - Math.floor((capacity - count) / 2)))
+      browseStart = nextSlots[start]?.item.key ?? null
       strip.focus({ preventScroll: true })
       schedule(DIRTY_VIEW)
       return
@@ -771,9 +801,12 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   const wheel = (event: WheelEvent): void => {
     if (event.deltaY === 0 || items.length === 0) return
     event.preventDefault()
-    expandedKeys.clear()
-    const index = Math.max(0, Math.min(items.length - Math.max(1, visibleItems.length), windowStart + Math.sign(event.deltaY) * 3))
-    browseStart = items[index]?.key ?? null; selected = null; schedule(DIRTY_VIEW)
+    clearExpansion()
+    const first = items[windowStart]?.key
+    const nextSlots = projectSlots()
+    const current = railSlotIndex(nextSlots, itemIndexByKey.get(first ?? '') ?? -1)
+    const index = Math.max(0, Math.min(nextSlots.length - capacity, current + Math.sign(event.deltaY) * 3))
+    browseStart = nextSlots[index]?.item.key ?? null; selected = null; schedule(DIRTY_VIEW)
   }
   const cancelLocal = (): void => {
     activation++; landing.cancel()
@@ -788,11 +821,12 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (!['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) return
     event.preventDefault()
     const index = Math.max(0, itemIndexByKey.get(selected ?? active ?? '') ?? 0)
-    const page = Math.max(1, visibleItems.length)
+    const page = Math.max(1, visibleSlots.length)
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
       : Math.max(0, Math.min(items.length - 1, index + (event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : event.key === 'PageUp' ? -page : page)))
     selected = items[next]?.key ?? null
-    browseStart = items[visibleWindow(items.length, next, page).start]?.key ?? null
+    const slot = railSlotIndex(railSlots, next)
+    browseStart = railSlots[visibleWindow(railSlots.length, slot, page).start]?.item.key ?? null
     schedule(DIRTY_VIEW)
   }
   const readerKey = (event: KeyboardEvent): void => {
@@ -804,11 +838,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     // This listener only retires the short local disclosure transaction.
     if ((event.target as HTMLElement).closest('input,textarea,select,[contenteditable="true"]') === null) cancelLocal()
   }
-  const onScroll = (): void => {
-    const clearBrowse = !pointerInside && document.activeElement !== strip && browseStart !== null
-    if (clearBrowse) browseStart = null
-    schedule(DIRTY_READER | (clearBrowse ? DIRTY_VIEW : 0))
-  }
+  const onScroll = (): void => { schedule(DIRTY_READER) }
   let composerSeat = scrollport.querySelector<HTMLElement>('[data-composer-seat]')
   let resize: ResizeObserver | null = null
   const touchesAnchor = (node: Node): boolean => node instanceof window.Element
@@ -913,7 +943,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   resize?.observe(root); resize?.observe(flow); resize?.observe(scrollport)
   if (composerSeat !== null) resize?.observe(composerSeat)
   strip.addEventListener('pointermove', pointerMove); strip.addEventListener('pointerleave', pointerLeave)
-  strip.addEventListener('blur', retireExpansion)
+  strip.addEventListener('blur', clearHover)
   strip.addEventListener('click', click); strip.addEventListener('wheel', wheel, { passive: false }); strip.addEventListener('keydown', keydown)
   scrollport.addEventListener('scroll', onScroll, { passive: true }); scrollport.addEventListener('wheel', cancel, { passive: true })
   scrollport.addEventListener('touchstart', readerPointer, { passive: true }); scrollport.addEventListener('pointerdown', readerPointer, { passive: true })
