@@ -48,7 +48,7 @@ function rebuild() {
     if (n === 2) {
       const root = pending ? { callId: 'qa', name: 'ask_user_question', argsRaw: JSON.stringify({ questions }), subCalls: [] }
         : { kind: 'tool-result', callId: 'qa', call: { name: 'ask_user_question', argsRaw: JSON.stringify({ questions }) }, isError: false, content: [{ type: 'text', text: JSON.stringify({ answers }) }], subCalls: [] }
-      add(node('tool2', 'tool-call', n, 215, { root }))
+      add({ ...node('tool2', 'tool-call', n, 215, { root }), visibility: 'hidden' })
     }
     const spec = { turn: n, controlAnchorSeq: n * 100 + 18, processStartSeq: n * 100 + 10, answerAnchorSeq: closed ? n * 100 + 20 : null, answerStep: closed ? 2 : null, inlineReasoning: false, messageCount: 1, toolCallCount: n === 2 ? 1 : 0, subagentCount: 0 }
     add(node(`control${n}`, 'turn-process', n, n * 100 + 18, spec))

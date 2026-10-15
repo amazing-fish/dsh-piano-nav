@@ -32,6 +32,13 @@ const foldedTurns = Array.from({ length: 12 }, (_, i) => ({ turn: i + 1, prompt:
 const foldedNodes = foldedTurns.flatMap(({ turn }, i) => [0, 1].map(step => ({ key: `h${i}-${step}`, kind: 'assistant-step', visibility: 'hidden', location: { turn: { turn } }, data: { blocks: [{ kind: 'text', text: `Process ${step}` }] } })))
 const foldedItems = buildPianoItems(foldedTurns, buildNavigationNodes(foldedNodes), String)
 assert.deepEqual(projectRailSlots(foldedItems, -1, new Set(), new Set()).map(slot => slot.end - slot.start), Array(12).fill(2), 'all twelve folded history turns produce their own complete grey key')
+const foldedRun = grey.slice(0, 8).map(item => ({ ...item, folded: true }))
+for (let active = -1; active <= 10; active++) {
+  assert.deepEqual(projectRailSlots(foldedRun, active, new Set(), new Set()).map(slot => slot.end - slot.start), [8], 'folded prose stays one run even at or near the reader')
+}
+assert.equal(projectRailSlots(foldedRun, 7, new Set(foldedRun.map(item => item.key)), new Set()).length, 8, 'explicit rail expansion wins over transcript folding')
+assert.equal(projectRailSlots(foldedRun, 7, new Set(), new Set([1])).length, 8, 'busy/requested/failed Turn protection is retained')
+assert.ok(foldedItems.every(item => item.folded === true), 'source folding survives the semantic-to-navigation projection')
 
 const observable = initial => {
   let value = initial
@@ -263,3 +270,42 @@ await check('longer-than-capacity groups retain every member for keyboard browsi
   assert.equal(collapsed().dataset.count, '12'); assert.deepEqual(clicks, [])
 }, false, { processCount: 12, hidden: true })
 console.log(`${passed} total rail interaction tests passed`)
+
+await check('folded outputs ignore adjacent reading protection; DOM-only reveal restores it even with hidden source nodes', async ({ bars, collapsed, read, flow, settle, nodeMap, rail }) => {
+  await read('u3')
+  assert.equal(collapsed().dataset.count, '8')
+  assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 1)
+  for (const row of flow.querySelectorAll('[data-chat-anchor-key^="p"]')) row.removeAttribute('hidden')
+  await settle(); await read('p7')
+  assert.equal(nodeMap.get('p7').visibility, 'hidden', 'native disclosure need not republish node visibility')
+  assert.equal(bars().filter(b => b.dataset.kind === 'output' && b.dataset.collapsed === 'false').length, 3)
+  assert.equal(collapsed().dataset.count, '5')
+  for (const row of flow.querySelectorAll('[data-chat-anchor-key^="p"]')) row.setAttribute('hidden', 'until-found')
+  await settle(); await read('u3')
+  assert.equal(collapsed().dataset.count, '8')
+  assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 1)
+}, false, { processCount: 8, hidden: true })
+
+await check('native folded DOM also overrides a visible source hint while keyed streaming retains the decision', async ({ bars, collapsed, flow, read, settle, sources, nodeMap }) => {
+  for (const row of flow.querySelectorAll('[data-chat-anchor-key^="p"]')) {
+    row.dataset.turnProcessHidden = 'true'; row.setAttribute('hidden', 'until-found')
+  }
+  await settle(); await read('u3')
+  assert.equal(nodeMap.get('p7').visibility, 'visible')
+  assert.equal(collapsed().dataset.count, '8')
+  const next = { ...nodeMap.get('p7'), data: { ...nodeMap.get('p7').data, blocks: [{ kind: 'text', text: 'Updated hidden process' }] } }
+  nodeMap.set('p7', next); sources.get('p7').set(next)
+  await new Promise(resolve => setTimeout(resolve, 150)); await settle()
+  assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 1)
+  assert.equal(collapsed().dataset.count, '8')
+}, false, { processCount: 8 })
+await check('a folded group containing the native active turn keeps the current-key indicator on its representative', async ({ bars, collapsed, document, native, settle }) => {
+  document.elementsFromPoint = () => []
+  native.querySelector('[aria-label="Jump 1"]').setAttribute('aria-current', 'true'); await settle()
+  assert.equal(collapsed().dataset.count, '8')
+  assert.equal(collapsed().getAttribute('aria-current'), 'true')
+  assert.equal(collapsed().classList.contains('smcp-bar-current'), true)
+  assert.equal(collapsed().style.width, '24px')
+  assert.equal(bars().filter(b => b.getAttribute('aria-current') === 'true').length, 1)
+}, false, { processCount: 8, hidden: true })
+console.log(`${passed} total rail interaction tests passed including folded reading protection`)

@@ -13,6 +13,8 @@ export interface KeyDescriptor {
   /** Product meaning is separate from the speaker and transient UI state. */
   kind?: KeyKind
   interactionState?: 'pending' | 'answered' | 'unanswered' | 'error'
+  /** Source visibility hint for process prose; mounted disclosure state takes precedence. */
+  folded?: boolean
 }
 
 const PREVIEW_LIMIT = 520
@@ -71,7 +73,8 @@ function outputRuns(data: Record<string, unknown>): OutputRuns {
 }
 function descriptor(node: ChatConversationViewNode, role: 'user' | 'assistant', text: string, kind: KeyKind, suffix = ''): KeyDescriptor {
   const preview = truncate(text, PREVIEW_LIMIT)
-  return { key: `${node.key}${suffix}`, anchorKey: node.key, role, title: titleOf(preview), preview, turn: turnOf(node), kind }
+  return { key: `${node.key}${suffix}`, anchorKey: node.key, role, title: titleOf(preview), preview, turn: turnOf(node), kind,
+    ...(kind === 'output' && node.visibility === 'hidden' ? { folded: true } : {}) }
 }
 
 /** A completed model step alone does not establish the final Turn answer. */
@@ -118,7 +121,7 @@ export function buildNavigationNodesWithQuestions(
     const hidden = node.visibility === 'hidden'
     if (hidden) {
       continuable = null
-      if (!ASSISTANT_KINDS.has(node.kind)) continue
+      if (!ASSISTANT_KINDS.has(node.kind) && node.kind !== 'tool-call') continue
     }
     const data = record(node.data)
     if (USER_KINDS.has(node.kind)) {

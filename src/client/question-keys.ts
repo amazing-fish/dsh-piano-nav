@@ -71,7 +71,7 @@ export function buildQuestionKeys(
   const byNode = new Map<string, KeyDescriptor[]>()
   for (const [callId, { node, call }] of uniqueCalls(nodes)) {
     const turn = locate(node)
-    if (turn === null || node.visibility === 'hidden') continue
+    if (turn === null) continue
     const head = call.kind === 'tool-result' ? object(call.call) : call
     if (head?.name !== 'ask_user_question') continue
     const args = parse(head.argsRaw)

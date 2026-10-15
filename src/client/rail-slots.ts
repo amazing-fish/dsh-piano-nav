@@ -33,7 +33,7 @@ export function projectRailSlots(
   const idleOutput = (index: number): boolean => {
     const item = items[index]
     return item.kind === 'output' && item.role === 'assistant'
-      && (activeIndex < 0 || Math.abs(index - activeIndex) > 2)
+      && (item.folded === true || activeIndex < 0 || Math.abs(index - activeIndex) > 2)
       && !expanded.has(item.key) && !protectedTurns.has(item.turn)
   }
   const slots: RailSlot[] = []
