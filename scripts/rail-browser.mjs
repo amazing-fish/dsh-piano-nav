@@ -14,7 +14,7 @@ const { outputFiles } = await build({
       const listeners = new Set()
       return { getSnapshot: () => value, subscribe: fn => { listeners.add(fn); return () => listeners.delete(fn) }, set(next) { value = next; for (const fn of listeners) fn() } }
     }
-    const data = railFixtureData(window.historyOnly === true), nodeMap = new Map(data.nodes.map(node => [node.key, node]))
+    const data = railFixtureData(window.historyOnly === true, window.railOptions), nodeMap = new Map(data.nodes.map(node => [node.key, node]))
     const clicks = [], nav = document.querySelector('nav'), flow = document.querySelector('[data-chat-flow]')
     for (const { turn } of data.outline) {
       const button = document.createElement('button'); button.setAttribute('aria-label', (data.navigation.some(item => item.turn === turn) ? 'Jump ' : 'Load ') + turn)
@@ -24,6 +24,10 @@ const { outputFiles } = await build({
       const row = document.createElement('article'); row.dataset.chatAnchorKey = node.key
       row.textContent = node.kind === 'user' ? node.data.content[0].text : node.data.blocks?.[0]?.text ?? ''
       row.hidden = node.kind !== 'user' && node.kind !== 'assistant-step'; flow.append(row)
+      if (node.visibility === 'hidden') {
+        row.setAttribute('hidden', 'until-found'); row.dataset.turnProcessHidden = 'true'
+        row.addEventListener('beforematch', () => row.removeAttribute('hidden'))
+      }
     }
     const scroll = document.querySelector('[data-conversation-scroll]'), current = flow.querySelector('[data-chat-anchor-key="' + data.currentAnchor + '"]')
     scroll.scrollTop += current.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 80
@@ -95,8 +99,10 @@ try {
     assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el => el.scrollTop), scrollTop, 'disclosure never scrolls the transcript')
     await page.screenshot({ path: `test-results/rail-expanded-${reducedMotion}.png`, fullPage: true })
     await page.mouse.move(1000, 850)
-    await page.waitForFunction(() => document.querySelectorAll('.smcp-bar').length === 4)
+    await assertCompact(10)
     assert.equal(await rail.evaluate(el => document.activeElement === el), true)
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => document.querySelectorAll('.smcp-bar').length === 4)
     await assertCompact(4)
     assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el => el.scrollTop), scrollTop)
     await page.screenshot({ path: `test-results/rail-collapsed-${reducedMotion}.png`, fullPage: true })
@@ -109,7 +115,7 @@ try {
     assert.deepEqual(await page.evaluate(() => window.railFixture.clicks), [1])
     assert.deepEqual(errors, [])
     await page.close(); passed++
-    console.log(`ok ${passed} - process-only compact geometry, hover, clicks, focus retirement and ${reducedMotion} motion`)
+    console.log(`ok ${passed} - process-only compact geometry, hover, clicks, persistent expansion and ${reducedMotion} motion`)
   }
   for (const reducedMotion of ['no-preference', 'reduce']) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion })
@@ -128,6 +134,38 @@ try {
     assert.equal(await page.locator('.smcp-bar[data-collapsed="true"]').count(), 0)
     assert.deepEqual(errors, []); await page.close(); passed++
     console.log(`ok ${passed} - independent history first-click native activation with ${reducedMotion} motion`)
+  }
+  {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' })
+    const errors = []; page.on('pageerror', e => errors.push(e.message))
+    await page.setContent(html)
+    await page.evaluate(() => { window.railOptions = { hidden: true, processCount: 12, leadingHistory: 11 } })
+    await page.addScriptTag({ content: outputFiles[0].text })
+    await page.waitForFunction(() => window.__smcpDebug?.mode === 'piano')
+    const group = page.locator('.smcp-bar[data-collapsed="true"]')
+    assert.equal(await group.getAttribute('data-count'), '12')
+    await group.evaluate(el => el.click())
+    await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"]').length === 12)
+    assert.equal(await page.locator('.smcp-bar[data-collapsed="true"]').count(), 0)
+    await page.mouse.move(1000, 850)
+    await page.evaluate(() => {
+      document.querySelector('.smcp-unified').blur()
+      document.querySelector('[data-conversation-scroll]').dispatchEvent(new Event('scroll'))
+    })
+    await page.waitForTimeout(100)
+    assert.equal(await page.locator('.smcp-bar[data-kind="output"]').count(), 12)
+    const boxes = await page.locator('.smcp-bar').evaluateAll(els => els.map(el => el.getBoundingClientRect().toJSON()).sort((a, b) => a.top - b.top))
+    boxes.forEach((box, i) => { assert.equal(box.height, 2); if (i) assert.equal(box.top - boxes[i - 1].top, 12) })
+    await page.screenshot({ path: 'test-results/rail-folded-history-expanded.png', fullPage: true })
+    const last = page.locator('.smcp-bar[data-key="segment:p11::output:0"]'), box = await last.boundingBox()
+    await page.mouse.click(box.x + 1, box.y + 1)
+    await page.waitForFunction(() => window.railFixture.clicks.length === 1)
+    assert.deepEqual(await page.evaluate(() => window.railFixture.clicks), [12])
+    assert.equal(await page.locator('[data-chat-anchor-key="p11"]').getAttribute('hidden'), null)
+    const offset = await page.locator('[data-chat-anchor-key="p11"]').evaluate(el => el.getBoundingClientRect().top - el.closest('[data-conversation-scroll]').getBoundingClientRect().top)
+    assert.ok(Math.abs(offset - 24) < 1, 'hidden member lands at the native reader offset')
+    assert.deepEqual(errors, []); await page.close(); passed++
+    console.log(`ok ${passed} - default-folded 12-output history, persistent expansion and exact hidden-member landing`)
   }
   await writeFile('test-results/rail-browser.json', JSON.stringify({ passed, source: 'Real strip/styles/native adapter; synthetic Session data; actual Chromium painted geometry' }, null, 2))
 } finally { await browser.close() }

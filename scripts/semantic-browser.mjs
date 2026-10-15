@@ -81,6 +81,14 @@ try {
     assert.ok(Math.abs(await rowTop('[data-chat-anchor-key="f1"]') - 24) < 3)
     assert.ok(!(await key('final', 1).getAttribute('aria-label')).includes('PROCESS_1'))
   })
+  await test('Compact process output keys reveal original ChatNodeSeat rows before precise landing', async () => {
+    assert.equal(await page.locator('[data-chat-anchor-key="p1"]').getAttribute('hidden'), 'until-found')
+    assert.equal(await key('output', 1).count(), 1)
+    await activate(key('output', 1))
+    await page.waitForFunction(() => !document.querySelector('[data-chat-anchor-key="p1"]').hasAttribute('hidden'))
+    assert.ok(Math.abs(await rowTop('[data-chat-anchor-key="p1"]') - 24) < 3)
+    assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
+  })
   await test('Compact mode exposes question/answer keys even while native process is folded', async () => {
     assert.equal(await page.locator('[data-chat-anchor-key="tool2"]').getAttribute('hidden'), 'until-found')
     assert.equal(await key('question').count(), 2); assert.equal(await key('answer').count(), 2)

@@ -44,7 +44,7 @@ function rebuild() {
     const final = assistant(`f${n}`, n, 2, `FINAL_${n}: This is the completed result, not the process note.`)
     const closed = n === 1 || !pending
     add(node(`u${n}`, 'user', n, n * 100, { content: [{ type: 'text', text: `Input ${n}: solve this task` }] }))
-    add(assistant(`p${n}`, n, 1, `PROCESS_${n}: working through the task`))
+    add({ ...assistant(`p${n}`, n, 1, `PROCESS_${n}: working through the task`), visibility: 'hidden' })
     if (n === 2) {
       const root = pending ? { callId: 'qa', name: 'ask_user_question', argsRaw: JSON.stringify({ questions }), subCalls: [] }
         : { kind: 'tool-result', callId: 'qa', call: { name: 'ask_user_question', argsRaw: JSON.stringify({ questions }) }, isError: false, content: [{ type: 'text', text: JSON.stringify({ answers }) }], subCalls: [] }
