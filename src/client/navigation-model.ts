@@ -15,6 +15,8 @@ export interface PianoItem {
   role: 'turn' | 'user' | 'assistant'
   kind?: KeyKind
   interactionState?: KeyDescriptor['interactionState']
+  /** Process prose is folded in Chat; nearby-reader protection does not apply. */
+  folded?: boolean
   anchorKey: string | null
 }
 const validNumber = (value: unknown): value is number => typeof value === 'number'
@@ -52,6 +54,7 @@ export function buildPianoItemsForTurn(
     key: index === 0 ? `turn:${turn.turn}` : `segment:${segment.key}`,
     turn: turn.turn, title: segment.title, preview: segment.preview, role: segment.role,
     anchorKey: segment.anchorKey, kind: segment.kind, interactionState: segment.interactionState,
+    ...(segment.folded === true ? { folded: true } : {}),
   }))
 }
 

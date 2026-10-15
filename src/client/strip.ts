@@ -163,6 +163,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let itemIndexByKey = new Map<string, number>()
   let firstItemByAnchor = new Map<string, string>()
   let active: string | null = null
+  let activeSlotKey: string | null = null
   let selected: string | null = null
   let browseStart: string | null = null
   let windowStart = 0
@@ -319,9 +320,14 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     }
     return nativeActiveTurn === null ? null : itemByKey.has(`turn:${nativeActiveTurn}`) ? `turn:${nativeActiveTurn}` : null
   }
-  const segmentAvailable = (segment: KeyDescriptor): boolean => owner.rowFor(segment.anchorKey) !== null
-    || ((segment.kind === 'question' || segment.kind === 'answer' || segment.kind === 'output' || segment.kind === 'final')
-      && landing.canReveal(segment.anchorKey))
+  const availableSegment = (segment: KeyDescriptor): KeyDescriptor[] => {
+    const visible = owner.rowFor(segment.anchorKey) !== null
+    if (!visible && !((segment.kind === 'question' || segment.kind === 'answer' || segment.kind === 'output' || segment.kind === 'final')
+      && landing.canReveal(segment.anchorKey))) return []
+    // Native process disclosure may change only the DOM, leaving the source
+    // node's visibility untouched. The mounted row is the display authority.
+    return [segment.kind === 'output' ? { ...segment, folded: !visible } : segment]
+  }
   const projectSlots = (): RailSlot[] => {
     const protection = `${busyTurn}:${requestedTurn}:${failedTurn}`
     if (projectionDirty || projectedActive !== active || projectedProtection !== protection) {
@@ -376,7 +382,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const rebuildItemsFromSegments = (): void => {
     segments = [...segmentsByTurn.values()].flat()
-    const availableSegments = segments.filter(segmentAvailable)
+    const availableSegments = segments.flatMap(availableSegment)
     items = buildPianoItems(turns, availableSegments, turn => copy('turn', turn))
     rebuildItemIndex()
     perf.itemRebuilds++
@@ -453,7 +459,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       })
       const nextSegments = buildNavigationNodesWithQuestions(turnNodes, questionKeys)
       segmentsByTurn.set(turn, nextSegments)
-      const nextItems = buildPianoItemsForTurn(navigationTurn, nextSegments.filter(segmentAvailable), value => copy('turn', value))
+      const nextItems = buildPianoItemsForTurn(navigationTurn, nextSegments.flatMap(availableSegment), value => copy('turn', value))
       if (!replaceTurnItems(turn, nextItems)) rebuildAllItems = true
       perf.keyedSemanticUpdates++
     }
@@ -554,6 +560,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     windowSlotStart = manual < 0 ? visibleWindow(railSlots.length, railSlotIndex(railSlots, center), capacity).start
       : Math.max(0, Math.min(railSlots.length - capacity, manual))
     visibleSlots = railSlots.slice(windowSlotStart, windowSlotStart + capacity).map((slot, displayIndex) => ({ ...slot, displayIndex }))
+    activeSlotKey = slotForKey(active)?.item.key ?? null
     windowStart = visibleSlots[0]?.start ?? 0
     const stripTop = `${top}px`
     const stripLeft = `${left}px`
@@ -597,9 +604,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       writeAttr(button, 'aria-label', collapsed ? collapsedCopy(slot.end - slot.start) : `${copy('turn', item.turn)} · ${semanticLabel(item, config.language)}: ${item.title}`)
       if (collapsed) writeAttr(button, 'aria-expanded', 'false')
       else if (button.hasAttribute('aria-expanded')) { button.removeAttribute('aria-expanded'); perf.barWrites++ }
-      writeAttr(button, 'aria-current', String(item.key === active))
+      writeAttr(button, 'aria-current', String(item.key === activeSlotKey))
       writeAttr(button, 'aria-busy', String(item.turn === busyTurn))
-      writeClass(button, 'smcp-bar-current', item.key === active)
+      writeClass(button, 'smcp-bar-current', item.key === activeSlotKey)
       writeClass(button, 'smcp-bar-hover', slot === focusedSlot)
       writeStyle(button, 'top', `${visiblePositions[index] - config.keyHeight / 2}px`)
       writeStyle(button, 'height', `${config.keyHeight}px`)
@@ -720,7 +727,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   // margin retires the selection and clicking it activates nothing.
   const BAR_HIT_TOLERANCE = 3
   const barWidth = (item: PianoItem, index: number, focusIndex: number): number => {
-    const base = item.key === active ? 24 : 10
+    const base = item.key === activeSlotKey ? 24 : 10
     const wave = focusIndex < 0 ? 0 : Math.exp(-((index - focusIndex) ** 2) / (2 * 1.35 ** 2))
     return base + (48 - base) * wave
   }

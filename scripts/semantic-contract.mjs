@@ -117,11 +117,32 @@ test('duplicate call ids across root nodes cannot produce duplicate or first-win
   const b = ask('same', [{ id: 'two', question: 'Two?' }], [{ id: 'two', selected: ['B'] }]); b.key = 'other-root'
   assert.deepEqual(buildNavigationNodes([a, b]), [])
 })
-test('Chat folding preserves authoritative assistant meaning without admitting hidden interactive nodes', () => {
-  const question = ask(); question.visibility = 'hidden'; assert.deepEqual(buildNavigationNodes([question]), [])
+test('Chat folding preserves authoritative assistant meaning', () => {
   const final = assistant('f', 1, 2, 'private'); final.visibility = 'hidden'
   const keys = buildNavigationNodes([final, tail(final)])
   assert.equal(keys.length, 1); assert.equal(keys[0].kind, 'final'); assert.equal(keys[0].anchorKey, 'f')
+})
+test('hidden ask_user_question exchanges preserve keys, anchors and all interaction states', () => {
+  const pending = ask(), answered = ask('answered', undefined, [{ id: 'q1', selected: ['A'] }])
+  const unanswered = ask('unanswered', undefined, []), error = ask('error', undefined, [])
+  error.data.root.isError = true
+  for (const original of [pending, answered, unanswered, error]) {
+    const hidden = { ...original, visibility: 'hidden' }
+    assert.deepEqual(buildNavigationNodes([hidden]), buildNavigationNodes([original]))
+  }
+  assert.deepEqual(buildNavigationNodes([{ ...answered, visibility: 'hidden' }]).map(k => k.kind), ['question', 'answer'])
+})
+test('hidden unrelated tools and user nodes stay excluded and break output continuity', () => {
+  const tool = ask(); tool.data.root.name = 'read'; tool.visibility = 'hidden'
+  const input = { ...user('hidden-input', 1), visibility: 'hidden' }
+  for (const boundary of [tool, input]) {
+    assert.deepEqual(buildNavigationNodes([assistant('a', 1, 0, 'first'), boundary, assistant('b', 1, 1, 'second')]).map(k => k.anchorKey), ['a', 'b'])
+  }
+})
+test('hidden nested asks retain their call identities and duplicate calls stay ambiguous', () => {
+  const outer = ask('outer'), inner = ask('inner'); outer.visibility = 'hidden'; outer.data.root.subCalls.push(inner.data.root)
+  assert.deepEqual(buildNavigationNodes([outer]).map(k => k.anchorKey), ['call:outer', 'call:inner'])
+  assert.deepEqual(buildNavigationNodes([outer, { ...inner, visibility: 'hidden' }]), buildNavigationNodes([{ ...outer, visibility: 'visible' }, inner]))
 })
 test('bounded untrusted JSON and cyclic call trees cannot freeze projection', () => {
   const huge = ask(); huge.data.root.argsRaw = ' '.repeat(262145); assert.deepEqual(buildNavigationNodes([huge]), [])

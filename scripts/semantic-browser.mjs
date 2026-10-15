@@ -89,7 +89,7 @@ try {
     assert.ok(Math.abs(await rowTop('[data-chat-anchor-key="p1"]') - 24) < 3)
     assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
   })
-  await test('Compact mode exposes question/answer keys even while native process is folded', async () => {
+  await test('Compact mode exposes hidden-source question/answer keys and answer landing reveals the native process', async () => {
     assert.equal(await page.locator('[data-chat-anchor-key="tool2"]').getAttribute('hidden'), 'until-found')
     assert.equal(await key('question').count(), 2); assert.equal(await key('answer').count(), 2)
     await activate(key('answer').first())
@@ -98,6 +98,20 @@ try {
     assert.equal(await page.locator('[data-tool="ask_user_question"] dl').isVisible(), true)
     assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
     assert.ok(await rowTop('[data-chat-anchor-key="call:qa"]') < 650)
+  })
+  await test('hidden-source question landing opens its process and question card without submitting', async () => {
+    assert.equal(await page.locator('[data-chat-anchor-key="tool2"]').getAttribute('hidden'), 'until-found')
+    assert.equal(await key('question').count(), 2)
+    await activate(key('question').first())
+    await page.waitForSelector('[data-chat-call-id="qa"] [data-disclosure-row][aria-expanded="true"]')
+    assert.equal(await page.locator('[data-chat-anchor-key="tool2"]').getAttribute('hidden'), null)
+    assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
+    await page.waitForFunction(() => {
+      const row = document.querySelector('[data-chat-anchor-key="call:qa"]'), port = row.closest('[data-conversation-scroll]')
+      const offset = row.getBoundingClientRect().top - port.getBoundingClientRect().top
+      const target = Math.max(0, Math.min(port.scrollHeight - port.clientHeight, port.scrollTop + offset - 24))
+      return Math.abs(port.scrollTop - target) < 3 && offset >= 0 && offset < port.clientHeight
+    })
   })
   await test('pending questions gain recorded user-answer keys and final output on completion', async () => {
     await page.evaluate(() => window.semanticFixture.waiting())
