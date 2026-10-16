@@ -24,6 +24,9 @@ let compact = true
 let pending = false
 let submissionCalls = 0
 let mounted = 0
+const fixtureOptions = new URLSearchParams(window.location.search)
+const processCount = Number(fixtureOptions.get('processCount') ?? 1)
+const withQuestions = !fixtureOptions.has('processOnly')
 const nodes = new Map<string, any>()
 const sources = new Map<string, any>()
 const specs = new Map<string, any>()
@@ -41,18 +44,21 @@ function rebuild() {
   const navigation: any[] = []
   const add = (value: any) => { nodes.set(value.key, value); order.push(value.key) }
   for (let n = 1; n <= 2; n++) {
-    const final = assistant(`f${n}`, n, 2, `FINAL_${n}: This is the completed result, not the process note.`)
+    const answerStep = processCount + 1
+    const final = assistant(`f${n}`, n, answerStep, `FINAL_${n}: This is the completed result, not the process note.`)
     const closed = n === 1 || !pending
     add(node(`u${n}`, 'user', n, n * 100, { content: [{ type: 'text', text: `Input ${n}: solve this task` }] }))
-    add({ ...assistant(`p${n}`, n, 1, `PROCESS_${n}: working through the task`), visibility: 'hidden' })
-    if (n === 2) {
+    for (let step = 1; step <= processCount; step++) {
+      add({ ...assistant(step === 1 ? `p${n}` : `p${n}-${step}`, n, step, `PROCESS_${n}_${step}: working through the task`), visibility: 'hidden' })
+    }
+    if (n === 2 && withQuestions) {
       const root = pending ? { callId: 'qa', name: 'ask_user_question', argsRaw: JSON.stringify({ questions }), subCalls: [] }
         : { kind: 'tool-result', callId: 'qa', call: { name: 'ask_user_question', argsRaw: JSON.stringify({ questions }) }, isError: false, content: [{ type: 'text', text: JSON.stringify({ answers }) }], subCalls: [] }
-      add({ ...node('tool2', 'tool-call', n, 215, { root }), visibility: 'hidden' })
+      add({ ...node('tool2', 'tool-call', n, n * 100 + answerStep * 10 - 5, { root }), visibility: 'hidden' })
     }
-    const spec = { turn: n, controlAnchorSeq: n * 100 + 18, processStartSeq: n * 100 + 10, answerAnchorSeq: closed ? n * 100 + 20 : null, answerStep: closed ? 2 : null, inlineReasoning: false, messageCount: 1, toolCallCount: n === 2 ? 1 : 0, subagentCount: 0 }
-    add(node(`control${n}`, 'turn-process', n, n * 100 + 18, spec))
-    if (closed) { add(final); add(node(`tail${n}`, 'turn-tail', n, n * 100 + 30, { turn: n, seq: n * 100 + 30, time: 0, closing: final.data })) }
+    const spec = { turn: n, controlAnchorSeq: n * 100 + answerStep * 10 - 2, processStartSeq: n * 100 + 10, answerAnchorSeq: closed ? n * 100 + answerStep * 10 : null, answerStep: closed ? answerStep : null, inlineReasoning: false, messageCount: processCount, toolCallCount: n === 2 && withQuestions ? 1 : 0, subagentCount: 0 }
+    add(node(`control${n}`, 'turn-process', n, spec.controlAnchorSeq, spec))
+    if (closed) { add(final); add(node(`tail${n}`, 'turn-tail', n, n * 100 + (answerStep + 1) * 10, { turn: n, seq: n * 100 + (answerStep + 1) * 10, time: 0, closing: final.data })) }
     for (const [key, value] of nodes) if (value.location.turn.turn === n) specs.set(key, { turn: n, spec, turnClosed: closed, hasExternalProcess: true, compactAnswer: false })
     navigation.push({ turn: n, anchorKey: `u${n}`, prompt: `Input ${n}`, response: closed ? `FINAL_${n}` : '' })
   }

@@ -48,7 +48,7 @@ body[data-ds-dark-theme]{background:#15151b;color:#eee}body[data-ds-dark-theme] 
 [data-conversation-scroll]{height:680px;overflow-y:auto;--dsh-chat-content-width:760px;--dsh-composer-side-clearance:0px;--dsh-conversation-viewport-height:680px;--dsh-composer-height:0px;--dsw-alias-border-l4:#aaa}
 </style></head><body><main><div data-conversation-scroll tabindex="0"><div id="chat"></div></div></main><script src="/fixture.js"></script></body></html>`
 const server = createServer(async (req, res) => {
-  if (req.url === '/') { res.setHeader('Content-Type', 'text/html'); res.end(html); return }
+  if (new URL(req.url, 'http://localhost').pathname === '/') { res.setHeader('Content-Type', 'text/html'); res.end(html); return }
   if (!['/fixture.js', '/fixture.css'].includes(req.url)) { res.writeHead(404); res.end(); return }
   res.setHeader('Content-Type', req.url.endsWith('css') ? 'text/css' : 'application/javascript'); res.end(await readFile(dir + req.url))
 })
@@ -61,13 +61,13 @@ let errors = [], passed = 0
 const darkContrast = []
 page.on('pageerror', error => errors.push(error.message))
 const key = (kind, turn = 2) => page.locator(`.smcp-bar[data-kind="${kind}"][data-turn="${turn}"]`)
-const start = async () => { errors = []; await page.goto(`http://127.0.0.1:${server.address().port}/`); await page.waitForFunction(() => window.__smcpDebug?.mode === 'piano') }
+const start = async (query = '') => { errors = []; await page.goto(`http://127.0.0.1:${server.address().port}/${query}`); await page.waitForFunction(() => window.__smcpDebug?.mode === 'piano') }
 const activate = async locator => {
   const box = await locator.boundingBox(); assert.ok(box); await page.mouse.click(box.x + 1, box.y + box.height / 2)
 }
 const colour = locator => locator.evaluate(el => getComputedStyle(el).backgroundColor)
 const rowTop = selector => page.locator(selector).evaluate(el => el.getBoundingClientRect().top - el.closest('[data-conversation-scroll]').getBoundingClientRect().top)
-async function test(name, run) { await start(); await run(); assert.deepEqual(errors, []); passed++; console.log(`ok ${passed} - ${name}`) }
+async function test(name, run, query = '') { await start(query); await run(); assert.deepEqual(errors, []); passed++; console.log(`ok ${passed} - ${name}`) }
 try {
   await test('real nested locations retain user inputs and one final key per closed Turn', async () => {
     assert.equal(await key('input', 1).count(), 1); assert.equal(await key('input').count(), 1)
@@ -205,6 +205,33 @@ try {
     await page.waitForSelector('.smcp-unified', { state: 'detached' }); await page.waitForTimeout(100)
     assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
   })
+  for (const mode of ['compact', 'normal']) await test(`${mode} process group stays folded after the last purple key and subsequent navigation`, async () => {
+    if (mode === 'normal') await page.evaluate(() => window.semanticFixture.normal())
+    const group = page.locator('.smcp-bar[data-kind="output"][data-turn="2"][data-collapsed="true"]')
+    const waitFolded = () => page.waitForFunction(() => {
+      const bars = document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]')
+      return bars.length === 1 && bars[0].getAttribute('data-count') === '3'
+    })
+    await activate(key('input', 1)); await waitFolded()
+    if (mode === 'compact') {
+      await activate(group)
+      await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 3)
+      await activate(key('output').first())
+      await page.waitForFunction(() => !document.querySelector('[data-chat-anchor-key="p2"]').hasAttribute('hidden'))
+      await waitFolded()
+    }
+    await activate(group)
+    await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 3)
+    await activate(key('final')); await waitFolded()
+    assert.equal(await group.getAttribute('aria-current'), 'true', 'reading inside the retired group highlights its folded representative')
+    await page.screenshot({ path: `test-results/navigation-retired-${mode}.png`, fullPage: true })
+    for (const target of [key('input'), key('final', 1), key('input', 1)]) { await activate(target); await waitFolded() }
+    await activate(group)
+    await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 3)
+    await activate(key('output').first()); await waitFolded()
+    assert.equal(await page.locator('[data-chat-anchor-key="p2"]').getAttribute('hidden'), null, 'rail retirement keeps native process contents visible')
+    assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
+  }, '?processCount=3&processOnly=1')
   await writeFile('test-results/semantic-browser-summary.json', JSON.stringify({ passed, pinned, hashes, errors, darkContrast, note: 'Original ChatView, ChatNodeSeat, searchable-hidden, stores, DisclosureRow and AskQuestionCard; synthetic transport/messages and icon/classname helpers.' }, null, 2))
   console.log(`${passed} semantic Chromium checks passed`)
 } catch (error) {

@@ -29,11 +29,12 @@ export function projectRailSlots(
   activeIndex: number,
   expanded: ReadonlySet<string>,
   protectedTurns: ReadonlySet<number>,
+  collapsed: ReadonlySet<string> = new Set(),
 ): RailSlot[] {
   const idleOutput = (index: number): boolean => {
     const item = items[index]
     return item.kind === 'output' && item.role === 'assistant'
-      && (item.folded === true || activeIndex < 0 || Math.abs(index - activeIndex) > 2)
+      && (collapsed.has(item.key) || item.folded === true || activeIndex < 0 || Math.abs(index - activeIndex) > 2)
       && !expanded.has(item.key) && !protectedTurns.has(item.turn)
   }
   const slots: RailSlot[] = []

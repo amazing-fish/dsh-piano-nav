@@ -192,11 +192,15 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let visiblePositions: number[] = []
   let visibleSlots: RailSlot[] = []
   const expandedKeys = new Set<string>()
+  // Retired disclosures stay folded even if navigation leaves the reading
+  // line inside the old process (notably at the scroll-clamped final answer).
+  const collapsedKeys = new Set<string>()
   let projectionDirty = true
   let projectedActive: string | null = null
   let projectedProtection = ''
   const clearExpansion = (): void => {
     if (expandedKeys.size === 0) return
+    for (const key of expandedKeys) collapsedKeys.add(key)
     expandedKeys.clear(); projectionDirty = true
   }
   let tooltipKey: string | null = null
@@ -332,7 +336,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const protection = `${busyTurn}:${requestedTurn}:${failedTurn}`
     if (projectionDirty || projectedActive !== active || projectedProtection !== protection) {
       railSlots = projectRailSlots(items, itemIndexByKey.get(active ?? '') ?? -1, expandedKeys,
-        new Set([busyTurn, requestedTurn, failedTurn].filter((turn): turn is number => turn !== null)))
+        new Set([busyTurn, requestedTurn, failedTurn].filter((turn): turn is number => turn !== null)), collapsedKeys)
       projectionDirty = false; projectedActive = active; projectedProtection = protection
       perf.railProjections++
     }
@@ -353,6 +357,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       else range.count++
     })
     owner.setMappedAnchors(firstItemByAnchor.keys())
+    for (const key of collapsedKeys) if (!itemByKey.has(key)) collapsedKeys.delete(key)
     perf.mappedAnchorRebuilds++
   }
   const rebuildSemanticState = (): void => {
@@ -593,8 +598,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       writeData(button, 'unloaded', String(!collapsed && item.anchorKey === null))
       // A turn that needs the official load action but whose button is
       // currently virtualized out of the native window cannot be activated;
-      // native disabled suppresses the delegated click. Reconcile re-enables
-      // the key on a later frame once the window covers the button again.
+      // direct button activation is disabled; geometry clicks and keyboard
+      // still retire disclosure in activate() without attempting navigation.
       const navBlocked = !collapsed && item.anchorKey === null && !owner.hasButton(item.turn)
       if (navBlocked !== button.hasAttribute('disabled')) {
         if (navBlocked) button.setAttribute('disabled', '')
@@ -654,6 +659,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     fallback('binding')
     binding = next; nodes = []; selected = active = browseStart = null
     clearExpansion()
+    collapsedKeys.clear(); projectionDirty = true
     sessionLoadingOlder = next?.session.getSnapshot().loadingOlder ?? false
     requestedTurn = failedTurn = null; localFailure = false
     debug.sessionId = id === undefined ? undefined : String(id)
@@ -700,17 +706,16 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const activate = (item: PianoItem | undefined): void => {
     if (item === undefined || !nativeReady || strip.hidden) return
+    clearExpansion()
     // An unloaded turn whose official load button is virtualized out has no
     // runnable action this frame (no button to click, no row to scroll to).
-    // Keep the key inert — the delegated click is already suppressed by the
-    // native disabled attribute; guard the keyboard path here so Enter/Space
-    // does not surface a landing error. Reconcile re-enables activation once
-    // the virtualization window covers the button again.
-    if (item.anchorKey === null && !owner.hasButton(item.turn)) return
+    // Retire disclosure even when the strip's geometry click or keyboard
+    // reaches a disabled key, but never attempt an unavailable native action.
+    // Reconcile re-enables navigation once the official button returns.
+    if (item.anchorKey === null && !owner.hasButton(item.turn)) { schedule(DIRTY_VIEW); return }
     const ticket = ++activation
     failedTurn = null; localFailure = false
     requestedTurn = item.anchorKey === null ? item.turn : null
-    clearExpansion()
     selected = item.key; active = item.key; browseStart = null
     strip.focus({ preventScroll: true })
     void landing.navigate(item).then(ok => {
@@ -785,7 +790,11 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const slot = slotForKey(key)
     if (slot === undefined) return
     if (slot.end - slot.start > 1) {
-      for (let index = slot.start; index < slot.end; index++) expandedKeys.add(items[index].key)
+      clearExpansion()
+      for (let index = slot.start; index < slot.end; index++) {
+        const member = items[index].key
+        collapsedKeys.delete(member); expandedKeys.add(member)
+      }
       projectionDirty = true
       selected = slot.end - slot.start > capacity ? items[slot.start].key : key
       const nextSlots = projectSlots()

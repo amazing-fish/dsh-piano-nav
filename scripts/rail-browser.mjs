@@ -167,6 +167,39 @@ try {
     assert.deepEqual(errors, []); await page.close(); passed++
     console.log(`ok ${passed} - default-folded 12-output history, persistent expansion and exact hidden-member landing`)
   }
+  {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' })
+    const errors = []; page.on('pageerror', e => errors.push(e.message))
+    await page.setContent(html)
+    await page.evaluate(() => { window.railOptions = { hidden: true, processCount: 3, processGroups: 2 } })
+    await page.addScriptTag({ content: outputFiles[0].text })
+    await page.waitForFunction(() => window.__smcpDebug?.mode === 'piano')
+    await page.evaluate(() => document.querySelector('nav [aria-label="Load 3"]').remove())
+    const blocked = page.locator('.smcp-bar[data-key="turn:3"]')
+    await page.waitForFunction(() => document.querySelector('.smcp-bar[data-key="turn:3"]').disabled)
+    const outputs = turn => page.locator(`.smcp-bar[data-kind="output"][data-turn="${turn}"]`)
+    const click = async locator => {
+      const box = await locator.boundingBox(); assert.ok(box)
+      await page.mouse.click(box.x + 1, box.y + box.height / 2)
+    }
+    await click(outputs(1)); await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="1"]').length === 3)
+    await click(outputs(2)); await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 3)
+    assert.equal(await outputs(1).count(), 1); assert.equal(await outputs(1).getAttribute('data-count'), '3')
+    await page.evaluate(() => {
+      window.blockedClicks = []
+      document.querySelector('.smcp-unified').addEventListener('click', e => window.blockedClicks.push(e.isTrusted))
+    })
+    await click(blocked)
+    await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 1)
+    assert.deepEqual(await page.evaluate(() => window.blockedClicks), [true], 'real pointer reaches the geometry click route')
+    await click(outputs(2)); await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 3)
+    await page.keyboard.press('End'); await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter')
+    await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 1)
+    assert.equal(await outputs(2).getAttribute('data-count'), '3')
+    assert.deepEqual(await page.evaluate(() => window.railFixture.clicks), [])
+    assert.deepEqual(errors, []); await page.close(); passed++
+    console.log(`ok ${passed} - real pointer/keyboard group replacement and disabled-history retirement without navigation`)
+  }
   await writeFile('test-results/rail-browser.json', JSON.stringify({ passed, source: 'Real strip/styles/native adapter; synthetic Session data; actual Chromium painted geometry' }, null, 2))
 } finally { await browser.close() }
 console.log(`${passed} rail Chromium scenarios passed`)

@@ -38,6 +38,10 @@ for (let active = -1; active <= 10; active++) {
 }
 assert.equal(projectRailSlots(foldedRun, 7, new Set(foldedRun.map(item => item.key)), new Set()).length, 8, 'explicit rail expansion wins over transcript folding')
 assert.equal(projectRailSlots(foldedRun, 7, new Set(), new Set([1])).length, 8, 'busy/requested/failed Turn protection is retained')
+const retired = new Set(grey.map(item => item.key))
+assert.equal(projectRailSlots(grey, 6, new Set(), new Set(), retired).length, 1, 'explicit retirement overrides reading proximity')
+assert.equal(projectRailSlots(grey, 6, retired, new Set(), retired).length, 12, 'explicit re-expansion overrides retirement')
+assert.equal(projectRailSlots(grey, 6, new Set(), new Set([1]), retired).length, 12, 'native pending/failure protection still wins')
 assert.ok(foldedItems.every(item => item.folded === true), 'source folding survives the semantic-to-navigation projection')
 
 const observable = initial => {
@@ -309,3 +313,49 @@ await check('a folded group containing the native active turn keeps the current-
   assert.equal(bars().filter(b => b.getAttribute('aria-current') === 'true').length, 1)
 }, false, { processCount: 8, hidden: true })
 console.log(`${passed} total rail interaction tests passed including folded reading protection`)
+
+await check('final navigation retires visible prose even when the reading line stays in the old group', async ({ bars, collapsed, settle, read, clicks, press, selection }) => {
+  collapsed().click(); await settle()
+  await read('p1')
+  assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 3)
+  bars().find(b => b.dataset.kind === 'final').click(); await settle()
+  const folded = () => {
+    assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 1)
+    assert.equal(collapsed().dataset.count, '3')
+    assert.equal(collapsed().getAttribute('aria-current'), 'true')
+  }
+  folded(); assert.deepEqual(clicks, [3])
+  bars().find(b => b.dataset.kind === 'input').click(); await settle(); folded()
+  await read('p2'); folded()
+  collapsed().click(); await settle()
+  assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 3)
+  await press('Escape'); folded()
+  selection.set('s2'); await settle()
+  assert.equal(collapsed(), null, 'retired member keys must not leak to another session with the same node keys')
+}, false, { processCount: 3 })
+
+await check('opening another group retires the old one even when reading moves into it', async ({ bars, settle, read, clicks }) => {
+  const outputs = turn => bars().filter(b => b.dataset.kind === 'output' && b.dataset.turn === String(turn))
+  outputs(1)[0].click(); await settle(); assert.equal(outputs(1).length, 3)
+  outputs(2)[0].click(); await settle()
+  assert.equal(outputs(1).length, 1); assert.equal(outputs(1)[0].dataset.count, '3')
+  assert.equal(outputs(2).length, 3)
+  await read('p1'); assert.equal(outputs(1).length, 1); assert.equal(outputs(2).length, 3)
+  outputs(1)[0].click(); await settle()
+  assert.equal(outputs(1).length, 3); assert.equal(outputs(2).length, 1)
+  assert.deepEqual(clicks, [], 'group replacement never navigates')
+}, false, { processCount: 3, processGroups: 2 })
+
+await check('disabled history geometry click and keyboard retire expansion without attempting navigation', async ({ bars, collapsed, settle, native, rail, point, mockWidth, window, clicks, press }) => {
+  native.querySelector('[aria-label="Load 2"]').remove(); await settle()
+  const blocked = () => bars().find(b => b.dataset.key === 'turn:2')
+  assert.equal(blocked().disabled, true)
+  collapsed().click(); await settle()
+  mockWidth(); const p = point(blocked())
+  rail().dispatchEvent(new window.MouseEvent('click', { clientX: p.x, clientY: p.y, bubbles: true })); await settle()
+  assert.equal(collapsed().dataset.count, '3'); assert.deepEqual(clicks, [])
+  collapsed().click(); await settle()
+  await press('End'); await press('ArrowUp'); await press('ArrowUp'); await press('Enter')
+  assert.equal(collapsed().dataset.count, '3'); assert.deepEqual(clicks, [])
+}, false, { processCount: 3 })
+console.log(`${passed} total rail interaction tests passed including navigation retirement`)
