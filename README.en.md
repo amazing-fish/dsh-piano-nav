@@ -8,6 +8,21 @@
 
 For the **DeepSeek Harness Web GUI**, independently maintained by [amazing-fish](https://github.com/amazing-fish). This project has evolved into a full-history navigator with semantic questions and answers, process folding, and continuous pointer interaction. Its origins are documented in [NOTICE](NOTICE.md).
 
+## Preview
+
+![Actual step-aware keys: input, process, question, answer, final result, folding and dark theme](https://raw.githubusercontent.com/amazing-fish/dsh-sm-context-piano/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/semantic-steps.gif)
+
+The gallery cycles through **blue user input → gray process group → expanded process steps → amber AI question → green user answer → purple double-stroke final result → folding after navigation → dark-theme process keys**. These are actual plugin/native-component states with synthetic Session data, held briefly for readability. Ordinary process keys are white or near-white in the dark theme.
+
+<details>
+<summary>Continuous pointer following: before/after comparison</summary>
+
+![Identical pointer trajectory: discrete key changes before the fix and continuous following afterward](https://raw.githubusercontent.com/amazing-fish/dsh-sm-context-piano/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/pointer-follow-before-after.gif)
+
+Both sides replay the same slow movement, fast movement and immediate reversal. Left: before the fix; right: current behavior. This browser replay uses actual plugin code with synthetic Session data and keys enlarged 4×. The 5/120 and 120/120 labels count width changes during small pointer movements; **they are not FPS**.
+
+</details>
+
 ## Install
 
 Requires the DSH `web` profile and Node.js `^22.19.0 || >=24.0.0`.
@@ -54,6 +69,15 @@ Ordinary tool logs, edits, reads, and reasoning do not become separate keys. Str
 | `Escape` | Close preview, retire expansion, and cancel navigation intent |
 
 Defaults: **2px** thickness, **12px** center spacing, **20** visible keys. See [usage](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md) for settings and edge cases.
+
+<details>
+<summary>Current settings page</summary>
+
+![Current DSH Piano Navigator settings: language, thickness, spacing, visible keys and install command](https://raw.githubusercontent.com/amazing-fish/dsh-sm-context-piano/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/settings.png)
+
+The built settings component in Simplified Chinese with demo settings data. See [media sources](https://github.com/amazing-fish/dsh-sm-context-piano/blob/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/SOURCES.md) for provenance and versions.
+
+</details>
 
 ## Compatibility and data boundaries
 
