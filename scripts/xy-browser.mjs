@@ -16,7 +16,7 @@ const snapshot = page => page.evaluate(() => {
   window.pointerGeometryReads = 0
   const selected = document.querySelector('.smcp-bar-hover')
   return {
-    reads, selected: selected?.dataset.key ?? null,
+    reads, hitGeometry: window.pointerHitGeometry, selected: selected?.dataset.key ?? null,
     described: document.querySelector('.smcp-unified').getAttribute('aria-activedescendant'), selectedId: selected?.id ?? null,
     preview: document.querySelector('.smcp-tooltip').textContent,
     visible: !!document.querySelector('.smcp-tooltip-visible'),
@@ -57,9 +57,12 @@ try {
         if (fixture === 'collapsed') assert.ok(await page.locator('.smcp-bar[data-collapsed="true"]').count() > 0)
         const pitch = geometry.bars[1].y - geometry.bars[0].y
         const absolute = p => ({ x: geometry.x + p.x, y: geometry.bars[0].y + p.y * pitch })
-        const expected = p => {
-          const index = Math.min(geometry.bars.length - 1, Math.round(p.y))
-          return p.x <= geometry.bars[index].base + 3 ? geometry.bars[index].key : null
+        const expected = (p, hitGeometry) => {
+          // At an exact row midpoint, the existing rail chooses the earlier row.
+          const index = Math.max(0, Math.min(geometry.bars.length - 1, Math.ceil(p.y - .5)))
+          assert.equal(hitGeometry.key, geometry.bars[index].key, 'Y selects the nearest actual key')
+          // Capture the DOM paint at hit time: animation can advance after the previous sample.
+          return p.x <= hitGeometry.painted + 3 ? geometry.bars[index].key : null
         }
         const plan = xyTrajectory(seed, geometry.bars.length)
         trace.geometry = geometry; trace.steps = plan.steps
@@ -67,7 +70,12 @@ try {
           window.pointerGeometryReads = 0
           for (const bar of document.querySelectorAll('.smcp-bar')) {
             const rect = bar.getBoundingClientRect.bind(bar)
-            bar.getBoundingClientRect = () => { window.pointerGeometryReads++; return rect() }
+            bar.getBoundingClientRect = () => {
+              window.pointerGeometryReads++
+              const box = rect()
+              window.pointerHitGeometry = { key: bar.dataset.key, painted: box.width }
+              return box
+            }
           }
         })
         let previous = await snapshot(page), first = previous
@@ -75,7 +83,7 @@ try {
         for (let i = 0; i < plan.steps.length; i++) {
           const step = plan.steps[i], last = step.points.at(-1)
           // Snapshot geometry reads do not belong to the component's hit testing.
-          await page.evaluate(() => { window.pointerGeometryReads = 0 })
+          await page.evaluate(() => { window.pointerGeometryReads = 0; window.pointerHitGeometry = null })
           if (step.points.length === 1) {
             const p = absolute(last); await page.mouse.move(p.x, p.y)
           } else {
@@ -88,8 +96,8 @@ try {
           rawInputs += step.points.length
           await page.clock.runFor(step.dt)
           const current = await snapshot(page)
-          trace.samples.push({ step: i, selected: current.selected, widths: current.bars.map(b => +b.painted.toFixed(3)), reads: current.reads })
-          assert.equal(current.selected, expected(last), `seed=${seed} step=${i} ${step.phase}: latest X/Y owns selection`)
+          trace.samples.push({ step: i, selected: current.selected, hitGeometry: current.hitGeometry, widths: current.bars.map(b => +b.painted.toFixed(3)), reads: current.reads })
+          assert.equal(current.selected, expected(last, current.hitGeometry), `seed=${seed} step=${i} ${step.phase}: latest X/Y owns selection within the current paint`)
           assert.equal(current.visible, current.selected !== null, 'preview visibility agrees with the current hit')
           assert.equal(current.described, current.selectedId, 'accessible target agrees with the current hit')
           assert.deepEqual(current.clicks, [], 'hover trajectories never navigate or expand groups')

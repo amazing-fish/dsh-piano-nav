@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep hover and previews active throughout the currently painted key,
+  including its expanded portion; exit beyond its visible width plus 3px.
+  Retain finite motion, painted click geometry and inert blank margins.
 - Coalesce consecutive unstarted edits of the same color into the latest value;
   keep in-flight writes, field changes and reset/unset ordering intact. Emit a
   diagnostic warning containing the original host error when persistence fails.
