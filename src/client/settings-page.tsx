@@ -1,4 +1,4 @@
-import { useCallback, useState, useSyncExternalStore } from 'react'
+import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 import type { ChangeEvent, CSSProperties, ReactNode } from 'react'
 import type {
   InjectFace,
@@ -57,7 +57,7 @@ function LayoutPreview({ settings }: { settings: PianoSettings }): ReactNode {
   const selectedSlotKey = slots[center].item.key
   const range = visibleWindow(slots.length, center, settings.maxVisible)
   const visible = slots.slice(range.start, range.end)
-  const height = Math.min(railHeight(settings), 240)
+  const height = (visible.length - 1) * settings.keyGap + settings.keyHeight
   const positions = stackPositions(visible.length, height, settings.keyGap, settings.keyHeight)
   const t = (key: SmContextPianoKey): string => translate(settings.language, key)
   return <div className="smcp-preview smcp-unified" style={{ ...paletteStyle(settings), '--smcp-preview-gap': `${settings.keyGap}px`, '--smcp-preview-key-height': `${settings.keyHeight}px` } as CSSProperties}>
@@ -70,7 +70,7 @@ function LayoutPreview({ settings }: { settings: PianoSettings }): ReactNode {
         style={{ top: positions[i] - settings.keyHeight / 2, height: settings.keyHeight, width: slot.item.key === selectedSlotKey ? 48 : 28 }}
         aria-label={`${kindLabel(slot.item.kind ?? 'turn', settings.language)}${slot.end - slot.start > 1 ? ` · ${t('settings.folded')}` : ''}`}
         title={kindLabel(slot.item.kind ?? 'turn', settings.language)}
-        onClick={() => { setSelected(slot.item.key); setExpanded(slot.end - slot.start > 1) }} />)}
+        onClick={() => { setSelected(slot.item.key); setExpanded(slot.item.kind === 'output' && (expanded || slot.end - slot.start > 1)) }} />)}
     </div>
     <div className="smcp-preview-copy">
       <h2>{t('settings.preview')}</h2>
@@ -122,6 +122,27 @@ function RangeRow(props: RangeRowProps): ReactNode {
   )
 }
 
+/** Keep the chooser's draft stable until its latest host write completes. */
+function ColorInput({ value, label, disabled, onCommit }: {
+  value: string
+  label: string
+  disabled: boolean
+  onCommit: (color: string) => Promise<void>
+}): ReactNode {
+  const [draft, setDraft] = useState<string | null>(null)
+  const generation = useRef(0)
+  return <input type="color" aria-label={label} value={draft ?? value} disabled={disabled}
+    onChange={event => {
+      const color = event.target.value
+      const ticket = ++generation.current
+      setDraft(color)
+      void onCommit(color).finally(() => {
+        // Earlier acknowledgments must not overwrite a newer chooser input.
+        if (generation.current === ticket) setDraft(null)
+      })
+    }} />
+}
+
 export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
   const { scope } = props
   const subscribe = useCallback((listener: () => void) => scope.subscribe(listener), [scope])
@@ -134,9 +155,9 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
   const dark = useSyncExternalStore(subscribeTheme, hostIsDark, () => false)
   const disabled = !snapshot.writable
 
-  const write = <K extends keyof PianoSettings>(field: K, value: PianoSettings[K]): void => {
+  const write = <K extends keyof PianoSettings>(field: K, value: PianoSettings[K]): Promise<void> => {
     setError(null)
-    void scope.set(field, value).catch(() => { setError('settings.writeError') })
+    return scope.set(field, value).catch(() => { setError('settings.writeError') })
   }
   const reset = (): void => {
     setError(null)
@@ -196,13 +217,13 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
           {SEMANTIC_KINDS.map(kind => {
             const field = COLOR_FIELDS[kind]
             return <div className="smcp-color-row" key={kind}>
-              <label className="smcp-color-label">
+              <div className="smcp-color-label">
                 <span className="smcp-legend-key smcp-bar" data-kind={kind} data-unloaded={kind === 'turn'} aria-hidden="true" />
                 <span>{kindLabel(kind, settings.language)}<small>{settings[field] || t('settings.themeColor')}</small></span>
-                <input type="color" aria-label={kindLabel(kind, settings.language)}
+                <ColorInput label={kindLabel(kind, settings.language)}
                   value={settings[field] || THEME_COLORS[dark ? 'dark' : 'light'][kind][0]} disabled={disabled}
-                  onChange={event => write(field, event.target.value)} />
-              </label>
+                  onCommit={color => write(field, color)} />
+              </div>
               <button type="button" className="smcp-color-auto" disabled={disabled || !settings[field]}
                 aria-label={`${kindLabel(kind, settings.language)} · ${t('settings.themeColor')}`}
                 onClick={() => write(field, '')}>{t('settings.auto')}</button>
