@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Size the settings preview to its visible demo keys instead of the full window capacity.
+- Keep a disclosed process group open when navigating its members; retain retirement on other keys, group replacement and Escape.
+- Preserve the latest color-picker draft during asynchronous saves; roll back failed writes and restrict picker activation to the 32px swatch.
+
 ## 1.3.1 — release preparation
 
 - Persist six semantic color overrides, shared by actual keys, the settings

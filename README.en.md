@@ -63,6 +63,7 @@ Ordinary tool logs, edits, reads, and reasoning do not become separate keys. Str
 | Move along the rail | Continuous wave and the nearest key's preview |
 | Click / `Enter` / `Space` | Navigate or delegate loading to the native owner |
 | First activation of a folded group | Expand it and retire the previous group |
+| Activate members in the same process group | Navigate while retaining expansion; other key kinds retire it |
 | Wheel over the rail | Browse without scrolling the transcript; retire expansion |
 | `↑` / `↓`, `PageUp` / `PageDown` | Move selection and adjust the window |
 | `Home` / `End` | Select the first/last entry in the conversation list |

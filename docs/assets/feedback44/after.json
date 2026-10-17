@@ -1,0 +1,29 @@
+{
+  "source": "Actual React settings and rail; synthetic sessions, native-style input events and delayed remote transport; no Windows chooser automation",
+  "results": [
+    {
+      "name": "compact preview uses displayed demo keys rather than maxVisible capacity",
+      "passed": true
+    },
+    {
+      "name": "same-group gray member navigation keeps expansion (no-preference)",
+      "passed": true
+    },
+    {
+      "name": "same-group gray member navigation keeps expansion (reduce)",
+      "passed": true
+    },
+    {
+      "name": "preview gray members retain expansion until another semantic key",
+      "passed": true
+    },
+    {
+      "name": "native color input retains draft across delayed acknowledgments and persists the latest selection",
+      "passed": true
+    },
+    {
+      "name": "color picker opens only from the 32px swatch, not semantic text or row whitespace",
+      "passed": true
+    }
+  ]
+}
