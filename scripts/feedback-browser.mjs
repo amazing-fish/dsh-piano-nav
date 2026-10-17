@@ -43,11 +43,12 @@ const inputColor = (input, color) => input.evaluate((element, color) => {
   return element.value
 }, color)
 try {
-  await check('compact preview uses displayed demo keys rather than maxVisible capacity', async page => {
+  await check('compact preview reserves expanded demo keys rather than maxVisible capacity', async page => {
     await page.locator('#settings-panel').screenshot({ path: `test-results/feedback-settings-${tag}.png` })
     const preview = page.locator('.smcp-preview-rail')
     const height = (await preview.boundingBox()).height
-    assert.equal(height, 62, 'six visible demo keys at 12px pitch and 2px thickness')
+    assert.equal(height, 86, 'reserve eight demo keys at 12px pitch and 2px thickness')
+    assert.equal(await preview.locator('button').count(), 6, 'collapsed demo still shows six keys')
     await preview.locator('[data-kind="output"]').click({ position: { x: 1, y: 1 } })
     assert.equal((await preview.boundingBox()).height, 86, 'eight expanded demo keys')
     for (const width of [390, 320]) {
@@ -97,7 +98,7 @@ try {
     }
     await page.evaluate(() => { window.failWrite = true })
     assert.equal(await inputColor(input, '#123456'), '#123456')
-    await page.getByRole('alert').waitFor()
+    await page.locator('[role="alert"]:not(:empty)').waitFor()
     await page.waitForFunction(kind => document.querySelector(`.smcp-color-label:has([data-kind="${kind}"]) input`).value === '#008877', kind)
   }, { writeDelay: 250 })
   for (const kind of ['output', 'turn']) await check(`${kind} color picker opens only from the 32px swatch, not semantic text or row whitespace`, async page => {

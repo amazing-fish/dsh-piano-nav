@@ -34,6 +34,7 @@ const LANGUAGE_OPTIONS: readonly { value: PianoLanguage; label: string }[] = [
   { value: 'zh-TW', label: '繁體中文' },
 ]
 type SettingsErrorKey = 'settings.writeError' | 'settings.copyError'
+const FEEDBACK_KEYS = ['settings.writeError', 'settings.copyError', 'settings.loading', 'settings.unavailable'] as const
 const hostIsDark = (): boolean => typeof document !== 'undefined' && document.body?.hasAttribute('data-ds-dark-theme') === true
 const subscribeTheme = (listener: () => void): (() => void) => {
   if (typeof MutationObserver === 'undefined' || !document.body) return () => {}
@@ -57,7 +58,9 @@ function LayoutPreview({ settings }: { settings: PianoSettings }): ReactNode {
   const selectedSlotKey = slots[center].item.key
   const range = visibleWindow(slots.length, center, settings.maxVisible)
   const visible = slots.slice(range.start, range.end)
-  const height = (visible.length - 1) * settings.keyGap + settings.keyHeight
+  // Reserve only the demo's largest visible projection, not the full capacity.
+  // Folding and window navigation can then reuse the same centered track.
+  const height = Math.max(40, (Math.min(DEMO_ITEMS.length, settings.maxVisible) - 1) * settings.keyGap + settings.keyHeight)
   const positions = stackPositions(visible.length, height, settings.keyGap, settings.keyHeight)
   const t = (key: SmContextPianoKey): string => translate(settings.language, key)
   return <div className="smcp-preview smcp-unified" style={{ ...paletteStyle(settings), '--smcp-preview-gap': `${settings.keyGap}px`, '--smcp-preview-key-height': `${settings.keyHeight}px` } as CSSProperties}>
@@ -76,7 +79,7 @@ function LayoutPreview({ settings }: { settings: PianoSettings }): ReactNode {
       <h2>{t('settings.preview')}</h2>
       <p>{t('settings.previewDesc')}</p>
       <strong aria-live="polite">{kindLabel(DEMO_ITEMS.find(item => item.key === selected)?.kind ?? 'turn', settings.language)}</strong>
-      {slots.length > settings.maxVisible && <div className="smcp-preview-pages">
+      {DEMO_ITEMS.length > settings.maxVisible && <div className="smcp-preview-pages">
         <button type="button" onClick={() => setSelected(slots[0].item.key)}>{t('settings.first')}</button>
         <button type="button" onClick={() => setSelected(slots.at(-1)!.item.key)}>{t('settings.last')}</button>
       </div>}
@@ -152,33 +155,27 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
   const t = (key: SmContextPianoKey): string => translate(settings.language, key)
   const [error, setError] = useState<SettingsErrorKey | null>(null)
   const [copied, setCopied] = useState(false)
+  const copyGeneration = useRef(0)
   const dark = useSyncExternalStore(subscribeTheme, hostIsDark, () => false)
   const disabled = !snapshot.writable
 
-  const write = <K extends keyof PianoSettings>(field: K, value: PianoSettings[K]): Promise<void> => {
-    setError(null)
-    return scope.set(field, value).catch(() => { setError('settings.writeError') })
-  }
-  const reset = (): void => {
-    setError(null)
-    void (async () => {
-      try {
-        await scope.reset()
-      } catch {
-        setError('settings.writeError')
-      }
-    })()
-  }
+  const save = (operation: Promise<void>): Promise<void> => operation.then(() => {
+    setError(current => current === 'settings.writeError' ? null : current)
+  }).catch(() => { setError('settings.writeError') })
+  const write = <K extends keyof PianoSettings>(field: K, value: PianoSettings[K]): Promise<void> => save(scope.set(field, value))
+  const reset = (): void => { void save(scope.reset()) }
   const copyCommand = (): void => {
-    setError(null)
+    const ticket = ++copyGeneration.current
     setCopied(false)
     void (async () => {
       try {
         if (window.navigator.clipboard === undefined) throw new Error('clipboard unavailable')
         await window.navigator.clipboard.writeText(INSTALL_COMMAND)
+        if (ticket !== copyGeneration.current) return
         setCopied(true)
+        setError(current => current === 'settings.copyError' ? null : current)
       } catch {
-        setError('settings.copyError')
+        if (ticket === copyGeneration.current) setError('settings.copyError')
       }
     })()
   }
@@ -204,9 +201,12 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
         </label>
       </section>
 
-      {error !== null && <p className="smcp-settings-error smcp-settings-page-error" role="alert">{t(error)}</p>}
-      {snapshot.status === 'loading' && <p className="smcp-settings-note" role="status">{t('settings.loading')}</p>}
-      {snapshot.status === 'unavailable' && <p className="smcp-settings-note" role="status">{t('settings.unavailable')}</p>}
+      <div className="smcp-settings-feedback">
+        {/* Measure every localized message so wrapped text also has room. */}
+        {FEEDBACK_KEYS.map(key => <p key={key} className="smcp-settings-feedback-reserve" aria-hidden="true">{t(key)}</p>)}
+        <p className="smcp-settings-error smcp-settings-page-error" role="alert">{error === null ? '' : t(error)}</p>
+        <p className="smcp-settings-note" role="status">{error !== null ? '' : snapshot.status === 'loading' ? t('settings.loading') : snapshot.status === 'unavailable' ? t('settings.unavailable') : ''}</p>
+      </div>
 
       <section className="smcp-settings-card"><LayoutPreview settings={settings} /></section>
 
@@ -231,7 +231,7 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
           })}
         </div>
         <button type="button" className="smcp-settings-reset" disabled={disabled}
-          onClick={() => { setError(null); void scope.reset(Object.values(COLOR_FIELDS)).catch(() => setError('settings.writeError')) }}>
+          onClick={() => { void save(scope.reset(Object.values(COLOR_FIELDS))) }}>
           {t('settings.resetColors')}
         </button>
       </section>
