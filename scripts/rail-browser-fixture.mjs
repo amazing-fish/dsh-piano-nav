@@ -54,7 +54,7 @@ export async function buildRailFixture({ settingsPage = false, sourceRef } = {})
     ${settingsPage ? `
     const listeners = new Set()
     let value = { ...DEFAULT_SETTINGS, ...window.fixtureSettings }, revision = 1
-    const writes = []
+    const writes = [], writeTimings = []
     const remote = {
       settings: {
         describe: async () => {
@@ -62,11 +62,12 @@ export async function buildRailFixture({ settingsPage = false, sourceRef } = {})
           return { ok: true, value: { writable: !window.readOnly, namespaces: [{ ns: 'sm-context-piano', revision, value }] } }
         },
         mutate: async (ns, ops, expected) => {
+          const timing = { ops: structuredClone(ops), startedAt: performance.now() }; writeTimings.push(timing)
           if (window.writeDelay) await new Promise(resolve => setTimeout(resolve, window.writeDelay))
-          if (window.failWrite || window.readOnly) throw new Error('write failed')
+          if (window.failWrite || window.readOnly) throw Object.assign(new Error(window.writeErrorMessage ?? 'write failed'), { code: window.writeErrorCode ?? 'fixture/write-failed' })
           if (expected !== revision) throw new Error('stale revision')
           for (const op of ops) { if (op.op === 'set') value = { ...value, [op.path[0]]: op.value }; else { value = { ...value }; delete value[op.path[0]] } }
-          writes.push(ops); revision++
+          writes.push(ops); revision++; timing.finishedAt = performance.now()
           for (const listener of listeners) listener(ns)
           return { ok: true, value: { ns, revision, value } }
         },
@@ -77,7 +78,7 @@ export async function buildRailFixture({ settingsPage = false, sourceRef } = {})
     settings = controller.source
     const panel = document.createElement('aside'); panel.id = 'settings-panel'; document.body.append(panel)
     createRoot(panel).render(React.createElement(PianoSettingsPage, { scope: controller.scope }))
-    window.settingsFixture = { controller, writes, persisted: () => value, refresh: () => { for (const fn of listeners) fn('sm-context-piano') } }
+    window.settingsFixture = { controller, writes, writeTimings, persisted: () => value, refresh: () => { for (const fn of listeners) fn('sm-context-piano') } }
     ` : ''}
     const stylesStop = installStyles()
     const stop = attachKeyStrip(ctx, () => 'Piano', selection, settings)

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Coalesce consecutive unstarted edits of the same color into the latest value;
+  keep in-flight writes, field changes and reset/unset ordering intact. Emit a
+  diagnostic warning containing the original host error when persistence fails.
 - Reserve localized settings feedback and the preview's expanded demo space so
   failed saves, retries and process folding do not move the page. Retain errors
   until the corresponding operation succeeds; respect reduced motion. Ignore

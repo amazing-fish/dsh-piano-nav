@@ -63,6 +63,7 @@ jobs:
       - run: node scripts/xy-browser.mjs
       - run: node scripts/settings-browser.mjs
       - run: node scripts/settings-layout-browser.mjs
+      - run: node scripts/color-save-browser.mjs
       - run: node scripts/feedback-browser.mjs
       - run: node scripts/browser.mjs
       - run: node scripts/semantic-browser.mjs
