@@ -26,6 +26,8 @@ npm install --prefix .browser-tools --no-save --ignore-scripts playwright@1.55.1
 node .browser-tools/node_modules/playwright/cli.js install chromium
 node scripts/rail-browser.mjs
 node scripts/pointer-browser.mjs
+node scripts/settings-browser.mjs
+node scripts/settings-layout-browser.mjs
 node scripts/browser.mjs
 $env:NODE_PATH = Join-Path $PWD '.browser-tools/node_modules'
 node scripts/semantic-browser.mjs
