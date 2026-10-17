@@ -1,0 +1,44 @@
+{
+  "name": "dsh-piano-nav",
+  "version": "1.3.1",
+  "latest": "1.3.1",
+  "publishedAt": "2026-10-17T08:36:26.748Z",
+  "sourceCommit": "a8894d17371f7e0843d53cbb5539b4c07bc0de54",
+  "reviewedHead": "c20c11b48eaf364a7da5f953e0e8395d7047fc07",
+  "sourceTree": "aed109f8e61f1f36ec754163792310a6a58a8265",
+  "repository": "git+https://github.com/amazing-fish/dsh-piano-nav.git",
+  "tarball": "https://registry.npmjs.org/dsh-piano-nav/-/dsh-piano-nav-1.3.1.tgz",
+  "size": 104523,
+  "files": 12,
+  "integrity": "sha512-z8yWdEAyHk10rSNy6CNlFv0P1EGpnrWKXUhGETnxI7elTKFYIhIhN1YH5QhP66GRB1N9Y9I8YSPRi0O6zguibA==",
+  "shasum": "833ac3fda13386d322580d9ed0b7d24dc4e0b709",
+  "sha256": "83a9f1ad7408780ae432639c7b823f817401f66ade348d683273aa529214babf",
+  "byteIdentical": true,
+  "checks": [
+    "registry metadata",
+    "latest tag",
+    "integrity and shasum",
+    "byte-identical download",
+    "file allowlist",
+    "offline downloaded tarball install",
+    "host import",
+    "client loader",
+    "settings entry compatibility",
+    "settings render",
+    "six color schema fields and controls",
+    "custom color shared CSS",
+    "legend and preview components"
+  ],
+  "verifiedAt": "2026-10-17T08:37:51.054Z",
+  "environment": {
+    "node": "v24.19.0",
+    "peers": "provided by the validated development environment",
+    "host": "synthetic settings transport; not a real-user DSH session"
+  },
+  "listing": {
+    "pr": "https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/7645",
+    "mergedAt": "2026-10-17T08:24:52Z",
+    "mergeCommit": "db0a7f4f3b1ab376c8d67739fa537fbf68599376",
+    "status": "merged; public site deployment not verified"
+  }
+}
