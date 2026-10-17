@@ -1,0 +1,35 @@
+{
+  "source": "Actual React settings and rail; synthetic sessions, native-style input events and delayed remote transport; no Windows chooser automation",
+  "results": [
+    {
+      "name": "compact preview uses displayed demo keys rather than maxVisible capacity",
+      "passed": false,
+      "error": "six visible demo keys at 12px pitch and 2px thickness\n\n230 !== 62\n"
+    },
+    {
+      "name": "same-group gray member navigation keeps expansion (no-preference)",
+      "passed": false,
+      "error": "Expected values to be strictly equal:\n\n1 !== 3\n"
+    },
+    {
+      "name": "same-group gray member navigation keeps expansion (reduce)",
+      "passed": false,
+      "error": "Expected values to be strictly equal:\n\n1 !== 3\n"
+    },
+    {
+      "name": "preview gray members retain expansion until another semantic key",
+      "passed": false,
+      "error": "Expected values to be strictly equal:\n\n1 !== 3\n"
+    },
+    {
+      "name": "native color input retains draft across delayed acknowledgments and persists the latest selection",
+      "passed": false,
+      "error": "controlled input must not restore the old color while awaiting the host\n+ actual - expected\n\n+ '#8a8a8a'\n- '#dd2244'\n"
+    },
+    {
+      "name": "color picker opens only from the 32px swatch, not semantic text or row whitespace",
+      "passed": false,
+      "error": "Expected values to be strictly equal:\n\n1 !== 0\n"
+    }
+  ]
+}

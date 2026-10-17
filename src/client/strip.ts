@@ -739,7 +739,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const activate = (item: PianoItem | undefined): void => {
     if (item === undefined || !nativeReady || strip.hidden) return
-    clearExpansion()
+    // A disclosed group is a navigation list: moving between its members
+    // must preserve it. Other semantic/history keys still retire the group.
+    if (!expandedKeys.has(item.key)) clearExpansion()
     // An unloaded turn whose official load button is virtualized out has no
     // runnable action this frame (no button to click, no row to scroll to).
     // Retire disclosure even when the strip's geometry click or keyboard

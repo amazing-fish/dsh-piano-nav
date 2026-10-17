@@ -4,7 +4,7 @@ import type { PianoLanguage } from '../core/config.ts'
 
 const zh = {
   'settings.preview': "实时布局预览",
-  'settings.previewDesc': "演示数据。点击过程组展开，点击成员或其他键收回；颜色和尺寸与导航共用设置。",
+  'settings.previewDesc': "演示数据。点击灰键展开并连续选择成员，点击其他类型键收回。",
   'settings.folded': "过程组 · 点击展开",
   'settings.first': "查看开头",
   'settings.last': "查看末尾",
@@ -48,7 +48,7 @@ const zh = {
 
 const en: Record<keyof typeof zh, string> = {
   'settings.preview': "Live layout preview",
-  'settings.previewDesc': "Demo data. Click a process group to expand; a member or another key folds it. Shares colors and dimensions with navigation.",
+  'settings.previewDesc': "Demo data. Expand gray keys and select their members; another key kind folds the group.",
   'settings.folded': "Process group · Click to expand",
   'settings.first': "Show first",
   'settings.last': "Show last",
@@ -92,7 +92,7 @@ const en: Record<keyof typeof zh, string> = {
 
 const zhTW: Record<keyof typeof zh, string> = {
   'settings.preview': "即時版面預覽",
-  'settings.previewDesc': "示範資料。點擊過程群組展開，點擊成員或其他鍵收回；顏色和尺寸與導覽共用設定。",
+  'settings.previewDesc': "示範資料。點擊灰鍵展開並連續選擇成員，點擊其他類型鍵收回。",
   'settings.folded': "過程群組 · 點擊展開",
   'settings.first': "查看開頭",
   'settings.last': "查看末尾",

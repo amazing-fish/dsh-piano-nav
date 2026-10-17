@@ -60,6 +60,7 @@ jobs:
       - run: node scripts/rail-browser.mjs
       - run: node scripts/pointer-browser.mjs
       - run: node scripts/settings-browser.mjs
+      - run: node scripts/feedback-browser.mjs
       - run: node scripts/browser.mjs
       - run: node scripts/semantic-browser.mjs
         env:
