@@ -4,7 +4,7 @@ import type {
   InjectFace,
   PropsRuntime,
 } from '@deepseek-ai/dsh-client-ui-slots'
-import iconUrl from '../../images/sm-context-piano-settings-icon.png'
+import iconUrl from '../../assets/icon.png'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_LIMITS,
@@ -18,17 +18,11 @@ import type {
   PianoSettingsScope,
   PianoSettingsSource,
 } from '../core/config.ts'
+import { PROJECT } from '../core/project.ts'
 import { translate } from './locales.ts'
 import type { SmContextPianoKey } from './locales.ts'
 
-const VERSION = 'v1.3.0-rc.1'
-const RELEASE_DATE = '2026-09-27'
-const AUTHOR = 'Jack·Huang'
-const EMAIL = 'jack698698@gmail.com'
-const GITHUB_URL = 'https://github.com/hjj345/dsh-sm-context-piano'
-const NPM_PACKAGE = '@hjj345345/dsh-sm-context-piano'
-const NPM_URL = 'https://www.npmjs.com/package/@hjj345345/dsh-sm-context-piano'
-const INSTALL_COMMAND = `dsh plugin --profile web add ${NPM_PACKAGE}`
+const INSTALL_COMMAND = `dsh plugin --profile web add ${PROJECT.packageName}`
 const LANGUAGE_OPTIONS: readonly { value: PianoLanguage; label: string }[] = [
   { value: 'zh', label: '简体中文' },
   { value: 'en', label: 'English' },
@@ -120,7 +114,7 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
       <section className="smcp-settings-hero">
         <img src={iconUrl} alt="" className="smcp-settings-icon" />
         <span className="smcp-settings-hero-copy">
-          <span className="smcp-settings-title">sm-context-piano</span>
+          <span className="smcp-settings-title">{PROJECT.title}</span>
           <span className="smcp-settings-subtitle">{t('settings.subtitle')}</span>
         </span>
         <label className="smcp-settings-switch">
@@ -202,12 +196,12 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
       <section className="smcp-settings-card smcp-settings-about">
         <h2>{t('settings.about')}</h2>
         <dl>
-          <div><dt>{t('settings.version')}</dt><dd>{VERSION}</dd></div>
-          <div><dt>{t('settings.releaseDate')}</dt><dd>{RELEASE_DATE}</dd></div>
-          <div><dt>{t('settings.author')}</dt><dd>{AUTHOR}</dd></div>
-          <div><dt>{t('settings.email')}</dt><dd><a href={`mailto:${EMAIL}`}>{EMAIL}</a></dd></div>
-          <div><dt>GitHub</dt><dd><a href={GITHUB_URL} target="_blank" rel="noreferrer">{GITHUB_URL}</a></dd></div>
-          <div><dt>npm</dt><dd><a href={NPM_URL} target="_blank" rel="noreferrer">{NPM_PACKAGE}</a></dd></div>
+          <div><dt>{t('settings.version')}</dt><dd>{PROJECT.version}</dd></div>
+          <div><dt>{t('settings.releaseDate')}</dt><dd>{PROJECT.releaseDate}</dd></div>
+          <div><dt>{t('settings.author')}</dt><dd>{PROJECT.maintainer}</dd></div>
+          <div><dt>{t('settings.feedback')}</dt><dd><a href={PROJECT.issuesUrl} target="_blank" rel="noreferrer">GitHub Issues</a></dd></div>
+          <div><dt>GitHub</dt><dd><a href={PROJECT.repositoryUrl} target="_blank" rel="noreferrer">{PROJECT.repositoryUrl}</a></dd></div>
+          <div><dt>npm</dt><dd><a href={PROJECT.packageUrl} target="_blank" rel="noreferrer">{PROJECT.packageName}</a></dd></div>
         </dl>
       </section>
 

@@ -11,6 +11,7 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "resolveJsonModule": true
   }
 }

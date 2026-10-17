@@ -31,12 +31,12 @@ import { attachKeyStrip } from './strip.ts'
 export const inject = ['sessions', 'uiConversation', 'locale', 'slots', 'remote', 'remote.settings']
 
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, dictionaries), 'dsh-sm-context-piano: dictionaries')
-  ctx.effect(() => installStyles(), 'dsh-sm-context-piano: styles')
+  ctx.effect(() => ctx.locale.register(NS, dictionaries), 'dsh-piano-nav: dictionaries')
+  ctx.effect(() => installStyles(), 'dsh-piano-nav: styles')
   const t = ctx.locale.bind(NS)
   const selected = createSelectedSessionSource()
   const settings = createPianoRemoteSettings(ctx.remote as unknown as PianoSettingsRemote)
-  ctx.effect(() => () => settings.dispose(), 'dsh-sm-context-piano: settings remote')
+  ctx.effect(() => () => settings.dispose(), 'dsh-piano-nav: settings remote')
   ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
     name: 'conversation.session.header.actions',
     id: 'sm-context-piano-session-probe',
@@ -49,5 +49,5 @@ export function apply(ctx: ClientContext): void {
     label: () => t('settings.nav'),
     inject: () => ({ scope: settings.scope }),
   }, PianoSettingsPage))
-  ctx.effect(() => attachKeyStrip(ctx, t, selected.source, settings.source), 'dsh-sm-context-piano: navigator strip')
+  ctx.effect(() => attachKeyStrip(ctx, t, selected.source, settings.source), 'dsh-piano-nav: navigator strip')
 }

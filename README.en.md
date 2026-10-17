@@ -1,266 +1,86 @@
-# sm-context-piano | 琴键导航
+# DSH Piano Navigator
 
-English documentation · [简体中文（默认）](README.md)
+**A semantic rail for previewing and navigating long agent conversations.**
 
-[![version](https://img.shields.io/badge/version-v1.2.0-blue?style=flat-square)](https://www.npmjs.com/package/%40hjj345345%2Fdsh-sm-context-piano) [![node](https://img.shields.io/badge/node-22.19%20or%2024%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/) [![license](https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square)](LICENSE)
+[中文](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/README.md) · [Usage](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md) · [Documentation](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/README.md) · [Issues](https://github.com/amazing-fish/dsh-sm-context-piano/issues)
 
-GitHub: [https://github.com/hjj345/dsh-sm-context-piano](https://github.com/hjj345/dsh-sm-context-piano)
+[![CI](https://github.com/amazing-fish/dsh-sm-context-piano/actions/workflows/verify.yml/badge.svg)](https://github.com/amazing-fish/dsh-sm-context-piano/actions/workflows/verify.yml) [![npm](https://img.shields.io/npm/v/dsh-piano-nav)](https://www.npmjs.com/package/dsh-piano-nav) [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-npm: [@hjj345345/dsh-sm-context-piano](https://www.npmjs.com/package/%40hjj345345%2Fdsh-sm-context-piano)
+For the **DeepSeek Harness Web GUI**, independently maintained by [amazing-fish](https://github.com/amazing-fish). This project has evolved into a full-history navigator with semantic questions and answers, process folding, and continuous pointer interaction. Its origins are documented in [NOTICE](NOTICE.md).
 
-<p align="center">
-  <img src="images/sm-context-piano-settings-icon.png" alt="sm-context-piano plugin icon" width="180">
-</p>
+## Install
 
-A Codex-style conversation navigator for the DeepSeek Harness Web GUI.
-
-It adds a compact rail of horizontal keys beside the transcript and condenses a long conversation into semantic nodes that can be previewed and located. Users can scan the conversation structure, hover for summaries, and click or use the keyboard to jump to a target paragraph instead of repeatedly dragging the scrollbar to recover context.
-
-This is navigation-only UI. It never mutates session content, trims model context, injects system prompts, or exposes an additional HTTP endpoint.
-
-## Why a piano-key navigator
-
-Long-running agent sessions usually contain many user requests, model replies, tool calls, edits, and internal states. A normal scrollbar represents physical page position but says nothing about the meaning of each section.
-
-The navigator reorganizes the transcript into recognizable nodes:
-
-- Every user message becomes its own node;
-- Continuous model output merges into one node;
-- Tool calls, edits, reads, reasoning, and internal states never create keys;
-- Model output separated by non-output content starts a new segment;
-- The current reading node remains visible inside a fixed window.
-
-The number of keys therefore does not simply equal the number of rendered rows. It more closely represents the meaningful conversation paragraphs a user can perceive.
-
-## Features
-
-- **Compact Codex-style keys** — defaults to 2px thickness, 12px center pitch, and 20 visible keys, kept in a concentrated stack rather than compressed indefinitely for long history.
-- **Semantic nodes only** — user messages and model-visible text are included; tool, edit, read, reasoning, command, partial, and other internal rows are excluded.
-- **Continuous-output merging** — adjacent model text remains one key until non-output content breaks continuity; output from separate stages stays independent.
-- **Fixed-window browsing** — when nodes exceed the limit, a fixed number is shown around the current reading position; selecting a top or bottom boundary reveals earlier or later history.
-- **Continuous hover wave** — the peak follows the pointer's vertical coordinate, including movement within one key. Pointer samples coalesce into animation frames that update only visible keys and the necessary preview. Preview and activation still select the nearest pitch within its painted width; blank margins and hidden member pitches are inert.
-- **Click-only process-output disclosure** — distant consecutive AI process outputs within one turn share one standard key, including folded process rows after refresh or history loading. History-turn entries remain separate. Hover shows the full segment count; the first click expands and frames the members, and a member click reveals the native process row before landing. Scrolling the transcript, pointer leave, blur and streaming updates preserve expansion. Clicking a member or another key, Escape, or rail-wheel browsing retires it; opening another group retires the previous one first. Retired members stay grouped even when the reading line remains inside the process or subsequent keys are selected. Click the folded key to expand again. A rail geometry click or keyboard activation on an unavailable history key also retires disclosure without navigating. Key height stays constant; arrow keys reach every member of groups exceeding the window capacity.
-- **Native folding consistency** — reading past a folded process summary keeps each consecutive process run together. Revealing the native process restores independent nearby-reading keys. Folded question/answer exchanges retain their keys and states; navigation reveals the native process and question card before landing.
-- **Safe text previews** — the hover card shows a title and excerpt, follows light/dark themes, stays inside the viewport, and always writes content as plain text.
-- **Fast paragraph jumps** — click a key or press Enter/Space to scroll to the beginning of its message row.
-- **Reading-position tracking** — scrolling immediately darkens and lengthens the current key and recenters the fixed window.
-- **Streaming incremental updates** — existing key DOM is reused while model output or loaded history changes, avoiding flicker and preserving interaction state.
-- **Trilingual settings page** — Simplified Chinese, English, and Traditional Chinese are supported, with Simplified Chinese as the default; the choice applies immediately and is persisted by DSH.
-- **Configurable layout** — key thickness, center pitch, and maximum visible count can be changed, and the total rail height is recalculated automatically.
-- **Responsive settings UI** — General, Display, About, and Install Command cards adapt to narrow screens; long commands wrap without colliding with the copy button.
-- **Keyboard and assistive-technology support** — keyboard selection, activation, and dismissal are supported; the rail exposes a navigation role and accessible name.
-- **Theme and motion preferences** — follows DSH light/dark styling and respects `prefers-reduced-motion`.
-- **Complete teardown** — unloading removes DOM, styles, listeners, observers, timers, and animation frames without leaving page side effects.
-
-## Real-world application
-
-The plugin adds a key navigator beside the conversation, with hover previews and reading-position synchronization for long conversations.
-
-<p align="center">
-  <img src="images/plugin-Application%20Effect-1.png" alt="Key navigator in a conversation page" width="900">
-</p>
-
-<p align="center">
-  <img src="images/plugin-Application%20Effect-2.png" alt="Hover preview from the key navigator" width="900">
-</p>
-
-<p align="center">
-  <img src="images/plugin-Application%20Effect-3.png" alt="Key navigator locating long document content" width="900">
-</p>
-
-## Quick start
-
-### Install from npm
+Requires the DSH `web` profile and Node.js `^22.19.0 || >=24.0.0`.
 
 ```powershell
-dsh plugin --profile web add @hjj345345/dsh-sm-context-piano
+dsh plugin --profile web add dsh-piano-nav
 ```
 
-Refresh or reopen the DSH Web GUI after installation, then select **sm-context-piano** from the Settings navigation.
+Refresh the Web GUI and open **Piano Navigator** in Settings. The npm package is `dsh-piano-nav`; the existing `dsh-piano` package is a different, musical plugin.
 
-### Local development link
+For migration, remove the old scoped package or local link's loading entry before adding the new package. Preserve persisted settings: the entry ID remains compatible. See [migration](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md#从旧包迁移).
 
-```powershell
-dsh plugin --profile web add link:C:/path/to/dsh-sm-context-piano
-```
+## What the rail represents
+
+| Target | Behavior |
+| --- | --- |
+| User input | A separate entry for each input segment |
+| AI process output | Semantic text runs; consecutive same-turn output can fold |
+| Final result | Distinguished from intermediate process output |
+| AI question / user answer | Structured `ask_user_question` exchanges and status |
+| Earlier history | Outline entries delegate loading and landing to DSH |
+
+Ordinary tool logs, edits, reads, and reasoning do not become separate keys. Structured questions are an explicit exception. Unloaded turns remain real outline entries until actual segments become available.
+
+## Independently developed capabilities
+
+- **One full-history rail:** combines the outline and loaded segments. Successful takeover shows Piano; unsupported conditions restore native navigation.
+- **On-demand process expansion:** activate a group to show its members, then a member to navigate. Revealable native process wrappers and question cards open before landing. Passive scrolling and streaming preserve explicit expansion.
+- **Continuous pointer wave:** movement within a key updates the wave too. Pointer frames update visible keys and the necessary preview; no persistent loop remains when the pointer stops.
+- **Fixed display window:** 20 keys by default, with stable spacing and wheel/keyboard access to available entries throughout the conversation.
+- **Everyday interaction:** plain-text previews, reader highlighting, stable node reuse, themes, keyboard access, and reduced-motion support.
+- **Persistent settings in three languages:** 简体中文, English, and 繁體中文, with immediate layout controls.
 
 ## Controls
 
 | Action | Result |
 | --- | --- |
-| Move the pointer over the rail | Select the nearest key, expand the wave, and show its paragraph preview |
-| Click a key or the current rail position | Jump to the paragraph currently being previewed |
-| Click an AI process group | Reveal members in a compact stack; a member click navigates, while history-turn entries still activate directly |
-| Scroll the transcript | Update the current key and the fixed visible window |
-| `ArrowUp` / `ArrowDown` | Move between keys visible in the current window |
-| `Home` / `End` | Select the first or last key in the current window |
-| `Enter` / `Space` | Jump to the selected key node |
-| `Escape` | Close the preview and clear the hover state |
+| Move along the rail | Continuous wave and the nearest key's preview |
+| Click / `Enter` / `Space` | Navigate or delegate loading to the native owner |
+| First activation of a folded group | Expand it and retire the previous group |
+| Wheel over the rail | Browse without scrolling the transcript; retire expansion |
+| `↑` / `↓`, `PageUp` / `PageDown` | Move selection and adjust the window |
+| `Home` / `End` | Select the first/last entry in the conversation list |
+| `Escape` | Close preview, retire expansion, and cancel navigation intent |
 
-After a top or bottom boundary key is selected, the window is recalculated immediately so earlier or later nodes enter the visible range.
+Defaults: **2px** thickness, **12px** center spacing, **20** visible keys. See [usage](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md) for settings and edge cases.
 
-## Settings page
+## Compatibility and data boundaries
 
-The plugin registers a first-level DSH Settings section directly after the official **Agent Presets** entry. Third-party section navigation intentionally uses DSH's official fallback gear icon.
+Development dependencies are pinned to DSH `0.2.0-rc.2`. Type/integration checks and browser regressions using pinned native source establish different levels of evidence; see [compatibility](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/COMPATIBILITY.md).
 
-### General settings
+The checked DOM bridge reuses native paging and scroll ownership. It is not an official stable navigator replacement API. Narrow layouts, missing targets, or contract drift restore native UI. Segments sharing a DOM row may land at the same row start.
 
-| Setting | Default | Description |
-| --- | --- | --- |
-| `语言/Language` | Simplified Chinese | Supports Simplified Chinese, English, and Traditional Chinese; changes only this plugin's settings-page copy |
+Piano reads navigation information, displays plain-text previews, and persists its own settings. It does not rewrite messages, inject system prompts, or submit answers. Historical requests remain DSH's responsibility.
 
-The language choice is stored independently by the plugin. It does not change the global DSH locale; the first-level section name and the navigator's accessibility label continue to follow the DSH system language.
-
-### Display settings
-
-| Setting | Default | Range / behavior |
-| --- | --- | --- |
-| Enabled | On | Disable or re-enable the navigator at any time |
-| Key thickness | `2px` | `1–4px` |
-| Key spacing | `12px` | `6–18px`, measured between adjacent key centers |
-| Maximum visible keys | `20` | `5–30`; a fixed window is used above this limit |
-| Restore defaults | — | Restores language, enablement, and every display parameter |
-
-Total rail height is derived automatically:
-
-```text
-(maximum visible keys - 1) × key spacing + key thickness
-```
-
-The defaults produce `(20 - 1) × 12 + 2 = 230px`.
-
-### About and install command
-
-The About card shows version, release date, author, email, the GitHub repository link, and the official npm package name and link. The Install Command card displays the complete command in its own code surface and provides a one-click copy button.
-
-### Settings screenshots
-
-The following screenshots show the Chinese settings page, the plugin enablement and display controls, and the English locale.
-
-<p align="center">
-  <img src="images/plugin-2.png" alt="Chinese plugin settings and display controls" width="900">
-</p>
-
-<p align="center">
-  <img src="images/plugin-1.png" alt="Chinese About card and install command" width="900">
-</p>
-
-<p align="center">
-  <img src="images/plugin-English.png" alt="English plugin settings page" width="900">
-</p>
-
-## How it works
-
-1. Read the ordered nodes already loaded in the active conversation from `ConversationSnapshot.chat.order/nodes`;
-2. Convert user messages and model-visible text into safe navigation descriptors while filtering every non-output node;
-3. Merge assistant output by continuity and assign stable segment keys to separated output;
-4. Match semantic nodes to rendered rows through `[data-chat-anchor-key]`;
-5. Calculate the current node from the reading line and render only a fixed window centered around it;
-6. Keep layout synchronized through the scroll container, MutationObserver, ResizeObserver, and animation-frame scheduling.
-
-Keys are incrementally reused through stable identities, so streaming replies do not repeatedly clear and rebuild the whole rail.
-
-## Compatibility and boundaries
-
-- Designed for the DeepSeek Harness Web profile and the current ChatView anchors: `[data-chat-flow]`, `[data-chat-anchor-key]`, and `[data-conversation-scroll]`.
-- Only history already loaded into ChatView receives keys; older records do not appear before DSH loads them.
-- Tools, edits, commands, reasoning, and internal states never create keys or enter hover previews.
-- Visible output runs separated inside one DOM row may create multiple keys, but Harness row-level anchors mean they all jump to the beginning of that message row.
-- The rail safely hides when the page is too narrow, its gutter would overlap the transcript, or no navigable nodes exist.
-- The current build environment requires Node.js `^22.19.0 || >=24.0.0`.
-
-## Security and privacy
-
-- Does not mutate Session, model context, system prompts, or conversation data;
-- Registers no extra HTTP route and sends no plugin-owned network request;
-- Persists preferences through the official DSH settings namespace rather than separate private browser storage;
-- Writes preview content with `textContent` and never executes conversation HTML;
-- Keeps user transcript content out of error messages;
-- Removes rail DOM and conversation-bound listeners when disabled, and releases global observers and settings subscriptions on full unload.
-
-## Development and verification
-
-Requires Node.js `^22.19.0 || >=24.0.0` and pnpm.
+## Development and documentation
 
 ```powershell
-pnpm install
+pnpm install --frozen-lockfile
 pnpm verify
+pnpm test:package
 ```
 
-`pnpm verify` runs:
+| Entry | Contents |
+| --- | --- |
+| [Contributing](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/CONTRIBUTING.md) | Setup, directories, tests, PRs |
+| [Architecture](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/ARCHITECTURE.md) | Read models, native navigation, scheduling, lifecycle |
+| [Semantic rules](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/SEMANTIC_KEYS.md) | Segments, questions, finality, folding |
+| [Releasing](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/RELEASING.md) | Inspection, authentication, tarball publication, verification |
+| [Changelog](CHANGELOG.md) | Independently maintained package changes |
 
-1. TypeScript project-reference and type checks;
-2. Production host and client bundles;
-3. DSH client-module wrapping;
-4. Output-segmentation, fixed-window, and settings-boundary logic checks;
-5. Built-artifact smoke checks;
-6. jsdom page and interaction integration checks.
+`src/` holds implementation, `scripts/` regressions and fixtures, and `lib/` tracked builds. Start at `docs/README.md`; historical plans/screenshots live in `docs/archive/`.
 
-Current automated coverage includes 21 logic assertions, 4 built-artifact smoke checks, and 14 jsdom integration scenarios.
+## Origin and license
 
-Internal design and acceptance materials remain in the repository's `docs/` directory and are not included in the npm package.
-
-## FAQ
-
-### Why are there no keys for tool calls or edit records?
-
-Keys are navigation targets for content users directly perceive. Tools, edits, reads, reasoning, and internal states only act as continuity boundaries for model output.
-
-### Why does a long conversation not show every key at once?
-
-The navigator uses a fixed-size window so spacing is never compressed merely to fit all history. Select a top or bottom boundary node to progressively reveal earlier or later content.
-
-### Why does the left Settings name not change with the plugin language?
-
-The plugin language controls only the settings page. The DSH section name and the rail's accessibility label intentionally continue to follow the DSH system locale.
-
-### Why are some older messages missing from the rail?
-
-Keys cover only history already loaded into ChatView. DSH must load those older records before the plugin can create their navigation nodes.
-
-### Do settings survive a refresh?
-
-Yes. Language, enablement, and display parameters are persisted through the DSH settings namespace.
-
-## License
-
-This project is open source under the [MIT License](LICENSE).
-
-## Changelog
-
-### v1.2.0 · 2026-09-02
-
-- Fixed DSH settings-namespace compatibility with newer dependency versions so the plugin always registers its namespace as a string;
-- Expanded host compatibility declarations for `@deepseek-ai/cordis`, `@deepseek-ai/dsh-settings`, and `@deepseek-ai/schemastery`;
-- Added matching smoke and integration checks for host registration, peer compatibility, and the settings-page version/date metadata.
-
-### v1.1.2 · 2026-08-29
-
-- Version updated to v1.1.2.
-
-### v1.1.1 · 2026-08-29
-
-- Unified the plugin's user-visible version marker as `v1.1.1`;
-- Improved the install-command card's light/dark theme backgrounds and dark-theme text contrast.
-
-### v1.1.0 · 2026-08-28
-
-- Fixed the plugin dependency contract so host core packages can no longer be hoisted over the host-provided versions;
-- Moved `@deepseek-ai/dsh-settings` and `@deepseek-ai/schemastery` to host-provided peer dependencies;
-- Updated the development build baseline to DSH 0.1.1-rc.2 while retaining compatibility declarations for published DSH trains.
-
-### v1.0.0 · 2026-08-21
-
-Initial release:
-
-- Added a Codex-style piano-key navigator covering user messages and model-visible text output only;
-- Added continuous model-output merging while filtering tools, edits, reads, reasoning, commands, and internal states;
-- Added fixed-window browsing, active-node centering, boundary-node paging, hover previews, and fast jumps;
-- Added scroll-position tracking, streaming incremental updates, and stable DOM-node reuse;
-- Added a first-level settings page with General, Display, About, and Install Command cards;
-- Added immediate, persistent switching between Simplified Chinese, English, and Traditional Chinese, defaulting to Simplified Chinese;
-- Kept the DSH section name and rail accessibility label tied to the DSH system locale;
-- Added enablement, key thickness, spacing, maximum visible count, automatic rail height, and restore-default controls;
-- Added one-click install-command copying, responsive settings layouts, narrow-screen wrapping, and light/dark theme support;
-- Added mouse and keyboard controls, reduced-motion support, and complete teardown;
-- Validated host/client integration, the settings schema, built artifacts, and jsdom interactions.
+Evolved from [hjj345/dsh-sm-context-piano](https://github.com/hjj345/dsh-sm-context-piano), retaining original MIT copyright. Current development and releases are maintained here. See [LICENSE](LICENSE) and [NOTICE](NOTICE.md).

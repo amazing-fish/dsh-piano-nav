@@ -1,7 +1,7 @@
 {
-  "name": "@hjj345345/dsh-sm-context-piano",
-  "description": "Configurable Codex-style conversation navigator for the DeepSeek Harness Web GUI, with compact previews and fast paragraph jumps.",
-  "version": "1.3.0-rc.1",
+  "name": "dsh-piano-nav",
+  "description": "Semantic conversation navigation for DeepSeek Harness: full-history turns, questions and answers, collapsible process output, and a continuous pointer-following piano rail.",
+  "version": "1.3.0",
   "publishConfig": {
     "access": "public"
   },
@@ -82,13 +82,18 @@
     "cordis.patch.yml",
     "README.md",
     "README.en.md",
-    "LICENSE"
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE.md",
+    "docs/README.md",
+    "docs/USAGE.md",
+    "docs/COMPATIBILITY.md"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hjj345/dsh-sm-context-piano.git"
+    "url": "git+https://github.com/amazing-fish/dsh-sm-context-piano.git"
   },
-  "homepage": "https://github.com/hjj345/dsh-sm-context-piano",
+  "homepage": "https://github.com/amazing-fish/dsh-sm-context-piano",
   "license": "MIT",
   "scripts": {
     "build": "tsc -b && tsdown -c tsdown.host.config.mjs --config-loader tsx && tsdown -c tsdown.client.config.mjs --config-loader tsx && node scripts/wrap-client.mjs",
@@ -96,6 +101,35 @@
     "test:contracts": "node --import tsx scripts/chat-source.mjs && node --import tsx scripts/navigation-contract.mjs && node --import tsx scripts/full-history-contract.mjs && node --import tsx scripts/native-navigation-contract.mjs && node --import tsx scripts/semantic-contract.mjs && node --import tsx scripts/semantic-dom.mjs",
     "test": "pnpm test:contracts && node --import tsx scripts/grouping.mjs && node --import tsx scripts/rail-collapse.mjs && node scripts/smoke.mjs && node scripts/integration.mjs",
     "verify": "pnpm build && pnpm test",
-    "watch": "tsdown -c tsdown.client.config.mjs --config-loader tsx --watch"
+    "watch": "tsdown -c tsdown.client.config.mjs --config-loader tsx --watch",
+    "prepack": "pnpm build",
+    "test:package": "node scripts/package-contract.mjs"
+  },
+  "author": {
+    "name": "amazing-fish",
+    "url": "https://github.com/amazing-fish"
+  },
+  "contributors": [
+    {
+      "name": "sm-context-piano contributors",
+      "url": "https://github.com/hjj345/dsh-sm-context-piano"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/amazing-fish/dsh-sm-context-piano/issues"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "conversation",
+    "navigation",
+    "piano",
+    "agent",
+    "chat"
+  ],
+  "packageManager": "pnpm@10.17.1",
+  "piano": {
+    "displayName": "DSH Piano Navigator",
+    "releaseDate": "2026-10-17"
   }
 }
