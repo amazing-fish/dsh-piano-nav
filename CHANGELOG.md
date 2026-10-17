@@ -1,9 +1,24 @@
 # Changelog
 
-## 1.3.0 — release preparation
+## 1.3.1 — release preparation
 
-First independent npm release under **dsh-piano-nav**. Publication status is
-determined by the registry, not by the presence of this entry.
+- Persist six semantic color overrides, shared by actual keys, the settings
+  legend and layout preview. Automatic colors follow the host theme.
+- Restore one kind, all colors, or all preferences; retain old documents and
+  reject arbitrary CSS. Preserve current/hover emphasis and non-color labels.
+- Add a shared-projection preview and three-language guidance for history,
+  folding, keyboard navigation, window capacity and viewport-limited height.
+- Rename the GitHub repository to amazing-fish/dsh-piano-nav and synchronize
+  package metadata, current links, media references and the listing entry.
+
+The package manifest prepares 1.3.1. npm publication is a separate verified
+step; this entry does not claim that latest has changed from 1.3.0.
+
+## 1.3.0 — 2026-10-17
+
+First independent npm release under **dsh-piano-nav**. See the
+[publication record](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/releases/1.3.0.md)
+for the source commit, artifact integrity and registry verification.
 
 - Establish the independent product identity, maintainer information, current
   Chinese/English documentation and package verification; retain attribution.

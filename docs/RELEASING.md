@@ -19,6 +19,10 @@ peer 依赖，不把开发依赖复制进包。普通 `npm pack` 的 prepack 会
 
 ## 授权与上传
 
+发布账号须先在 npm 的 Account → Two-Factor Authentication 中启用 2FA。
+Windows Hello / 安全密钥由账号本人配置并保管恢复码。命令行登录成功后，
+`npm publish` 仍可能要求对本次发布进行一次网页验证。
+
 通过 npm 正式浏览器流程登录，不把 token、密码或验证码写入文档、日志或聊天：
 
 ```powershell
@@ -28,8 +32,16 @@ $version = node -p "require('./package.json').version"
 npm publish ".\artifacts\dsh-piano-nav-$version.tgz" --access public --tag latest --registry=https://registry.npmjs.org
 ```
 
+没有可自动打开的本地浏览器时，为 `npm login` 或 `npm publish` 增加
+`--browser=false`，在账号本人浏览器打开该次命令输出的官方授权链接，
+命令行保持等待。登录链接与发布验证链接分别绑定各自操作；链接失效后
+重新发起对应命令，不保存授权链接到文档，也不交接密码或一次性验证码。
+
 发布验证过的 tarball；上传前不重新生成另一份内容。按 npm 提示完成浏览器/2FA 授权。
 认证缺失、权限不足或名称不可注册时停止；dry-run 不代表已发布。
+
+若命令退出 0 并提示包正在处理，先等待注册表公开版本，不重复上传。
+首次查询可能暂时返回 404；以版本、dist-tag 和远端产物核验结果作为发布完成依据。
 
 ## 发布后核验
 
@@ -46,4 +58,5 @@ npm dist-tag ls dsh-piano-nav --registry=https://registry.npmjs.org
 
 官方参考：[publish](https://docs.npmjs.com/cli/v11/commands/npm-publish/)、
 [login](https://docs.npmjs.com/cli/v11/commands/npm-login/)、
+[2FA 设置](https://docs.npmjs.com/configuring-two-factor-authentication/)、
 [trusted publishing](https://docs.npmjs.com/trusted-publishers/)。

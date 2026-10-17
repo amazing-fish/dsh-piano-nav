@@ -7,6 +7,7 @@
 | 模块 | 职责 |
 | --- | --- |
 | `src/index.ts` / `core/config.ts` | 宿主 Config、设置字段与兼容 entry id |
+| `core/colors.ts` / `semantic-style.ts` | 配色字段、主题默认值、校验与共享语义样式；轨道/图例/预览共用 |
 | `client/chat-source.ts` | 公开 Chat target 的结构/keyed 订阅，释放旧会话订阅 |
 | `keys.ts` / `question-keys.ts` | 文本、最终结果、结构化问答和稳定身份 |
 | `navigation-model.ts` | 完整轮次大纲与已加载语义合并 |
@@ -49,3 +50,13 @@ Observer 只关注有意义的结构边界与契约属性，避免逐 token 的 
 包身份是 `dsh-piano-nav`，设置 entry 仍是 `sm-context-piano`；新旧包不能同时装载。
 偏好尚未确认时不抢占原生导航。切换会话或卸载时取消本地事务与待落地意图，释放
 订阅、Observer、监听、timer、rAF、DOM 和样式；旧异步回调失效，错误日志不含正文。
+
+## 设置预览与配色
+
+颜色覆盖以平铺字段进入原 settings entry。host schema 和客户端 decoder 共用严格 hex
+校验；空值表示主题自动色，未知/非法值不会写入 CSS。设置页与轨道共用 paletteStyle 和
+语义 CSS，预览还复用 projectRailSlots、visibleWindow 与 stackPositions，不挂载会话探针
+或第二套导航所有者。恢复默认从统一字段清单生成 unset 操作。
+
+设置变更仅更新 palette 与布局/视图，不触发语义历史重建。用户自选颜色保留原色，活动态
+通过主题背景色混合增强；设置页原生选色控件监听 DSH 主题属性，自动色随主题切换。

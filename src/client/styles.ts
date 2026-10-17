@@ -347,6 +347,27 @@ body[data-ds-dark-theme] .smcp-settings-command-box code { color: #f1f1f3; }
   .smcp-settings-total { align-items: flex-start; flex-direction: column; gap: 4px; }
   .smcp-settings-command-box { gap: 10px; padding-left: 10px; }
 }
+/* Preview uses the rail's shared semantic CSS and projection. */
+.smcp-preview { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 16px; align-items: center; }
+.smcp-preview-rail { position: relative; width: 80px; min-height: 40px; }
+.smcp-preview-rail .smcp-bar { left: 12px; pointer-events: auto; }
+.smcp-preview-rail .smcp-bar::after { content: ''; position: absolute; inset: calc((var(--smcp-preview-key-height) - var(--smcp-preview-gap)) / 2) 0; }
+.smcp-preview-rail .smcp-bar:focus-visible { outline: 2px solid var(--dsw-alias-border-focus, #4c7ef3); outline-offset: 3px; }
+.smcp-preview-copy p, .smcp-settings-help p { font-size: 13px; line-height: 1.65; color: var(--dsw-alias-label-secondary, #73757a); }
+.smcp-preview-copy strong { font-size: 13px; }
+.smcp-preview-pages { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.smcp-preview-pages button, .smcp-color-auto { font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--dsw-alias-border-l2, #c9c9cc); border-radius: 6px; color: inherit; background: transparent; cursor: pointer; }
+.smcp-color-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+.smcp-color-row { min-width: 0; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid var(--dsw-alias-border-l4, rgba(127,127,127,.15)); padding: 12px 0; }
+.smcp-color-label { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+.smcp-color-label > span:nth-child(2) { flex: 1; font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.smcp-color-label small { display: block; font-size: 11px; color: var(--dsw-alias-label-secondary, #73757a); margin-top: 3px; }
+.smcp-unified .smcp-legend-key { display: block; position: static; width: 24px; height: 3px; flex: none; }
+.smcp-color-label input { width: 32px; height: 32px; flex: none; border: 1px solid var(--dsw-alias-border-l2, #c9c9cc); border-radius: 6px; padding: 2px; background: transparent; cursor: pointer; }
+.smcp-color-label input:disabled, .smcp-color-auto:disabled { cursor: not-allowed; opacity: .45; }
+.smcp-settings-help summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+@media (max-width: 600px) { .smcp-color-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 360px) { .smcp-preview { grid-template-columns: 60px minmax(0, 1fr); gap: 8px; } .smcp-preview-rail { width: 60px; } }
 @media (prefers-reduced-motion: reduce) {
   .smcp-bar, .smcp-tooltip, .smcp-settings-switch > span, .smcp-settings-switch > span::after { transition: none; }
 }
