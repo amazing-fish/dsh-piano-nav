@@ -8,6 +8,21 @@
 
 面向 **DeepSeek Harness Web GUI**，由 [amazing-fish](https://github.com/amazing-fish) 独立维护。项目已发展为包含完整历史导航、语义问答、过程折叠和连续指针交互的导航器。来源与版权记录见 [NOTICE](NOTICE.md)。
 
+## 效果预览
+
+![不同 step 的实际琴键效果：输入、过程、提问、回答、最终结果、展开回折和深色主题](https://raw.githubusercontent.com/amazing-fish/dsh-sm-context-piano/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/semantic-steps.gif)
+
+循环展示 **蓝色用户输入 → 灰色过程组 → 展开的过程 step → 琥珀色 AI 提问 → 绿色用户回答 → 紫色双线最终结果 → 定位后回折 → 深色过程键**。预览来自实际插件与原生组件，使用合成会话；各状态停留片刻以便观察。深色主题的普通过程键为白色或近白。
+
+<details>
+<summary>连续鼠标跟随：查看上一轮修复前后对比</summary>
+
+![同一鼠标轨迹下，修复前逐键跳动与修复后连续跟随的对比](https://raw.githubusercontent.com/amazing-fish/dsh-sm-context-piano/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/pointer-follow-before-after.gif)
+
+同一轨迹依次慢速、快速、立即反向；左侧为修复前，右侧为当前效果。实际插件浏览器回放使用合成会话，琴键放大 4 倍。图中的 5/120 和 120/120 是微移期间的宽度变化次数，**不是 FPS**。
+
+</details>
+
 ## 安装
 
 需要 DSH 的 `web` profile，以及 Node.js `^22.19.0 || >=24.0.0`。
@@ -54,6 +69,15 @@ dsh plugin --profile web add dsh-piano-nav
 | `Escape` | 关闭预览、收回展开并取消当前导航意图 |
 
 默认键高 **2px**、中心间距 **12px**、最多 **20** 枚可见键。设置范围、折叠规则和异常行为见[使用指南](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md)。
+
+<details>
+<summary>查看当前版本设置页</summary>
+
+![DSH Piano Navigator 当前设置页：语言、粗细、间距、显示数量与安装命令](https://raw.githubusercontent.com/amazing-fish/dsh-sm-context-piano/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/settings.png)
+
+实际构建组件的简体中文截图，使用演示设置数据。图片来源与版本见[素材说明](https://github.com/amazing-fish/dsh-sm-context-piano/blob/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/SOURCES.md)。
+
+</details>
 
 ## 兼容性与数据边界
 
