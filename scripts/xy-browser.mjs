@@ -57,12 +57,13 @@ try {
         if (fixture === 'collapsed') assert.ok(await page.locator('.smcp-bar[data-collapsed="true"]').count() > 0)
         const pitch = geometry.bars[1].y - geometry.bars[0].y
         const absolute = p => ({ x: geometry.x + p.x, y: geometry.bars[0].y + p.y * pitch })
-        const expected = (p, hitGeometry) => {
+        const expected = (p, hitGeometry, renderedBars) => {
           // At an exact row midpoint, the existing rail chooses the earlier row.
           const index = Math.max(0, Math.min(geometry.bars.length - 1, Math.ceil(p.y - .5)))
           assert.equal(hitGeometry.key, geometry.bars[index].key, 'Y selects the nearest actual key')
           // Capture the DOM paint at hit time: animation can advance after the previous sample.
-          return p.x <= hitGeometry.painted + 3 ? geometry.bars[index].key : null
+          // The new Y offset can narrow the key in this frame: both boundaries apply.
+          return p.x <= hitGeometry.painted + 3 && p.x <= renderedBars[index].painted + 3 ? geometry.bars[index].key : null
         }
         const plan = xyTrajectory(seed, geometry.bars.length)
         trace.geometry = geometry; trace.steps = plan.steps
@@ -97,7 +98,7 @@ try {
           await page.clock.runFor(step.dt)
           const current = await snapshot(page)
           trace.samples.push({ step: i, selected: current.selected, hitGeometry: current.hitGeometry, widths: current.bars.map(b => +b.painted.toFixed(3)), reads: current.reads })
-          assert.equal(current.selected, expected(last, current.hitGeometry), `seed=${seed} step=${i} ${step.phase}: latest X/Y owns selection within the current paint`)
+          assert.equal(current.selected, expected(last, current.hitGeometry, current.bars), `seed=${seed} step=${i} ${step.phase}: latest X/Y owns selection within the current paint`)
           assert.equal(current.visible, current.selected !== null, 'preview visibility agrees with the current hit')
           assert.equal(current.described, current.selectedId, 'accessible target agrees with the current hit')
           assert.deepEqual(current.clicks, [], 'hover trajectories never navigate or expand groups')

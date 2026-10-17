@@ -58,6 +58,13 @@ try {
     for (const counter of ['nodeRebuilds','itemRebuilds','turnRebuilds','domReconciles','mappedAnchorRebuilds','railProjections','hitTests']) {
       assert.equal((await state()).perf[counter], steady.perf[counter], `${counter} stays outside horizontal-only work`)
     }
+    // Y moves to a row midpoint: the same frame narrows the formerly centered key.
+    await page.mouse.move(p.x + 49, p.y + 5); await page.clock.runFor(16)
+    assert.equal((await state()).selected, undefined, 'diagonal movement outside the resulting paint retires hover')
+    assert.equal((await state()).visible, false)
+    await page.clock.runFor(160)
+    assert.equal((await state()).selected, undefined, 'stopping after the diagonal exit cannot retain stale hover')
+    await move(1); await page.clock.runFor(128)
     await move(52)
     const exit = await state()
     assert.equal(exit.selected, undefined, 'exit occurs beyond the painted key and its 3px tolerance')

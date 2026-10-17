@@ -824,7 +824,17 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       : (sample.y - stripViewportTop - visiblePositions[hit.index]) / settings.getSnapshot().keyGap
     const peak = slot === undefined ? 0 : barWidth(slot.item, slot.displayIndex, slot.displayIndex + pointerOffset!) - baseWidth(slot.item)
     const paintedStrength = hit === null || slot === undefined || peak === 0 ? 0 : (hit.painted - baseWidth(slot.item)) / peak
-    pointerWave.point(slot === undefined ? null : { key: slot.item.key, offset: pointerOffset! }, window.performance.now(), motionPreference?.matches, paintedStrength)
+    const now = window.performance.now(), reducedMotion = motionPreference?.matches
+    pointerWave.point(slot === undefined ? null : { key: slot.item.key, offset: pointerOffset! }, now, reducedMotion, paintedStrength)
+    if (slot !== undefined) {
+      // A new Y offset can narrow this frame's key. Revalidate the resulting
+      // paint without a second DOM read, even if no later pointer event arrives.
+      const nextWidth = barWidth(slot.item, slot.displayIndex, slot.displayIndex + pointerOffset!, pointerWave.sample(now, reducedMotion).strength)
+      if (sample.x - stripViewportLeft > nextWidth + BAR_HIT_TOLERANCE) {
+        selected = null; pointerOffset = null
+        pointerWave.point(null, now, reducedMotion)
+      }
+    }
   }
   const clearPointer = (): void => { pendingPointer = null; pointerOffset = null; pointerWave.reset() }
   const pointerMove = (event: PointerEvent): void => {
