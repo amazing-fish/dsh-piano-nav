@@ -139,7 +139,7 @@ export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRem
     },
     set: (field, value) => write([{ op: 'set', path: [field], value }]),
     unset: (field) => write([{ op: 'unset', path: [field] }]),
-    reset: () => write(SETTINGS_FIELDS.map((field) => ({
+    reset: (fields = SETTINGS_FIELDS) => write(fields.map((field) => ({
       op: 'unset' as const,
       path: [field] as [keyof PianoSettings & string],
     }))),

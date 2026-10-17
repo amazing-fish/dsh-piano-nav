@@ -32,8 +32,10 @@ const edit = async (page, kind, color) => {
 }
 const keyColor = locator => locator.evaluate(el => getComputedStyle(el).getPropertyValue('--smcp-key').trim())
 try {
-  const page = await start({ fixtureSettings: { language: 'en' } })
+  const page = await start({ fixtureSettings: { language: 'en' }, railOptions: { emptyHistoryPrompt: true } })
   await page.waitForFunction(() => window.__smcpDebug?.mode === 'piano')
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  const colorPerf = await page.evaluate(() => ({ ...window.__smcpDebug.perf }))
   const colors = { input:'#dd2244', output:'#008877', question:'#cc6600', answer:'#336699', final:'#aa44cc', turn:'#667788' }
   for (const [kind, color] of Object.entries(colors)) {
     await edit(page, kind, color)
@@ -42,6 +44,9 @@ try {
     const real = page.locator(`.smcp-strip [data-kind="${kind}"]`).first()
     assert.ok(await real.count(), `actual rail contains ${kind}`)
     assert.equal(await keyColor(real), color)
+  }
+  for (const counter of ['nodeRebuilds', 'turnRebuilds', 'itemRebuilds']) {
+    assert.equal(await page.evaluate(counter => window.__smcpDebug.perf[counter], counter), colorPerf[counter], 'color-only changes do not rebuild navigation')
   }
   results.push('six color controls bind to the legend/preview and all six real rail kinds')
   const realOutput = page.locator('.smcp-strip [data-kind="output"]').first()
@@ -71,10 +76,19 @@ try {
   await preview.locator('[data-kind="final"]').click({ position: { x: 1, y: 1 } })
   assert.equal(await preview.locator('[data-kind="output"]').count(), 1)
   results.push('preview shares process projection and folds after final activation')
+  const writesBeforeReset = await page.evaluate(() => window.settingsFixture.writes.length)
+  await page.evaluate(() => { window.failWrite = true })
+  await page.getByRole('button', { name: 'Restore default colors', exact: true }).click()
+  await page.getByRole('alert').waitFor()
+  assert.equal(await keyColor(realOutput), colors.output)
+  assert.equal(await page.evaluate(() => window.settingsFixture.writes.length), writesBeforeReset, 'failed palette reset leaves every override intact')
+  await page.evaluate(() => { window.failWrite = false })
   await page.getByRole('button', { name: 'Restore default colors', exact: true }).click()
   await page.waitForFunction(() => !Object.keys(window.settingsFixture.persisted()).some(k => k.startsWith('color')))
   assert.equal(await keyColor(realOutput), '#8a8a8a')
   assert.equal(await page.evaluate(() => window.settingsFixture.persisted().language), 'en')
+  assert.equal(await page.evaluate(() => window.settingsFixture.writes.length), writesBeforeReset + 1, 'palette reset is a single mutation')
+  assert.equal(await page.evaluate(() => window.settingsFixture.writes.at(-1).length), 6)
   await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', 'true'))
   assert.equal(await keyColor(realOutput), '#e5e5e5')
   assert.equal(await page.locator('.smcp-color-label:has([data-kind="output"]) input').inputValue(), '#e5e5e5')
@@ -88,6 +102,13 @@ try {
   for (const [language, title] of [['zh', '琴键颜色与图例'], ['zh-TW', '琴鍵顏色與圖例'], ['en', 'Key colors and legend']]) {
     await page.locator('.smcp-settings-select').selectOption(language)
     await page.getByRole('heading', { name: title, exact: true }).waitFor()
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    const expected = { zh: '第 2 轮', 'zh-TW': '第 2 輪', en: 'Turn 2' }[language]
+    const history = page.locator('.smcp-strip [data-kind="turn"]')
+    assert.ok((await history.getAttribute('aria-label')).endsWith(`: ${expected}`), 'cached empty-prompt history title follows the selected language')
+    const box = await history.boundingBox(); await page.mouse.move(box.x + 1, box.y + 1)
+    await page.waitForFunction(() => document.querySelector('.smcp-tooltip').classList.contains('smcp-tooltip-visible'))
+    assert.equal(await page.locator('.smcp-tooltip-title').innerText(), expected)
   }
   results.push('three languages share the same semantic controls')
   await page.getByRole('button', { name: 'Restore defaults', exact: true }).click()

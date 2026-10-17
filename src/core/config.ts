@@ -96,7 +96,7 @@ export interface PianoSettingsScope {
   subscribe(listener: () => void): () => void
   set<K extends keyof PianoSettings & string>(field: K, value: PianoSettings[K]): Promise<void>
   unset<K extends keyof PianoSettings & string>(field: K): Promise<void>
-  reset(): Promise<void>
+  reset(fields?: readonly (keyof PianoSettings)[]): Promise<void>
 }
 
 export const DEFAULT_SETTINGS_SOURCE: PianoSettingsSource = {

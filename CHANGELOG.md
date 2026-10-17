@@ -4,8 +4,10 @@
 
 - Persist six semantic color overrides, shared by actual keys, the settings
   legend and layout preview. Automatic colors follow the host theme.
-- Restore one kind, all colors, or all preferences; retain old documents and
+- Restore one kind, all colors in one mutation, or all preferences; retain old documents and
   reject arbitrary CSS. Preserve current/hover emphasis and non-color labels.
+- Refresh cached history fallback titles on language changes while keeping
+  color-only updates free of navigation rebuilds.
 - Add a shared-projection preview and three-language guidance for history,
   folding, keyboard navigation, window capacity and viewport-limited height.
 - Rename the GitHub repository to amazing-fish/dsh-piano-nav and synchronize

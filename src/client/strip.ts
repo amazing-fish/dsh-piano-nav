@@ -1026,9 +1026,13 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     }
   }
   syncPalette()
+  let settingsLanguage = settings.getSnapshot().language
   const settingsStop = settings.subscribe(() => {
     syncPalette()
-    schedule(DIRTY_LAYOUT | DIRTY_VIEW)
+    const language = settings.getSnapshot().language
+    const translatedItems = language !== settingsLanguage ? DIRTY_NODES | DIRTY_TURNS : 0
+    settingsLanguage = language
+    schedule(translatedItems | DIRTY_LAYOUT | DIRTY_VIEW)
   })
   const dispose = (): void => {
     if (!alive) return

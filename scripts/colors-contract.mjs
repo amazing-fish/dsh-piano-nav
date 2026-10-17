@@ -42,6 +42,13 @@ fail = true
 await assert.rejects(controller.scope.set('colorQuestion', '#abcdef'))
 assert.equal(controller.source.getSnapshot().colorQuestion, '#333333', 'failed write retains stored color')
 fail = false
+const beforeColorReset = writes.length
+await controller.scope.reset(Object.values(COLOR_FIELDS))
+assert.equal(writes.length, beforeColorReset + 1, 'palette reset is one mutation')
+assert.equal(writes.at(-1).length, 6, 'palette reset unsets exactly the six colors')
+assert.equal(controller.source.getSnapshot().language, 'en', 'palette reset preserves language')
+assert.equal(controller.source.getSnapshot().keyGap, 15, 'palette reset preserves dimensions')
+assert.deepEqual(Object.fromEntries(Object.keys(DEFAULT_COLORS).map(key => [key, controller.source.getSnapshot()[key]])), DEFAULT_COLORS)
 await controller.scope.reset()
 assert.deepEqual(controller.source.getSnapshot(), DEFAULT_SETTINGS)
 assert.deepEqual(writes.at(-1).map(op => op.path[0]).sort(), [...SETTINGS_FIELDS].sort(), 'one reset clears every field')

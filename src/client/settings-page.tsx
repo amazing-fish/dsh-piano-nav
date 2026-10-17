@@ -17,7 +17,7 @@ import type {
   PianoSettings,
   PianoSettingsScope,
 } from '../core/config.ts'
-import { COLOR_FIELDS, DEFAULT_COLORS, SEMANTIC_KINDS, THEME_COLORS, paletteStyle } from '../core/colors.ts'
+import { COLOR_FIELDS, SEMANTIC_KINDS, THEME_COLORS, paletteStyle } from '../core/colors.ts'
 import type { SemanticKind } from '../core/colors.ts'
 import { SEMANTIC_CSS, semanticLabel } from './semantic-style.ts'
 import type { PianoItem } from './navigation-model.ts'
@@ -209,7 +209,7 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
           })}
         </div>
         <button type="button" className="smcp-settings-reset" disabled={disabled}
-          onClick={() => { setError(null); void (async () => { for (const field of Object.keys(DEFAULT_COLORS) as (keyof typeof DEFAULT_COLORS)[]) await scope.unset(field) })().catch(() => setError('settings.writeError')) }}>
+          onClick={() => { setError(null); void scope.reset(Object.values(COLOR_FIELDS)).catch(() => setError('settings.writeError')) }}>
           {t('settings.resetColors')}
         </button>
       </section>
