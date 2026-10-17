@@ -34,6 +34,53 @@ const keyColor = locator => locator.evaluate(el => getComputedStyle(el).getPrope
 try {
   const page = await start({ fixtureSettings: { language: 'en' }, railOptions: { emptyHistoryPrompt: true } })
   await page.waitForFunction(() => window.__smcpDebug?.mode === 'piano')
+  const historyKeys = [
+    page.locator('.smcp-strip [data-kind="turn"]').first(),
+    page.locator('.smcp-legend-key[data-kind="turn"]'),
+    page.locator('.smcp-preview-rail [data-kind="turn"]'),
+  ]
+  const border = locator => locator.evaluate(el => getComputedStyle(el).borderTopColor)
+  const assertHistory = async expected => {
+    for (const key of historyKeys) {
+      assert.equal(await key.getAttribute('data-unloaded'), 'true')
+      assert.equal(await key.evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)')
+      assert.equal(await border(key), expected)
+    }
+  }
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => document.body.toggleAttribute('data-ds-dark-theme', dark), dark)
+    const normal = dark ? 'rgb(241, 241, 243)' : 'rgb(32, 33, 36)'
+    await page.waitForFunction(expected => document.querySelector('.smcp-color-label:has([data-kind="turn"]) input').value === expected, dark ? '#f1f1f3' : '#202124')
+    for (const height of [1, 2, 3, 4]) {
+      await page.evaluate(height => window.settingsFixture.controller.scope.set('keyHeight', height), height)
+      await page.waitForFunction(height => document.querySelector('.smcp-strip [data-kind="turn"]').style.height === `${height}px`, height)
+      await assertHistory(normal)
+    }
+    await page.evaluate(() => window.settingsFixture.controller.scope.set('keyHeight', 2))
+    await page.waitForFunction(() => document.querySelector('.smcp-strip [data-kind="turn"]').style.height === '2px')
+    const box = await historyKeys[0].boundingBox()
+    await page.mouse.move(box.x + 1, box.y + box.height / 2)
+    await page.waitForFunction(() => document.querySelector('.smcp-strip [data-kind="turn"]').classList.contains('smcp-bar-hover'))
+    assert.equal(await border(historyKeys[0]), dark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)')
+    await page.mouse.move(1000, 850)
+    await page.waitForFunction(() => !document.querySelector('.smcp-strip [data-kind="turn"]').classList.contains('smcp-bar-hover'))
+    await page.locator('#settings-panel').screenshot({ path: `test-results/history-default-${dark ? 'dark' : 'light'}.png` })
+  }
+  results.push('history defaults, transparent borders and picker agree across rail/legend/preview in both themes and 1–4px heights')
+  await edit(page, 'turn', '#000000')
+  await assertHistory('rgb(0, 0, 0)')
+  await edit(page, 'turn', '#667788')
+  await assertHistory('rgb(102, 119, 136)')
+  const historyBox = await historyKeys[0].boundingBox()
+  await page.mouse.move(historyBox.x + 1, historyBox.y + historyBox.height / 2)
+  await page.waitForFunction(() => document.querySelector('.smcp-strip [data-kind="turn"]').classList.contains('smcp-bar-hover'))
+  assert.notEqual(await border(historyKeys[0]), 'rgb(102, 119, 136)')
+  await page.mouse.move(1000, 850)
+  await page.waitForFunction(() => !document.querySelector('.smcp-strip [data-kind="turn"]').classList.contains('smcp-bar-hover'))
+  await page.evaluate(() => document.body.removeAttribute('data-ds-dark-theme'))
+  await assertHistory('rgb(102, 119, 136)')
+  results.push('custom history borders including black follow the picker in both themes and retain real hover emphasis')
+  await page.evaluate(() => window.settingsFixture.controller.scope.set('keyHeight', 2))
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
   const colorPerf = await page.evaluate(() => ({ ...window.__smcpDebug.perf }))
   const colors = { input:'#dd2244', output:'#008877', question:'#cc6600', answer:'#336699', final:'#aa44cc', turn:'#667788' }
@@ -60,6 +107,7 @@ try {
   const fresh = await start({ fixtureSettings: persisted })
   await fresh.waitForFunction(() => window.__smcpDebug?.mode === 'piano')
   assert.equal(await keyColor(fresh.locator('.smcp-strip [data-kind="output"]').first()), colors.output)
+  assert.equal(await border(fresh.locator('.smcp-strip [data-kind="turn"]').first()), 'rgb(102, 119, 136)')
   await fresh.close(); results.push('fresh settings controller and real rail restore persisted colors')
   await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', 'true'))
   assert.equal(await keyColor(realOutput), colors.output)
@@ -67,6 +115,13 @@ try {
   await page.evaluate(() => document.body.removeAttribute('data-ds-dark-theme'))
   await page.locator('#settings-panel').screenshot({ path: 'test-results/settings-1.3.1-custom.png' })
   const preview = page.locator('.smcp-preview-rail')
+  await historyKeys[2].click({ position: { x: 1, y: 1 } })
+  assert.equal(await historyKeys[2].getAttribute('aria-current'), 'true')
+  assert.equal(await page.locator('.smcp-preview-copy strong').innerText(), 'History turn')
+  assert.notEqual(await border(historyKeys[2]), 'rgb(102, 119, 136)')
+  await page.mouse.move(1000, 850)
+  await preview.locator('[data-kind="final"]').click({ position: { x: 1, y: 1 } })
+  results.push('preview history current border is emphasized and announces the history label')
   await preview.locator('[data-kind="output"]').click({ position: { x: 1, y: 1 } })
   assert.equal(await preview.locator('[data-kind="output"]').count(), 3)
   await preview.locator('[data-kind="output"]').first().click({ position: { x: 1, y: 1 } })
@@ -92,6 +147,8 @@ try {
   await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', 'true'))
   assert.equal(await keyColor(realOutput), '#e5e5e5')
   assert.equal(await page.locator('.smcp-color-label:has([data-kind="output"]) input').inputValue(), '#e5e5e5')
+  await assertHistory('rgb(241, 241, 243)')
+  assert.equal(await page.locator('.smcp-color-label:has([data-kind="turn"]) input').inputValue(), '#f1f1f3')
   results.push('color reset preserves other settings and resumes automatic theme colors in keys/legend/picker')
   await page.evaluate(() => { window.failWrite = true })
   await page.locator('.smcp-color-label:has([data-kind="output"]) input').fill('#123456')
@@ -122,6 +179,15 @@ try {
   await page.locator('#settings-panel').screenshot({ path: 'test-results/settings-1.3.1-mobile.png' })
   results.push('full reset clears new fields, 390px layout has no horizontal overflow')
   await page.close()
+  const blocked = await start({ historyOnly: true, fixtureSettings: { language: 'en', colorHistory: '#667788' } })
+  await blocked.waitForFunction(() => window.__smcpDebug?.mode === 'piano')
+  await blocked.evaluate(() => document.querySelector('nav [aria-label="Load 1"]').remove())
+  await blocked.waitForFunction(() => document.querySelector('.smcp-strip [data-key="turn:1"]').disabled)
+  const disabledHistory = blocked.locator('.smcp-strip [data-key="turn:1"]')
+  assert.equal(await border(disabledHistory), 'rgb(102, 119, 136)')
+  assert.equal(await disabledHistory.evaluate(el => getComputedStyle(el).opacity), '0.3')
+  await blocked.close()
+  results.push('unavailable history retains its custom border and existing disabled opacity')
   for (const options of [{ readOnly: true }, { failRead: true }, { motion: 'reduce' }]) {
     const p = await start(options)
     if (options.readOnly || options.failRead) {

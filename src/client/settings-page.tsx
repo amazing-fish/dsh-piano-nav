@@ -66,6 +66,7 @@ function LayoutPreview({ settings }: { settings: PianoSettings }): ReactNode {
         className={`smcp-bar${slot.item.key === selectedSlotKey ? ' smcp-bar-current' : ''}`}
         aria-current={slot.item.key === selectedSlotKey ? 'true' : undefined}
         data-kind={slot.item.kind ?? 'turn'} data-role={slot.item.role}
+        data-unloaded={slot.item.role === 'turn'}
         style={{ top: positions[i] - settings.keyHeight / 2, height: settings.keyHeight, width: slot.item.key === selectedSlotKey ? 48 : 28 }}
         aria-label={`${kindLabel(slot.item.kind ?? 'turn', settings.language)}${slot.end - slot.start > 1 ? ` · ${t('settings.folded')}` : ''}`}
         title={kindLabel(slot.item.kind ?? 'turn', settings.language)}
@@ -74,7 +75,7 @@ function LayoutPreview({ settings }: { settings: PianoSettings }): ReactNode {
     <div className="smcp-preview-copy">
       <h2>{t('settings.preview')}</h2>
       <p>{t('settings.previewDesc')}</p>
-      <strong aria-live="polite">{kindLabel(DEMO_ITEMS.find(item => item.key === selected)?.kind ?? 'final', settings.language)}</strong>
+      <strong aria-live="polite">{kindLabel(DEMO_ITEMS.find(item => item.key === selected)?.kind ?? 'turn', settings.language)}</strong>
       {slots.length > settings.maxVisible && <div className="smcp-preview-pages">
         <button type="button" onClick={() => setSelected(slots[0].item.key)}>{t('settings.first')}</button>
         <button type="button" onClick={() => setSelected(slots.at(-1)!.item.key)}>{t('settings.last')}</button>
@@ -196,10 +197,10 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
             const field = COLOR_FIELDS[kind]
             return <div className="smcp-color-row" key={kind}>
               <label className="smcp-color-label">
-                <span className="smcp-legend-key smcp-bar" data-kind={kind} aria-hidden="true" />
+                <span className="smcp-legend-key smcp-bar" data-kind={kind} data-unloaded={kind === 'turn'} aria-hidden="true" />
                 <span>{kindLabel(kind, settings.language)}<small>{settings[field] || t('settings.themeColor')}</small></span>
                 <input type="color" aria-label={kindLabel(kind, settings.language)}
-                  value={settings[field] || (kind === 'turn' && dark ? '#ffffff' : THEME_COLORS[dark ? 'dark' : 'light'][kind][0])} disabled={disabled}
+                  value={settings[field] || THEME_COLORS[dark ? 'dark' : 'light'][kind][0]} disabled={disabled}
                   onChange={event => write(field, event.target.value)} />
               </label>
               <button type="button" className="smcp-color-auto" disabled={disabled || !settings[field]}

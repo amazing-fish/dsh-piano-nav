@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Restore clear theme defaults for history keys and keep custom history colors
+  shared by actual borders, the legend, preview and color picker. Apply hover
+  and current emphasis to unloaded borders; correct the preview's history label.
+- Retain transparent unloaded keys and existing key sizes; 1–2px keys do not
+  have enough interior height to display a hollow centre.
+
 ## 1.3.1 — release preparation
 
 - Persist six semantic color overrides, shared by actual keys, the settings
