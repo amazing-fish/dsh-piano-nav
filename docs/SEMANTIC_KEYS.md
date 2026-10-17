@@ -1,68 +1,82 @@
-# Final-result, interactive-question and semantic-coloured Piano keys
+# 语义规则
 
-## Scope
+[文档导航](README.md) · [使用指南](USAGE.md)
 
-Continue the single visible Piano and full-history navigation from PR #2. Add one independent AI final-result key per durably closed successful Turn, native ask_user_question exchanges as keys, and semantic colour differentiation. No second rail, new pager, responder, model call or transcript persistence.
+Piano 将实际会话记录投影为输入、过程、最终结果、AI 提问和用户回答。
+语义规则决定哪些键出现；原生导航负责加载历史和滚动，不增加第二套回答表单或分页器。
 
-## Final result
+## 输入与过程
 
-Use the published `turn-tail.data.closing` (`FinalAssistantChatData`) and match its step and durable assistant message identity/sequence to the actual Chat node. `finalNode` on an arbitrary completed model step is not evidence of a completed Turn. Never classify the last DOM row, an interrupted prefix, error/max-token Turn or a page missing the real closing message as final.
+用户输入保留独立入口。AI 文本按可导航的语义段投影，普通工具、推理和日志不生成独立键，
+也不会被拼进纯文本预览。隐藏节点会中断文本连续性，避免跨不同过程误合并。
 
-The final message gets exactly one independent key, retaining its first output key during streaming-to-settled promotion. It cannot merge into process prose. Reasoning and tool payloads do not enter its preview. The target is the actual final message row, not the earlier process row or Turn footer. A multi-paragraph final response is one result key, not a key per paragraph.
+来源记录标为隐藏时，只有实际可见或经过校验可原生揭示的过程锚点才可导航；普通
+`hidden` 容器不会强制打开。多个语义段共享一个 DOM 行时，可能定位到同一行起点。
 
-## Interactive questions
+## 最终结果
 
-Only the exact `ask_user_question` tool is projected, including nodes marked `visibility: hidden`. Folding does not change question/answer identities, anchors or pending/answered/unanswered/error states. Read its running call head or settled result's `call` and `content`, including recursive subcalls. Pair question and answer by `(callId, questionId)`, not array position. A pending request has an AI-question key. A valid recorded answer adds a user-answer key; selected options and free text preserve the tool's single/multi-select semantics. Error, cancelled, malformed and ambiguous results never become accepted answers.
+只有成功且持久关闭的轮次才有最终结果。以 `turn-tail.data.closing` 的关闭记录，
+匹配实际 assistant 消息身份、step 与序号。任意已完成模型步骤的 `finalNode`、最后一个
+DOM 行、被中断前缀、错误或 max-token 结束都不足以证明最终结果。
 
-Keys jump to native `call:<callId>` anchors. A compacted process row is revealed using the original `beforematch` reveal callback, then only the native question disclosure header is expanded. No answer/approval/submission button is invoked. Every question in one tool call can have its own preview; its question/answer keys land on the same native question-card container. The plugin does not offer a second answer form.
+同一最终回复只有一枚独立键；流式输出转为最终状态时继承其首段身份。它不与过程
+文本合并，多段最终回复也不拆成多个结果键。缺少真实关闭消息的历史页不猜测结果。
 
-The short local disclosure transaction is cancelled on new navigation, reader input, fallback, session switch and disposal. It does not call `loadThrough`; original ChatView remains the only history-navigation owner.
+## 结构化问答
 
-## Folded process outputs and the rail window
+工具投影的明确例外是精确名称 `ask_user_question`，包括来源标为隐藏的记录。
+从运行中的 call 或已结束结果的 call/content 读取交换，支持递归子调用。问题与回答
+按 `(callId, questionId)` 配对，不按数组位置配对。
 
-Assistant text and question/answer exchanges remain structural navigation data when Chat marks their process rows `visibility: hidden`. Hidden nodes break prose continuity on both sides; unrelated hidden user/tool nodes remain excluded. The closing-message identity still determines final-result meaning independently of display visibility. Only visible or natively revealable process anchors become Piano items; ordinary hidden containers remain unavailable. Output/final landing shares the cancellable `beforematch` reveal transaction above, without touching question-card controls.
+待回答的问题有 AI 提问键；合法的已记录答案增加用户回答键，并保留单选、多选与
+自由输入语义。错误、取消、畸形或身份不明确的数据不被当作已接受答案。
 
-Project complete same-Turn process runs before selecting the bounded display window. Counts describe the full run, rather than a raw-item slice at a window edge. Expansion frames all members when they fit; longer groups retain fixed key spacing and capacity, with arrow-key browsing to every member. History placeholders and question/answer keys remain independent. Active ±2 protection applies to visible process prose; a folded process run stays one key even when the reading line passes its summary or an adjacent input. Explicit rail expansion and busy, requested and failed-Turn protections still apply to folded prose.
+问答键指向原生 `call:<callId>` 锚点。定位先用原生 `beforematch` 揭示过程，再展开
+问题卡片标题；不会点击回答、批准或提交按钮。同一调用的多个问题可以有各自预览，
+但共享原生卡片容器落点。
 
-The descriptor carries a source `folded` hint for output prose, but the mounted strip resolves it from the actual visible/revealable anchor. Native disclosure may update only DOM `hidden`, without changing source-node visibility. Both full rebuilds and keyed updates use the same resolution, so opening a process restores active protection and folding it again removes the stray nearby keys. DOM publication invalidates the cached rail projection; hover does not scan history again.
+## 过程折叠与窗口
 
-Explicit expansion is keyed to surviving items, independent of hover, focus, transcript scrolling and streaming publications. Escape, member navigation, rail-wheel browsing and session changes retire it. Pointer leave/blur clear only the preview. Regression fixtures cover default-hidden process nodes, a 12-member run beside 11 history entries, passive updates, oversized groups and native reveal-before-scroll landing.
+先在完整同轮过程序列上分组，再截取有限显示窗口。摘要计数代表完整组；历史入口、
+输入、问答、最终结果和忙碌/待加载/失败保护轮次保持独立。
 
-## Semantic palette and accessibility
+一枚折叠键只占一个槽位。首次显式激活只展开；可放入窗口时显示全组，超长组保持
+固定间距和容量，通过方向键继续访问。成员定位或其他显式导航结束手动展开，记录
+已回折成员，避免阅读保护立即把刚收回的组拆开。
 
-Colour follows the navigation meaning rather than only the speaker:
+显式展开按存活的成员身份维护，不由悬停、失焦、正文滚动或流式发布清除。
+Escape、成员/其他键激活、轨道滚轮、切换组和切换会话会收回展开。
 
-| Kind | Light theme | Dark theme | Meaning |
-| --- | --- | --- | --- |
-| ordinary AI output | neutral light gray | white / near-white | low-priority process prose |
-| user input | blue | blue | user request / steering |
-| recorded user answer | green | green | supplied interactive information |
-| AI question | amber | amber | interactive question / attention point |
-| AI final result | purple | purple | completed result |
+实际 DOM 的可见/可揭示状态优先于来源的 folded 提示。原生展开可能只修改 DOM，
+不发布来源变化；全量刷新与 keyed 刷新使用同一解析，DOM 变化会使轨道投影失效。
 
-The light-theme ordinary-output key is intentionally medium neutral gray rather than literal white so it does not disappear on a white transcript. In the dark theme it is white/near-white, matching the desired normal-output appearance. Output/question/answer semantic overrides render at full opacity so their intended colours are not washed out by the base rail opacity; browser tests assert the final painted contrast is at least 3:1 in both themes. Active and hover states keep the same semantic family instead of collapsing to one generic colour.
+## 历史与取消
 
-Final keys keep a second stroke; question/answer keys keep square ends. Hover and accessible names include explicit role/kind/state labels in zh/en/zh-TW, so meaning is never conveyed only by colour. Unknown/unloaded Turn placeholders stay neutral rather than pretending to know internal roles.
+未加载历史保留真实轮次大纲；加载后才派生内部过程、问答和最终结果。大纲不能确定
+内部问题身份或最终消息锚点，因此不生成虚构细节。
 
-Existing speaker variables remain compatible for user input and the assistant/final baseline: `--smcp-user-color`, `--smcp-user-active-color`, `--smcp-assistant-color`, `--smcp-assistant-active-color`.
+原生揭示与本地落点事务可被新导航、读者输入、回退、会话切换和卸载取消。取消不会
+中止宿主共享网络请求，但旧完成回调不能把阅读位置拉回已放弃的目标。
 
-Semantic overrides are independently customizable with `--smcp-output-color`, `--smcp-output-active-color`, `--smcp-answer-color`, `--smcp-answer-active-color`, `--smcp-question-color`, and `--smcp-question-active-color`.
+## 颜色与无障碍
 
-## Existing compatibility bug corrected
+| 类型 | 浅色 / 深色主题 | 辅助标记 |
+| --- | --- | --- |
+| AI 过程 | 中性灰 / 白或近白 | 语义标签 |
+| 用户输入 | 蓝色 | 角色标签 |
+| 用户回答 | 绿色 | 方形端点、问题/答案状态 |
+| AI 提问 | 琥珀色 | 方形端点、问题/答案状态 |
+| 最终结果 | 紫色 | 第二道笔画、结果标签 |
+| 未加载历史 | 中性轮廓 | 轮次和加载状态 |
 
-DSH 0.1.5-rc.2 stores a `TurnLocation` object at `location.turn`; the number is `location.turn.turn`. The prior adapter expected a number, causing user messages without `data.turn` to lose their Turn and be dropped by the full-history merge. Fixtures now include the real nested shape.
+浅色主题的过程键使用可见的灰色；悬停和阅读高亮保留语义色系。问答/过程语义色不再
+被通用透明度冲淡，浏览器回归检查明暗主题的实际绘制对比度至少为 3:1。
+预览和无障碍名称提供三语角色、类型与状态，颜色不承担唯一含义。
 
-## Historical colour evidence
+主题变量保留 `--smcp-user-color`、`--smcp-user-active-color`、
+`--smcp-assistant-color`、`--smcp-assistant-active-color`。
+过程、回答、提问可分别使用 `--smcp-output-color`、`--smcp-answer-color`、
+`--smcp-question-color` 及对应的 `-active-color` 变量定制。
 
-This repository's initial commit `c344b300e7927d1abca3f149d0081bdc5cdd4fe1` (2026-08-17) already used one gray palette for all bars, with a shared active/hover colour; the subsequent `11a76f6` style retained it. PR #1/#2 did not remove a role selector from that stylesheet. This does not establish what may have existed in a local/unpublished variant. This PR implements the explicit role-colour requirement regardless.
-
-## History and validation boundary
-
-Unloaded history still has genuine Turn placeholders; once native history loading materializes its nodes, final and question/answer keys are derived from the full records. An outline alone cannot identify internal question ids or final message anchors, so this PR does not invent them.
-
-Run `pnpm install --frozen-lockfile` and `pnpm verify` in Node 24 / PowerShell. CI also runs fixed-official-source Chromium component tests. These are not user-machine authentication, backend or proxy end-to-end tests. No npm release or auto-merge is performed.
-
-## Pinned sources
-
-- DSH `c291e7961a515f6d7af9304e7fd1d257929aef26`: ui-chat contract/chat-nodes.ts, chat/ChatNodeSeat.tsx, chat/searchable-hidden.ts.
-- Same DSH commit: ui-conversation contract/records.ts, ui-tool/tool/ToolCallTree.tsx, ui-primitives/DisclosureRow.tsx.
+实现时的历史证据与固定原生源码记录见[归档设计](archive/SEMANTIC_DESIGN.md)；
+当前验证范围见[兼容说明](COMPATIBILITY.md)。

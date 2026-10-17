@@ -7,6 +7,7 @@
 - [最初的 Navigator 适配](NAVIGATOR_ADAPTATION.md)
 - [单一完整历史导航阶段](SINGLE_NAVIGATOR.md)
 - [上游历史更新记录](UPSTREAM_CHANGELOG.md)
+- [语义功能的阶段设计与历史证据](SEMANTIC_DESIGN.md)
 - `images/`：含旧品牌、版本与安装信息的上游时期截图。
 
 当前文档见[文档导航](../README.md)，来源与版权见 [NOTICE](../../NOTICE.md)。
