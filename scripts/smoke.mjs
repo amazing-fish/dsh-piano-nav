@@ -71,7 +71,8 @@ await check('host exports the Config schema and opts out of the auto settings fo
   }
   const defaults = host.Config({})
   assert.deepEqual(Object.fromEntries(Object.entries(defaults).map(([key, cell]) => [key, cell.get()])),
-    { language: 'zh', enabled: true, keyHeight: 2, keyGap: 12, maxVisible: 20 })
+    { language: 'zh', enabled: true, keyHeight: 2, keyGap: 12, maxVisible: 20,
+      colorInput: '', colorOutput: '', colorQuestion: '', colorAnswer: '', colorFinal: '', colorHistory: '' })
   host.apply({
     fiber: {},
     inject: (services, callback) => {

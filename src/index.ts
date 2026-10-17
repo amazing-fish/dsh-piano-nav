@@ -10,6 +10,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-settings'
 import { DEFAULT_SETTINGS, SETTINGS_LIMITS } from './core/config.ts'
+import { COLOR_FIELDS, COLOR_PATTERN } from './core/colors.ts'
 
 /** Keep this entry id aligned with the former settings namespace for DSH migration. */
 const SETTINGS_ENTRY_ID = 'sm-context-piano'
@@ -22,6 +23,7 @@ const bounded = (field: keyof typeof SETTINGS_LIMITS) =>
   z.number().min(SETTINGS_LIMITS[field].min).max(SETTINGS_LIMITS[field].max).step(1)
 
 export const Config = z.object({
+  ...Object.fromEntries(Object.values(COLOR_FIELDS).map(field => [field, z.string().pattern(COLOR_PATTERN).default('').volatile()])),
   language: z.union([z.const('zh'), z.const('en'), z.const('zh-TW')]).default(DEFAULT_SETTINGS.language).volatile(),
   enabled: z.boolean().default(DEFAULT_SETTINGS.enabled).volatile(),
   keyHeight: bounded('keyHeight').default(DEFAULT_SETTINGS.keyHeight).volatile(),

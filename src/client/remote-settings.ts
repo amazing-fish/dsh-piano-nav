@@ -6,7 +6,7 @@
  * `remote.settings.mutate()` instead.
  */
 
-import { DEFAULT_SETTINGS, SETTINGS_ENTRY_ID, decodeSettings } from '../core/config.ts'
+import { DEFAULT_SETTINGS, SETTINGS_ENTRY_ID, SETTINGS_FIELDS, decodeSettings } from '../core/config.ts'
 import type { PianoSettings, PianoSettingsScope, PianoSettingsSource } from '../core/config.ts'
 
 /** Structural slice of the remote API this module consumes. */
@@ -139,7 +139,7 @@ export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRem
     },
     set: (field, value) => write([{ op: 'set', path: [field], value }]),
     unset: (field) => write([{ op: 'unset', path: [field] }]),
-    reset: () => write((['language', 'enabled', 'keyHeight', 'keyGap', 'maxVisible'] as const).map((field) => ({
+    reset: (fields = SETTINGS_FIELDS) => write(fields.map((field) => ({
       op: 'unset' as const,
       path: [field] as [keyof PianoSettings & string],
     }))),

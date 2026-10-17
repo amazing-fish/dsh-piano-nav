@@ -1,7 +1,7 @@
 {
   "name": "dsh-piano-nav",
   "description": "Semantic conversation navigation for DeepSeek Harness: full-history turns, questions and answers, collapsible process output, and a continuous pointer-following piano rail.",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "publishConfig": {
     "access": "public"
   },
@@ -91,15 +91,15 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/amazing-fish/dsh-sm-context-piano.git"
+    "url": "git+https://github.com/amazing-fish/dsh-piano-nav.git"
   },
-  "homepage": "https://github.com/amazing-fish/dsh-sm-context-piano",
+  "homepage": "https://github.com/amazing-fish/dsh-piano-nav",
   "license": "MIT",
   "scripts": {
     "build": "tsc -b && tsdown -c tsdown.host.config.mjs --config-loader tsx && tsdown -c tsdown.client.config.mjs --config-loader tsx && node scripts/wrap-client.mjs",
     "typecheck": "tsc -b",
     "test:contracts": "node --import tsx scripts/chat-source.mjs && node --import tsx scripts/navigation-contract.mjs && node --import tsx scripts/full-history-contract.mjs && node --import tsx scripts/native-navigation-contract.mjs && node --import tsx scripts/semantic-contract.mjs && node --import tsx scripts/semantic-dom.mjs",
-    "test": "pnpm test:contracts && node --import tsx scripts/grouping.mjs && node --import tsx scripts/rail-collapse.mjs && node scripts/smoke.mjs && node scripts/integration.mjs",
+    "test": "pnpm test:contracts && node --import tsx scripts/colors-contract.mjs && node --import tsx scripts/grouping.mjs && node --import tsx scripts/rail-collapse.mjs && node scripts/smoke.mjs && node scripts/integration.mjs",
     "verify": "pnpm build && pnpm test",
     "watch": "tsdown -c tsdown.client.config.mjs --config-loader tsx --watch",
     "prepack": "pnpm build",
@@ -116,7 +116,7 @@
     }
   ],
   "bugs": {
-    "url": "https://github.com/amazing-fish/dsh-sm-context-piano/issues"
+    "url": "https://github.com/amazing-fish/dsh-piano-nav/issues"
   },
   "keywords": [
     "dsh",
@@ -130,6 +130,6 @@
   "packageManager": "pnpm@10.17.1",
   "piano": {
     "displayName": "DSH Piano Navigator",
-    "releaseDate": "2026-10-17"
+    "releaseDate": "—"
   }
 }

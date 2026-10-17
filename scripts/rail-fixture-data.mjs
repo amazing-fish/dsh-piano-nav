@@ -1,5 +1,5 @@
 /** Real semantic node shapes shared by DOM and painted-geometry regressions. */
-export function railFixtureData(historyOnly = false, { processCount = 7, hidden = false, leadingHistory = 0, processGroups = 1 } = {}) {
+export function railFixtureData(historyOnly = false, { processCount = 7, hidden = false, leadingHistory = 0, processGroups = 1, withQuestions = false, emptyHistoryPrompt = false } = {}) {
   if (historyOnly) {
     const node = { key: 'u10', kind: 'user', target: 'chat', visibility: 'visible', location: { turn: { turn: 10 } }, data: { content: [{ type: 'text', text: 'Current input' }] } }
     return { nodes: [node], currentAnchor: 'u10',
@@ -19,11 +19,15 @@ export function railFixtureData(historyOnly = false, { processCount = 7, hidden 
     }
   }
   nodes.push(node('u3', 'user', currentTurn, { content: [{ type: 'text', text: 'Current input' }] }))
+  if (withQuestions) nodes.push(node('color-tool', 'tool-call', currentTurn, { root: {
+    kind: 'tool-result', callId: 'color-qa', call: { name: 'ask_user_question', argsRaw: JSON.stringify({ questions: [{ id: 'palette', question: 'Which palette?', options: [{ label: 'Custom' }] }] }) },
+    isError: false, content: [{ type: 'text', text: JSON.stringify({ answers: [{ id: 'palette', selected: ['Custom'] }] }) }], subCalls: [],
+  } }))
   const blocks = [{ kind: 'text', text: 'Final result' }]
   const final = node('f3', 'assistant-step', currentTurn, { status: 'settled', turn: currentTurn, step: 1, blocks,
     finalNode: { kind: 'assistant', seq: currentTurn * 100 + 30, messageId: 'f3', turn: currentTurn, step: 1, blocks } })
   nodes.push(final, node('tail3', 'turn-tail', currentTurn, { turn: currentTurn, closing: final.data }))
   return { nodes, currentAnchor: 'f3',
-    outline: Array.from({ length: currentTurn }, (_, i) => ({ turn: i + 1, seq: (i + 1) * 100, prompt: `History ${i + 1}`, response: '' })),
+    outline: Array.from({ length: currentTurn }, (_, i) => ({ turn: i + 1, seq: (i + 1) * 100, prompt: emptyHistoryPrompt && i + 1 === currentTurn - 1 ? '' : `History ${i + 1}`, response: '' })),
     navigation: [...processNavigation, { turn: currentTurn, anchorKey: 'u3', prompt: 'Current input', response: 'Final result' }] }
 }

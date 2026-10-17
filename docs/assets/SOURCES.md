@@ -24,3 +24,19 @@
 These are browser captures of product code with synthetic data, not generated
 mockups or user conversation captures. Original icon attribution remains in
 [NOTICE](../../NOTICE.md).
+
+## 1.3.1 settings captures
+
+`settings-1.3.1.png`, `settings-1.3.1-custom.png` and
+`settings-1.3.1-custom-dark.png` are actual settings components from the 1.3.1
+implementation delivered with Issue #38, captured by
+`scripts/settings-browser.mjs` at 1280px. The default capture is Simplified
+Chinese; the custom captures use English and demonstrate six persisted
+semantic overrides in light/dark themes. The surrounding host, writable
+DSH settings transport and conversation are synthetic. The same run verifies
+binding to all six kinds on the actual rail, persisted re-read, reset, errors
+and the 390px layout. Publication status is tracked separately.
+
+The earlier `settings.png` remains an archived 1.3.0 capture. Current README
+references the versioned 1.3.1 image. Captures use the installed Noto Sans CJK
+font as a test-environment font; no font files enter the plugin package.

@@ -1,6 +1,8 @@
 /** Shared settings vocabulary for host registration and browser rendering. */
+import { COLOR_FIELDS, DEFAULT_COLORS, isPianoColor } from './colors.ts'
+import type { PianoColors } from './colors.ts'
 
-export interface PianoSettings {
+export interface PianoSettings extends PianoColors {
   language: PianoLanguage
   enabled: boolean
   keyHeight: number
@@ -16,12 +18,14 @@ export const SETTINGS_ENTRY_ID = 'sm-context-piano'
 export const PIANO_LANGUAGE_IDS = ['zh', 'en', 'zh-TW'] as const
 export type PianoLanguage = typeof PIANO_LANGUAGE_IDS[number]
 export const DEFAULT_SETTINGS: PianoSettings = {
+  ...DEFAULT_COLORS,
   language: 'zh',
   enabled: true,
   keyHeight: 2,
   keyGap: 12,
   maxVisible: 20,
 }
+export const SETTINGS_FIELDS = Object.keys(DEFAULT_SETTINGS) as (keyof PianoSettings)[]
 
 export const SETTINGS_LIMITS = {
   keyHeight: { min: 1, max: 4 },
@@ -42,6 +46,7 @@ export function decodeSettings(value: unknown): PianoSettings | undefined {
   if (typeof value !== 'object' || value === null) return undefined
   const source = value as Partial<PianoSettings>
   return {
+    ...Object.fromEntries(Object.values(COLOR_FIELDS).map(field => [field, isPianoColor(source[field]) ? source[field] : ''])) as PianoColors,
     language: isPianoLanguage(source.language) ? source.language : DEFAULT_SETTINGS.language,
     enabled: typeof source.enabled === 'boolean' ? source.enabled : DEFAULT_SETTINGS.enabled,
     keyHeight: integer(source.keyHeight, DEFAULT_SETTINGS.keyHeight, SETTINGS_LIMITS.keyHeight.min, SETTINGS_LIMITS.keyHeight.max),
@@ -59,6 +64,7 @@ export function validateSettings(value: PianoSettings): void {
     || decoded.keyHeight !== value.keyHeight
     || decoded.keyGap !== value.keyGap
     || decoded.maxVisible !== value.maxVisible
+    || Object.values(COLOR_FIELDS).some(field => decoded[field] !== value[field])
   ) {
     throw new Error('invalid sm-context-piano settings')
   }
@@ -90,7 +96,7 @@ export interface PianoSettingsScope {
   subscribe(listener: () => void): () => void
   set<K extends keyof PianoSettings & string>(field: K, value: PianoSettings[K]): Promise<void>
   unset<K extends keyof PianoSettings & string>(field: K): Promise<void>
-  reset(): Promise<void>
+  reset(fields?: readonly (keyof PianoSettings)[]): Promise<void>
 }
 
 export const DEFAULT_SETTINGS_SOURCE: PianoSettingsSource = {

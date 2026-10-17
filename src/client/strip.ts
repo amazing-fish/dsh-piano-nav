@@ -18,6 +18,7 @@ import { createSemanticLanding } from './semantic-landing.ts'
 import { SEMANTIC_CSS, semanticLabel, landingFailure } from './semantic-style.ts'
 import type { SmContextPianoKey } from './locales.ts'
 import type { PianoSelectedSessionSource } from './session-probe.tsx'
+import { COLOR_FIELDS, paletteStyle } from '../core/colors.ts'
 import { DEFAULT_SETTINGS, DEFAULT_SETTINGS_SOURCE, railHeight } from '../core/config.ts'
 import type { PianoSettingsSource } from '../core/config.ts'
 
@@ -1014,7 +1015,25 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   scrollport.addEventListener('keydown', readerKey)
   const listStop = ctx.sessions.list.subscribe(() => { retries = 0; bind() })
   const selectedStop = selection.subscribe(() => { retries = 0; bind() })
-  const settingsStop = settings.subscribe(() => schedule(DIRTY_NODES | DIRTY_TURNS | DIRTY_LAYOUT | DIRTY_VIEW))
+  const syncPalette = (): void => {
+    const style = paletteStyle(settings.getSnapshot())
+    for (const kind of Object.keys(COLOR_FIELDS)) {
+      for (const suffix of ['color', 'active-color']) {
+        const name = `--smcp-${kind}-${suffix}`
+        if (style[name] === undefined) strip.style.removeProperty(name)
+        else strip.style.setProperty(name, style[name])
+      }
+    }
+  }
+  syncPalette()
+  let settingsLanguage = settings.getSnapshot().language
+  const settingsStop = settings.subscribe(() => {
+    syncPalette()
+    const language = settings.getSnapshot().language
+    const translatedItems = language !== settingsLanguage ? DIRTY_NODES | DIRTY_TURNS : 0
+    settingsLanguage = language
+    schedule(translatedItems | DIRTY_LAYOUT | DIRTY_VIEW)
+  })
   const dispose = (): void => {
     if (!alive) return
     alive = false; activation++; landing.cancel()

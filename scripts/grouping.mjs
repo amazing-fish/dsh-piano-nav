@@ -65,10 +65,10 @@ assert.equal((positions[0] + positions[positions.length - 1]) / 2, 115)
 
 assert.equal(railHeight(DEFAULT_SETTINGS), 230)
 assert.deepEqual(decodeSettings({ enabled: false, keyHeight: 4, keyGap: 6, maxVisible: 5 }), {
-  language: 'zh', enabled: false, keyHeight: 4, keyGap: 6, maxVisible: 5,
+  ...DEFAULT_SETTINGS, language: 'zh', enabled: false, keyHeight: 4, keyGap: 6, maxVisible: 5,
 })
 assert.deepEqual(decodeSettings({ language: 'zh-TW', enabled: true, keyHeight: 99, keyGap: 0, maxVisible: 99 }), {
-  language: 'zh-TW', enabled: true, keyHeight: 4, keyGap: 6, maxVisible: 30,
+  ...DEFAULT_SETTINGS, language: 'zh-TW', enabled: true, keyHeight: 4, keyGap: 6, maxVisible: 30,
 })
 assert.equal(decodeSettings({ language: 'fr' }).language, 'zh')
 assert.doesNotThrow(() => validateSettings(DEFAULT_SETTINGS))

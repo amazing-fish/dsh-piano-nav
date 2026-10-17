@@ -2,22 +2,22 @@
 
 **A semantic rail for previewing and navigating long agent conversations.**
 
-[中文](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/README.md) · [Usage](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md) · [Documentation](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/README.md) · [Issues](https://github.com/amazing-fish/dsh-sm-context-piano/issues)
+[中文](https://github.com/amazing-fish/dsh-piano-nav/blob/master/README.md) · [Usage](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/USAGE.md) · [Documentation](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/README.md) · [Issues](https://github.com/amazing-fish/dsh-piano-nav/issues)
 
-[![CI](https://github.com/amazing-fish/dsh-sm-context-piano/actions/workflows/verify.yml/badge.svg)](https://github.com/amazing-fish/dsh-sm-context-piano/actions/workflows/verify.yml) [![npm](https://img.shields.io/npm/v/dsh-piano-nav)](https://www.npmjs.com/package/dsh-piano-nav) [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![CI](https://github.com/amazing-fish/dsh-piano-nav/actions/workflows/verify.yml/badge.svg)](https://github.com/amazing-fish/dsh-piano-nav/actions/workflows/verify.yml) [![npm](https://img.shields.io/npm/v/dsh-piano-nav)](https://www.npmjs.com/package/dsh-piano-nav) [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 For the **DeepSeek Harness Web GUI**, independently maintained by [amazing-fish](https://github.com/amazing-fish). This project has evolved into a full-history navigator with semantic questions and answers, process folding, and continuous pointer interaction. Its origins are documented in [NOTICE](NOTICE.md).
 
 ## Preview
 
-![Actual step-aware keys: input, process, question, answer, final result, folding and dark theme](https://raw.githubusercontent.com/amazing-fish/dsh-sm-context-piano/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/semantic-steps.gif)
+![Actual step-aware keys: input, process, question, answer, final result, folding and dark theme](https://raw.githubusercontent.com/amazing-fish/dsh-piano-nav/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/semantic-steps.gif)
 
 The gallery cycles through **blue user input → gray process group → expanded process steps → amber AI question → green user answer → purple double-stroke final result → folding after navigation → dark-theme process keys**. These are actual plugin/native-component states with synthetic Session data, held briefly for readability. Ordinary process keys are white or near-white in the dark theme.
 
 <details>
 <summary>Continuous pointer following: before/after comparison</summary>
 
-![Identical pointer trajectory: discrete key changes before the fix and continuous following afterward](https://raw.githubusercontent.com/amazing-fish/dsh-sm-context-piano/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/pointer-follow-before-after.gif)
+![Identical pointer trajectory: discrete key changes before the fix and continuous following afterward](https://raw.githubusercontent.com/amazing-fish/dsh-piano-nav/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/pointer-follow-before-after.gif)
 
 Both sides replay the same slow movement, fast movement and immediate reversal. Left: before the fix; right: current behavior. This browser replay uses actual plugin code with synthetic Session data and keys enlarged 4×. The 5/120 and 120/120 labels count width changes during small pointer movements; **they are not FPS**.
 
@@ -33,7 +33,7 @@ dsh plugin --profile web add dsh-piano-nav
 
 Refresh the Web GUI and open **Piano Navigator** in Settings. The npm package is `dsh-piano-nav`; the existing `dsh-piano` package is a different, musical plugin.
 
-For migration, remove the old scoped package or local link's loading entry before adding the new package. Preserve persisted settings: the entry ID remains compatible. See [migration](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md#从旧包迁移).
+For migration, remove the old scoped package or local link's loading entry before adding the new package. Preserve persisted settings: the entry ID remains compatible. See [migration](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/USAGE.md#从旧包迁移).
 
 ## What the rail represents
 
@@ -68,20 +68,20 @@ Ordinary tool logs, edits, reads, and reasoning do not become separate keys. Str
 | `Home` / `End` | Select the first/last entry in the conversation list |
 | `Escape` | Close preview, retire expansion, and cancel navigation intent |
 
-Defaults: **2px** thickness, **12px** center spacing, **20** visible keys. See [usage](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md) for settings and edge cases.
+Defaults: **2px** thickness, **12px** center spacing, **20** visible keys. The 1.3.1 settings page adds six semantic color controls, a bound legend and live layout preview. Changes persist and update actual keys; automatic colors follow the theme. See [usage](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/USAGE.md) for settings and edge cases.
 
 <details>
 <summary>Current settings page</summary>
 
-![Current DSH Piano Navigator settings: language, thickness, spacing, visible keys and install command](https://raw.githubusercontent.com/amazing-fish/dsh-sm-context-piano/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/settings.png)
+![DSH Piano Navigator 1.3.1: semantic colors, bound legend, preview and layout settings](https://raw.githubusercontent.com/amazing-fish/dsh-piano-nav/6da0ef9785cb442ae03a6e6558cc05ea59b16ab0/docs/assets/settings-1.3.1.png)
 
-The built settings component in Simplified Chinese with demo settings data. See [media sources](https://github.com/amazing-fish/dsh-sm-context-piano/blob/0e2523aa02773a8ff19e524024348b2144c6d98f/docs/assets/SOURCES.md) for provenance and versions.
+The actual 1.3.1 settings component in Simplified Chinese with demo settings data. See [media sources](https://github.com/amazing-fish/dsh-piano-nav/blob/6da0ef9785cb442ae03a6e6558cc05ea59b16ab0/docs/assets/SOURCES.md) for provenance and versions.
 
 </details>
 
 ## Compatibility and data boundaries
 
-Development dependencies are pinned to DSH `0.2.0-rc.2`. Type/integration checks and browser regressions using pinned native source establish different levels of evidence; see [compatibility](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/COMPATIBILITY.md).
+Development dependencies are pinned to DSH `0.2.0-rc.2`. Type/integration checks and browser regressions using pinned native source establish different levels of evidence; see [compatibility](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/COMPATIBILITY.md).
 
 The checked DOM bridge reuses native paging and scroll ownership. It is not an official stable navigator replacement API. Narrow layouts, missing targets, or contract drift restore native UI. Segments sharing a DOM row may land at the same row start.
 
@@ -97,10 +97,10 @@ pnpm test:package
 
 | Entry | Contents |
 | --- | --- |
-| [Contributing](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/CONTRIBUTING.md) | Setup, directories, tests, PRs |
-| [Architecture](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/ARCHITECTURE.md) | Read models, native navigation, scheduling, lifecycle |
-| [Semantic rules](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/SEMANTIC_KEYS.md) | Segments, questions, finality, folding |
-| [Releasing](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/RELEASING.md) | Inspection, authentication, tarball publication, verification |
+| [Contributing](https://github.com/amazing-fish/dsh-piano-nav/blob/master/CONTRIBUTING.md) | Setup, directories, tests, PRs |
+| [Architecture](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/ARCHITECTURE.md) | Read models, native navigation, scheduling, lifecycle |
+| [Semantic rules](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/SEMANTIC_KEYS.md) | Segments, questions, finality, folding |
+| [Releasing](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/RELEASING.md) | Inspection, authentication, tarball publication, verification |
 | [Changelog](CHANGELOG.md) | Independently maintained package changes |
 
 `src/` holds implementation, `scripts/` regressions and fixtures, and `lib/` tracked builds. Start at `docs/README.md`; historical plans/screenshots live in `docs/archive/`.

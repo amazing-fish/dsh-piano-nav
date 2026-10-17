@@ -9,11 +9,11 @@ dsh plugin --profile web add dsh-piano-nav
 ```
 
 刷新 Web GUI，在“琴键导航 / Piano Navigator”中启用。只有当前可见会话挂载轨道。
-尚未发布时，可先构建并链接仓库：
+本地开发时，可先构建并链接仓库：
 
 ```powershell
 pnpm build
-dsh plugin --profile web add link:C:/projects/dsh-sm-context-piano
+dsh plugin --profile web add link:C:/projects/dsh-piano-nav
 ```
 
 ## 从旧包迁移
@@ -62,7 +62,18 @@ dsh plugin --profile web add link:C:/projects/dsh-sm-context-piano
 | `keyGap` | 12px | 6–18 的整数，中心到中心 |
 | `maxVisible` | 20 | 5–30 的整数 |
 
-高度为 `(maxVisible - 1) × keyGap + keyHeight`。插件语言控制设置页和语义预览；
+1.3.1 增加颜色与图例：输入、过程输出、提问、回答、最终结果、历史入口分别绑定
+`colorInput`、`colorOutput`、`colorQuestion`、`colorAnswer`、`colorFinal`、`colorHistory`。
+字段为六位 `#RRGGBB`，空字符串使用主题默认色。选择颜色后通过 DSH live settings
+保存，图例、布局预览和实际琴键同步；当前键/悬停在同色系内加强强调，文字与形状仍
+标明语义。自选颜色应用于深浅两种主题，请分别检查可辨识性；“自动”恢复单类主题色，
+“恢复默认配色”保留其他偏好，“恢复默认值”重置全部字段。旧设置缺少颜色字段时沿用默认。
+
+布局预览使用演示数据与实际折叠投影；点击过程组展开，点击成员或其他键回折。它不执行
+会话导航。最大数量统计窗口内显示键数，折叠组计一枚，不是历史条目或过程成员总数。
+
+高度上限为 `(maxVisible - 1) × keyGap + keyHeight`，实际高度和容量可能被可用空间缩小。
+插件语言控制设置页和语义预览；
 一级导航名称和轨道无障碍名称随 DSH 全局语言。设置由 DSH live settings 持久化。
 
 ## 没有显示或不能定位时
