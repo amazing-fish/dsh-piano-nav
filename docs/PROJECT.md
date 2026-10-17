@@ -13,7 +13,7 @@
 
 > DSH Piano Navigator：DeepSeek Harness 的语义会话导航器，支持完整历史、结构化问答、过程折叠与连续鼠标波形。Independently maintained conversation navigation for DSH.
 
-推荐 topics：`deepseek-harness`、`dsh`、`conversation-navigation`、`agent-tools`、`piano-navigation`。
+推荐 topics：`dsh-plugin`、`deepseek-harness`、`dsh`、`conversation-navigation`、`agent-tools`、`piano-navigation`。
 
 About/主页/topics 是服务器端设置，与 manifest/README 不同。是否已应用要在页面核验；
 本文件本身不会修改服务器设置。

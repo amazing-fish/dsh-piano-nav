@@ -1,9 +1,10 @@
 # Changelog
 
-## 1.3.0 — release preparation
+## 1.3.0 — 2026-10-17
 
-First independent npm release under **dsh-piano-nav**. Publication status is
-determined by the registry, not by the presence of this entry.
+First independent npm release under **dsh-piano-nav**. See the
+[publication record](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/releases/1.3.0.md)
+for the source commit, artifact integrity and registry verification.
 
 - Establish the independent product identity, maintainer information, current
   Chinese/English documentation and package verification; retain attribution.
