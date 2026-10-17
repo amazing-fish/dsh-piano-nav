@@ -19,8 +19,12 @@ coverage/
 *.pfx
 .DS_Store
 Thumbs.db
-/images/sm-context-piano-icon.png
-/Relese-command/github/
-/Relese-command/npm/
-/docs/PLAN.md
-/docs/RESEARCH.md
+
+# Local validation, release packages and generated fixtures
+.browser-tools/
+.browser-fixture/
+.semantic-fixture/
+test-results/
+reports/
+artifacts/
+*.tgz

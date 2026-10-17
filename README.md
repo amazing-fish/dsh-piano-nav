@@ -1,266 +1,86 @@
-# 琴键导航 | sm-context-piano
+# DSH Piano Navigator
 
-中文文档（默认） · [English documentation](README.en.md)
+**把长 Agent 会话变成一条可预览、可定位的语义导航轨道。**
 
-[![version](https://img.shields.io/badge/version-v1.2.0-blue?style=flat-square)](https://www.npmjs.com/package/%40hjj345345%2Fdsh-sm-context-piano) [![node](https://img.shields.io/badge/node-22.19%20or%2024%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/) [![license](https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square)](LICENSE)
+[English](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/README.en.md) · [使用指南](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md) · [文档](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/README.md) · [反馈](https://github.com/amazing-fish/dsh-sm-context-piano/issues)
 
-GitHub：[https://github.com/hjj345/dsh-sm-context-piano](https://github.com/hjj345/dsh-sm-context-piano)
+[![CI](https://github.com/amazing-fish/dsh-sm-context-piano/actions/workflows/verify.yml/badge.svg)](https://github.com/amazing-fish/dsh-sm-context-piano/actions/workflows/verify.yml) [![npm](https://img.shields.io/npm/v/dsh-piano-nav)](https://www.npmjs.com/package/dsh-piano-nav) [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-npm：[@hjj345345/dsh-sm-context-piano](https://www.npmjs.com/package/%40hjj345345%2Fdsh-sm-context-piano)
+面向 **DeepSeek Harness Web GUI**，由 [amazing-fish](https://github.com/amazing-fish) 独立维护。项目已发展为包含完整历史导航、语义问答、过程折叠和连续指针交互的导航器。来源与版权记录见 [NOTICE](NOTICE.md)。
 
-<p align="center">
-  <img src="images/sm-context-piano-settings-icon.png" alt="琴键导航插件图标" width="180">
-</p>
+## 安装
 
-DeepSeek Harness Web GUI 的 Codex 式对话琴键导航插件。
-
-它在聊天正文左侧增加一组紧凑的横线琴键，将长对话压缩为可预览、可定位的语义节点。用户可以沿琴键快速浏览对话结构，悬停查看摘要，点击或使用键盘跳转到目标段落，而不必反复拖动滚动条寻找上下文。
-
-本插件只负责导航和预览：不修改会话内容、不裁剪模型上下文、不注入系统提示，也不开放额外 HTTP 接口。
-
-## 为什么需要琴键导航
-
-长时间运行的 Agent 会话通常包含大量用户指令、模型回复、工具调用、编辑记录和内部状态。传统滚动条只能表示页面位置，无法告诉用户每一段内容的语义。
-
-琴键导航将对话重新组织为更容易识别的节点：
-
-- 用户消息始终作为独立节点；
-- 模型连续输出会合并为一个节点；
-- 工具调用、编辑、读取、推理和内部状态不会生成琴键；
-- 被非输出内容打断的模型回复会重新分段；
-- 当前阅读节点始终在固定窗口中保持可见。
-
-因此，琴键数量不会简单等于页面消息数量，而是更接近用户能够感知的关键对话段落。
-
-## 核心功能
-
-- **Codex 式紧凑琴键**：默认使用 2px 粗细、12px 中心间距和 20 根可见琴键，保持集中排列，不因长历史而无限压缩。
-- **纯语义节点**：只显示用户消息和模型可见文本输出，完全过滤 tool、edit、read、reasoning、command、partial 等非输出内容。
-- **连续输出合并**：相邻且未被非输出内容打断的模型文本合并为一根琴键；不同阶段的输出保持独立。
-- **固定窗口浏览**：节点超过上限时，以当前阅读位置为中心显示固定数量；选择顶部或底部琴键即可继续浏览更早或更晚的内容。
-- **连续悬停波形**：波峰随鼠标纵坐标连续变化，同一枚键内也会跟随；指针事件按动画帧合并，单纯移动只更新可见键与必要的预览。预览和点击仍在实际绘制宽度内选择最近节点，空白边缘和隐藏成员槽位不会触发操作。
-- **点击展开过程输出**：远处同轮连续 AI 过程输出折叠为一枚标准琴键，刷新或加载历史后也保留；历史轮次入口保持独立。悬停提示完整段数，首次点击展开并将窗口对准成员，点击成员时自动展开原生过程区再定位。聊天滚动、鼠标离开、失焦及流式更新保留展开态；点击成员或其他键、Escape、轨道滚轮浏览时收起，切换折叠组时先收起旧组。收起后的成员保持合并，阅读线停在过程段或继续点击紫键、其他键都不会重新拆散；再次点击折叠键可重新展开。不可导航的历史键收到轨道点击或键盘操作时也会收起当前组。高度固定，超过窗口容量的长组可用方向键逐段浏览。
-- **原生折叠态一致性**：过程区收起时，阅读线经过摘要也不会拆散连续过程组；原生展开后恢复当前阅读位置附近的独立过程键。折叠区内的问题与已答键照常保留，点击时展开过程区和问答卡片再定位。
-- **安全文本预览**：悬停卡片展示标题和正文摘要，跟随明暗主题并自动避开窗口边界；内容始终以纯文本写入。
-- **快速定位**：点击琴键或按下 Enter、Space，平滑滚动到目标消息起始位置。
-- **阅读位置同步**：滚动聊天时，当前段落琴键会立即加深并加长，固定窗口随阅读位置重新居中。
-- **流式增量更新**：模型持续输出或历史内容更新时复用已有琴键 DOM，避免闪烁并保留当前交互状态。
-- **三语设置页**：支持简体中文、English、繁體中文，默认简体中文；选择会即时生效并由 DSH 持久化。
-- **可配置布局**：可以调整琴键粗细、中心间距和最大显示数量，轨道总高度自动重新计算。
-- **响应式设置界面**：通用设置、显示设置、关于插件和安装命令卡片支持窄屏自动排版，长命令可以换行且不会与复制按钮重叠。
-- **键盘与辅助技术支持**：支持完整键盘选择、跳转和关闭预览；琴键轨道使用导航角色和无障碍名称。
-- **主题与动效偏好**：跟随 DSH 明暗主题，并遵守 `prefers-reduced-motion`。
-- **完整卸载**：插件卸载后移除 DOM、样式、监听器、Observer、定时器和动画帧，不残留页面副作用。
-
-## 实际应用效果
-
-插件会在对话正文左侧提供琴键导航，并通过悬停预览和阅读位置同步帮助用户快速浏览长对话。
-
-<p align="center">
-  <img src="images/plugin-Application%20Effect-1.png" alt="对话页面中的琴键导航" width="900">
-</p>
-
-<p align="center">
-  <img src="images/plugin-Application%20Effect-2.png" alt="琴键导航悬停预览" width="900">
-</p>
-
-<p align="center">
-  <img src="images/plugin-Application%20Effect-3.png" alt="琴键导航定位长文档内容" width="900">
-</p>
-
-## 快速开始
-
-### npm 安装
+需要 DSH 的 `web` profile，以及 Node.js `^22.19.0 || >=24.0.0`。
 
 ```powershell
-dsh plugin --profile web add @hjj345345/dsh-sm-context-piano
+dsh plugin --profile web add dsh-piano-nav
 ```
 
-安装后刷新或重新打开 DSH Web GUI，然后在设置弹窗左侧进入 **琴键导航**。
+刷新 Web GUI，在设置中找到 **琴键导航 / Piano Navigator**。包名为 `dsh-piano-nav`；npm 上已有的 `dsh-piano` 是另一款音乐插件。
 
-### 本地开发链接
+从旧作用域包或本地链接迁移时，先移除旧插件的加载条目，再添加新包，避免重复装载。设置 entry id 保持兼容，移除旧条目时保留持久化设置。详见[迁移步骤](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md#从旧包迁移)。
 
-```powershell
-dsh plugin --profile web add link:C:/path/to/dsh-sm-context-piano
-```
+## 它能帮你找到什么
 
-## 操作方式
-
-| 操作 | 效果 |
+| 导航对象 | 显示与行为 |
 | --- | --- |
-| 移动鼠标经过琴键轨道 | 选择最近的琴键，展开波形并显示段落预览 |
-| 点击琴键或轨道当前位置 | 跳转到当前预览的对话段落 |
-| 点击 AI 过程折叠键 | 展开过程成员并紧凑重排；再次点击成员才定位，历史轮次入口仍直接跳转 |
-| 滚动聊天正文 | 自动更新当前琴键和固定显示窗口 |
-| `ArrowUp` / `ArrowDown` | 在当前可见琴键之间移动选择 |
-| `Home` / `End` | 选择当前窗口的第一根或最后一根琴键 |
-| `Enter` / `Space` | 跳转到已选择的琴键节点 |
-| `Escape` | 关闭当前预览并清除悬停状态 |
+| 用户输入 | 独立入口，保留对话起点 |
+| AI 过程输出 | 文本按语义分段；同轮连续过程可折叠为一枚键 |
+| 最终结果 | 与过程输出分开标识 |
+| AI 提问 / 用户回答 | 展示 `ask_user_question` 的问题、回答和状态 |
+| 更早的历史轮次 | 未加载时显示真实大纲，点击交由 DSH 原生导航加载 |
 
-选择固定窗口顶部或底部的边界琴键后，窗口会立即重新计算，使更早或更晚的节点进入可见区域。
+普通工具日志、编辑、读取和推理不生成独立琴键；结构化问答是明确的例外。未加载轮次不会被猜测成虚构的细粒度段落。
 
-## 设置页面
+## 独立演进的核心能力
 
-插件以一级设置项注册在 DSH 设置弹窗中，排序位于官方 **Agent 预设** 下方。第三方设置导航使用 DSH 官方齿轮回退图标。
+- **一条完整历史轨道**：合并轮次大纲和已加载语义段；接管成功后只显示 Piano，条件不满足时恢复原生导航。
+- **按需展开过程**：首次点击折叠键展示成员，再点击成员定位；自动展开可揭示的原生过程区或问答卡片。被动滚动和流式更新保留手动展开。
+- **连续指针波形**：同键内移动也连续跟随；动画帧只更新可见键与必要预览，鼠标停止后没有常驻循环。
+- **固定显示窗口**：默认 20 枚键，保持稳定间距；轨道滚轮和键盘可以前后浏览全部可用入口。
+- **完整日常交互**：纯文本预览、阅读高亮、稳定节点复用、明暗主题、键盘操作与减少动画。
+- **三语持久化设置**：简体中文、English、繁體中文；粗细、间距和窗口容量即时调整。
 
-### 通用设置
+## 常用操作
 
-| 设置 | 默认值 | 说明 |
-| --- | --- | --- |
-| `语言/Language` | 简体中文 | 支持简体中文、English、繁體中文；只切换插件设置页文本 |
+| 操作 | 结果 |
+| --- | --- |
+| 沿轨道移动鼠标 | 连续波形跟随，最近的键显示预览 |
+| 点击普通键 / `Enter` / `Space` | 定位或交由原生导航加载目标 |
+| 首次激活过程折叠键 | 展开该组，其他已展开组先收起 |
+| 轨道滚轮 | 前后浏览窗口，不滚动正文，并收回手动展开 |
+| `↑` / `↓`、`PageUp` / `PageDown` | 移动选择，必要时调整窗口 |
+| `Home` / `End` | 选择会话导航列表首尾 |
+| `Escape` | 关闭预览、收回展开并取消当前导航意图 |
 
-语言选择由插件独立保存。它不会修改 DSH 全局语言；左侧一级导航名称和琴键轨道的无障碍名称仍跟随 DSH 系统语言。
+默认键高 **2px**、中心间距 **12px**、最多 **20** 枚可见键。设置范围、折叠规则和异常行为见[使用指南](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/USAGE.md)。
 
-### 显示设置
+## 兼容性与数据边界
 
-| 设置 | 默认值 | 可选范围 / 行为 |
-| --- | --- | --- |
-| 启用状态 | 开启 | 可随时关闭或重新启用琴键导航 |
-| 琴键粗细 | `2px` | `1–4px` |
-| 琴键间距 | `12px` | `6–18px`，表示相邻琴键中心点距离 |
-| 最大显示数量 | `20` | `5–30`，超出上限时使用固定窗口 |
-| 恢复默认值 | — | 同时恢复语言、启用状态和全部显示参数 |
+当前开发依赖固定到 DSH `0.2.0-rc.2`；类型与集成测试、固定官方源码的原生组件浏览器回归分别验证不同层面的兼容性。[兼容说明](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/COMPATIBILITY.md)列明适配方式和验证范围。
 
-轨道总高度按以下公式自动计算：
+导航通过受校验的 DOM 桥接复用原生分页与滚动状态，尚不是官方稳定的导航替换 API。容器过窄、没有目标或契约变化时恢复原生界面。同一行的多个语义段可能落在同一行起点。
 
-```text
-(最大显示数量 - 1) × 琴键间距 + 琴键粗细
-```
+Piano 只读取导航信息、显示纯文本预览并保存自身设置；不改写消息、不注入系统提示、不提交问答答案。历史加载请求由 DSH 执行。
 
-默认值对应 `(20 - 1) × 12 + 2 = 230px`。
-
-### 关于插件与安装命令
-
-“关于插件”卡片显示版本、发布日期、作者、邮箱、GitHub 仓库链接以及正式 npm 包名与链接。“安装命令”使用独立代码卡片展示完整命令，并提供一键复制按钮。
-
-### 设置页面截图
-
-以下截图分别展示中文设置页、插件启用与显示控制，以及 English 界面。
-
-<p align="center">
-  <img src="images/plugin-2.png" alt="中文插件设置与显示控制" width="900">
-</p>
-
-<p align="center">
-  <img src="images/plugin-1.png" alt="中文关于插件与安装命令" width="900">
-</p>
-
-<p align="center">
-  <img src="images/plugin-English.png" alt="English 插件设置页" width="900">
-</p>
-
-## 工作原理
-
-1. 从 DSH `ConversationSnapshot.chat.order/nodes` 读取当前会话中已经加载的有序节点；
-2. 将用户消息和模型可见文本转换为安全的导航描述，过滤所有非输出节点；
-3. 按连续性合并模型输出，并为不连续输出建立稳定的分段 key；
-4. 使用 `[data-chat-anchor-key]` 将语义节点与真实消息行对齐；
-5. 根据阅读线计算当前节点，只渲染以它为中心的固定琴键窗口；
-6. 通过滚动容器、MutationObserver、ResizeObserver 和动画帧调度保持布局同步。
-
-现有琴键通过稳定 key 增量复用，因此流式回复不会导致整条轨道反复清空和重建。
-
-## 兼容性与实现边界
-
-- 面向 DeepSeek Harness Web profile，依赖当前 ChatView 的 `[data-chat-flow]`、`[data-chat-anchor-key]` 和 `[data-conversation-scroll]` 锚点。
-- 仅为当前已经加载到 ChatView 的历史生成琴键；尚未加载的更早记录不会提前出现。
-- 工具、编辑、命令、推理和内部状态不会创建琴键，也不会进入悬停预览。
-- 同一 DOM 行内由非输出 block 分隔的多段模型文本可以生成多根琴键，但受 Harness 行级锚点限制，跳转位置均为该消息行起点。
-- 页面宽度不足、琴键区域与正文重叠或没有可导航节点时，插件会安全隐藏轨道，不影响 DSH 页面使用。
-- 当前构建环境要求 Node.js `^22.19.0 || >=24.0.0`。
-
-## 安全与隐私
-
-- 不修改 Session、模型上下文、系统提示或对话数据；
-- 不注册额外 HTTP 路由，不发送插件自己的网络请求；
-- 设置通过 DSH 官方 settings namespace 保存，不使用单独的浏览器私有存储；
-- 预览使用 `textContent` 写入，不执行会话内容中的 HTML；
-- 错误提示不包含用户会话正文；
-- 关闭时移除琴键 DOM 和会话绑定监听；完整卸载时进一步释放全局观察器和设置订阅。
-
-## 开发与验证
-
-环境要求：Node.js `^22.19.0 || >=24.0.0`、pnpm。
+## 开发与文档
 
 ```powershell
-pnpm install
+pnpm install --frozen-lockfile
 pnpm verify
+pnpm test:package
 ```
 
-`pnpm verify` 依次执行：
+| 入口 | 内容 |
+| --- | --- |
+| [贡献指南](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/CONTRIBUTING.md) | 环境、目录职责、测试与提交要求 |
+| [架构](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/ARCHITECTURE.md) | 读模型、原生所有权、调度与生命周期 |
+| [语义规则](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/SEMANTIC_KEYS.md) | 分段、问答、最终结果与折叠 |
+| [发布指南](https://github.com/amazing-fish/dsh-sm-context-piano/blob/master/docs/RELEASING.md) | 打包、认证、tarball 上传与核验 |
+| [变更记录](CHANGELOG.md) | 独立维护版本的变化 |
 
-1. TypeScript 项目引用和类型检查；
-2. 宿主端与客户端生产构建；
-3. DSH 客户端模块包装；
-4. 输出分段、固定窗口和设置边界逻辑测试；
-5. 构建产物冒烟测试；
-6. jsdom 页面与交互集成测试。
+实现位于 `src/`，回归与夹具位于 `scripts/`，跟踪构建产物位于 `lib/`。当前文档从 `docs/README.md` 进入，过往阶段方案和旧截图归入 `docs/archive/`。
 
-当前自动化覆盖包括 21 项逻辑断言、4 项构建冒烟检查和 14 项 jsdom 集成场景。
+## 来源与许可
 
-项目内部设计和验收资料保留在仓库的 `docs/` 目录中，npm 发布包不包含这些内部文档。
-
-## 常见问题(Q&A)
-
-### 为什么工具调用和编辑记录没有琴键？
-
-琴键用于定位用户能够直接感知的对话内容。工具、编辑、读取、推理和内部状态只作为模型输出连续性的分界，不作为导航目标。
-
-### 为什么长对话不显示全部琴键？
-
-插件使用固定数量窗口，避免为了容纳全部历史而压缩琴键间距。选择窗口顶部或底部节点即可逐步浏览更早或更晚的内容。
-
-### 为什么切换插件语言后，左侧导航名称没有变化？
-
-插件语言只控制设置页。DSH 一级导航名称和琴键轨道无障碍名称按设计继续跟随 DSH 系统语言。
-
-### 为什么某些更早的消息没有琴键？
-
-琴键只覆盖当前已经加载到 ChatView 的历史。需要先让 DSH 加载对应历史记录，插件才能为其建立导航节点。
-
-### 设置会在刷新后保留吗？
-
-会。语言、启用状态和显示参数均通过 DSH settings namespace 持久化。
-
-## 许可
-
-本项目采用 [MIT License](LICENSE) 开源。
-
-## 更新日志
-
-### v1.2.0 · 2026-09-02
-
-- 修复 DSH 设置命名空间在新版本依赖中的兼容性，确保插件始终以字符串命名空间正确注册；
-- 扩展 `@deepseek-ai/cordis`、`@deepseek-ai/dsh-settings` 和 `@deepseek-ai/schemastery` 的宿主兼容版本声明；
-- 增加对应的宿主注册、peer 依赖和设置页版本日期 smoke/integration 检查。
-
-### v1.1.2 · 2026-08-29
-
-- 版本号更新为v1.1.2。
-
-### v1.1.1 · 2026-08-29
-
-- 统一插件用户可见版本标识为 `v1.1.1`；
-- 优化安装命令卡片的明暗主题背景及暗色文字对比度。
-
-### v1.1.0 · 2026-08-28
-
-- 修复宿主核心包被插件普通依赖遮蔽的问题；
-- 将 `@deepseek-ai/dsh-settings` 和 `@deepseek-ai/schemastery` 改为宿主提供的 peer 依赖；
-- 更新开发构建基线到 DSH 0.1.1-rc.2，同时保留对已发布 DSH 列车的兼容声明。
-
-### v1.0.0 · 2026-08-21
-
-首次发布版本，包含：
-
-- 实现只覆盖用户消息和模型可见文本输出的 Codex 式琴键导航；
-- 支持连续模型输出合并，并过滤工具、编辑、读取、推理、命令和内部状态；
-- 支持固定窗口、活动节点居中、边界节点换页、悬停预览和快速跳转；
-- 支持滚动位置同步、流式增量更新和稳定 DOM 节点复用；
-- 新增一级插件设置页，包含通用设置、显示设置、关于插件和安装命令卡片；
-- 支持简体中文、English、繁體中文三语即时切换和持久化，默认简体中文；
-- 保持 DSH 一级导航名称和琴键轨道无障碍名称跟随 DSH 系统语言；
-- 支持插件开关、琴键粗细、间距、最大显示数量、自动轨道高度和恢复默认值；
-- 支持安装命令一键复制、响应式设置布局、窄屏自动换行和明暗主题；
-- 支持鼠标、键盘、减少动态效果偏好及完整卸载；
-- 完成宿主端、客户端、设置 schema、构建产物和 jsdom 交互验证。
+基于 [hjj345/dsh-sm-context-piano](https://github.com/hjj345/dsh-sm-context-piano) 演进，保留原有 MIT 版权；当前功能、适配与发布由本仓库维护。详见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE.md)。

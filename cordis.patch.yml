@@ -1,7 +1,5 @@
-# sm-context-piano bundle patch: inserts the dual-face plugin row into the web
-# profile roster. Applied as a profile bundle layer (the `dsh.bundle.patch`
-# manifest field); install with
-# `dsh plugin --profile web add link:<repo>/packages/dsh-sm-context-piano`.
+# DSH Piano Navigator: host + browser entry for the web profile.
+# Install with `dsh plugin --profile web add dsh-piano-nav`.
 #
 # The row loads the package's browser face through `dsh.client`. The host face
 # exports the plugin Config schema (DSH 0.1.7 settings contract); this
@@ -12,4 +10,4 @@
 # ("sm-context-piano") for DSH migration.
 - insert:
     - id: sm-context-piano
-      name: '@hjj345345/dsh-sm-context-piano'
+      name: dsh-piano-nav

@@ -101,7 +101,7 @@ globalThis.document = {
 
 await import('../lib/client.js')
 await check('client bundle registers its handoff', () => {
-  assert.equal(globalThis.__handoff.id, '@hjj345345/dsh-sm-context-piano')
+  assert.equal(globalThis.__handoff.id, manifest.name)
   assert.equal(typeof globalThis.__handoff.factory, 'function')
 })
 

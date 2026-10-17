@@ -83,7 +83,7 @@ export function attachKeyStrip(ctx: ClientContext, t: Translate<SmContextPianoKe
     flow = next
     if (next !== undefined) {
       try { stop = mount(ctx, next, t, selection, settings) }
-      catch { console.warn('[dsh-sm-context-piano] navigator unavailable; native navigation retained') }
+      catch { console.warn('[dsh-piano-nav] navigator unavailable; native navigation retained') }
     }
     watchLifecycle()
   }
@@ -278,7 +278,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     try { render(pending) }
     catch {
       fallback('contract')
-      if (!warned) { warned = true; console.warn('[dsh-sm-context-piano] navigator contract changed; native UI restored') }
+      if (!warned) { warned = true; console.warn('[dsh-piano-nav] navigator contract changed; native UI restored') }
     }
   }
   const schedule = (flags = DIRTY_VIEW): void => {

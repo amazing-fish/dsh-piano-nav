@@ -38,6 +38,7 @@ jobs:
           version: '10.17.1'
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+      - run: pnpm test:package
       - run: git diff --exit-code -- pnpm-lock.yaml
 
   original-chatview-browser:
