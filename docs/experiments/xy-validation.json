@@ -269,8 +269,7 @@
       "jointChanges": 24
     }
   ],
-  "productSourceRef": "3e8e71fcb5f47e3e23e5876a6f08d37476a7468e",
-  "productSourceChanged": false,
+  "productSourceChanged": true,
   "baseSeed": 539365399,
   "testScriptSha256": {
     "scripts/xy-browser.mjs": "1e17fd5338ce14ca0eb072e445b4de132dea5b5fb5a48ecf928527e59ff23013",
@@ -282,7 +281,23 @@
     "node scripts/pointer-browser.mjs"
   ],
   "additionalRegression": {
-    "horizontal": 9,
+    "horizontal": 10,
     "pointer": 11
-  }
+  },
+  "productSourceBaseRef": "008c898889bf452a8a1b646d1484c3ac583a53e6",
+  "productSourceBlobs": {
+    "src/client/pointer-wave.ts": "1e6ade7f174f7e12ed66a4aff8cea5e0834135d2",
+    "src/client/strip.ts": "facc55e5b982ae90d4986ff81e770b0ba8fbff37",
+    "src/client/styles.ts": "c19dd3eaa4dfbb48408e49e825ef4d2a39f67c3b"
+  },
+  "readerBaseAcquisition": {
+    "oldProductRef": "008c898889bf452a8a1b646d1484c3ac583a53e6",
+    "before": 17.6875,
+    "oldAcquired": 24,
+    "fixedAcquired": 17.6875,
+    "method": "Actual native width transition paused at 12ms, actual scroll to retained process key; trusted mouse acquisition, controlled rAF",
+    "review": "https://github.com/amazing-fish/dsh-piano-nav/pull/41#discussion_r4302180837"
+  },
+  "fullVerify": "passed; Node 24.19.0 / pnpm 10.17.1",
+  "package": "passed; 105529 bytes / 12 files"
 }

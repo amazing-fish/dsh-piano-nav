@@ -9,6 +9,7 @@ const { chromium } = tools('playwright')
 const browser = await chromium.launch({ headless: true })
 const bundle = await buildRailFixture()
 const results = []
+let readerBaseAcquisition
 const snapshot = (page, key) => page.evaluate(key => {
   const bar = [...document.querySelectorAll('.smcp-bar')].find(el => el.dataset.key === key)
   return { width: bar.getBoundingClientRect().width, selected: document.querySelector('.smcp-bar-hover')?.dataset.key,
@@ -113,7 +114,47 @@ try {
     results.push(`dark theme core boundary at device scale ${deviceScaleFactor}`)
     await page.close()
   }
+  {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+    await page.setContent(railHtml); await page.addScriptTag({ content: bundle })
+    await page.clock.pauseAt(new Date('2026-01-01T00:00:10Z')); await page.clock.runFor(160)
+    await page.evaluate(() => {
+      for (const animation of document.getAnimations()) animation.finish()
+      // p3 is the retained representative of the collapsed process group.
+      window.railFixture.scroll.scrollTop = 200
+      window.railFixture.scroll.dispatchEvent(new Event('scroll'))
+    })
+    await page.clock.runFor(16)
+    const acquisition = await page.evaluate(() => {
+      const bar = document.querySelector('.smcp-bar-current')
+      const transition = bar.getAnimations().find(a => a.transitionProperty === 'width')
+      if (!transition) throw Error('reader change must create a real native width transition')
+      transition.pause(); transition.currentTime = 12
+      const box = bar.getBoundingClientRect()
+      return { key: bar.dataset.key, painted: box.width, x: box.x + 1, y: box.y + box.height / 2 }
+    })
+    assert.ok(acquisition.painted > 10 && acquisition.painted < 24)
+    await page.mouse.move(acquisition.x, acquisition.y); await page.clock.runFor(16)
+    const acquired = await snapshot(page, acquisition.key)
+    assert.equal(acquired.selected, acquisition.key)
+    assert.ok(Math.abs(acquired.width - acquisition.painted) < .04,
+      `reader-to-pointer acquisition preserves sub-base paint: ${acquisition.painted} -> ${acquired.width}`)
+    assert.ok(await page.locator('.smcp-bar:not(.smcp-bar-current)').evaluateAll(els => els.every(el => el.getBoundingClientRect().width >= 10)), 'signed entry cannot shrink ordinary keys below their base')
+    readerBaseAcquisition = { before: acquisition.painted, acquired: acquired.width }
+    const widths = [acquired.width]
+    for (let i = 0; i < 7; i++) { await page.clock.runFor(16); widths.push((await snapshot(page, acquisition.key)).width) }
+    assert.ok(widths.every((w, i) => i === 0 || w >= widths[i - 1]))
+    assert.ok(widths.at(-1) > 47)
+    await page.mouse.move(1100, 850); await page.clock.runFor(160)
+    const retired = await snapshot(page, acquisition.key)
+    assert.ok(Math.abs(retired.width - 24) < .04)
+    await page.clock.runFor(500)
+    assert.equal((await snapshot(page, acquisition.key)).perf.renders, retired.perf.renders)
+    results.push('reading-key CSS base transition hands its actual narrower paint to the pointer')
+    await page.close()
+  }
   await mkdir('test-results', { recursive: true })
-  await writeFile('test-results/horizontal-browser.json', JSON.stringify({ passed: results.length, source: 'Actual strip, controlled animation-frame clock and trusted mouse input; synthetic Session; scale is device pixel ratio, not complete Windows host acceptance', results }, null, 2))
+  await writeFile('test-results/horizontal-browser.json', JSON.stringify({ passed: results.length, source: 'Actual strip, controlled animation-frame clock and trusted mouse input; synthetic Session; scale is device pixel ratio, not complete Windows host acceptance', readerBaseAcquisition, results }, null, 2))
 } finally { await browser.close() }
 console.log(`${results.length} horizontal Chromium scenarios passed`)

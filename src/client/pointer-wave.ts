@@ -1,4 +1,4 @@
-/** Finite amplitude envelope. The strip owns the single animation-frame queue. */
+/** Finite displacement envelope. The strip owns the single animation-frame queue. */
 export interface PointerWaveAnchor { key: string; offset: number }
 export const POINTER_WAVE_DURATION_MS = 96
 
@@ -18,8 +18,10 @@ export function createPointerWave() {
     sample,
     point(next: PointerWaveAnchor | null, now: number, reducedMotion = false, paintedStrength = 0): void {
       let current = sample(now, reducedMotion).strength
-      // First acquisition can take over a keyboard wave already on screen.
-      if (next !== null && anchor === null) current = Math.max(0, Math.min(1, paintedStrength))
+      // Acquisition can take over either a keyboard wave or a reader base
+      // transition still below its new 24px base. Keep that signed deficit;
+      // the strip floors ordinary keys at 10px instead of shrinking them.
+      if (next !== null && anchor === null) current = Math.max(-1, Math.min(1, paintedStrength))
       if (next !== null) anchor = next
       const desired = next === null ? 0 : 1
       // A new Y coordinate or repeated outside sample never restarts a fade.

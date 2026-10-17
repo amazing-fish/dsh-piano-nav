@@ -7442,5 +7442,10 @@
         24
       ]
     }
-  ]
+  ],
+  "productSourceBlobs": {
+    "src/client/pointer-wave.ts": "1e6ade7f174f7e12ed66a4aff8cea5e0834135d2",
+    "src/client/strip.ts": "facc55e5b982ae90d4986ff81e770b0ba8fbff37",
+    "src/client/styles.ts": "c19dd3eaa4dfbb48408e49e825ef4d2a39f67c3b"
+  }
 }

@@ -780,7 +780,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   const barWidth = (item: PianoItem, index: number, focusIndex: number | null, strength = 1): number => {
     const base = baseWidth(item)
     const wave = focusIndex === null ? 0 : Math.exp(-((index - focusIndex) ** 2) / (2 * 1.35 ** 2))
-    return base + (48 - base) * wave * strength
+    // A newly current key may still be painting between 10px and its 24px
+    // base. A signed acquisition preserves it without inverting other keys.
+    return Math.max(10, base + (48 - base) * wave * strength)
   }
   const nearestIndex = (clientY: number): number => {
     if (visibleSlots.length === 0) return -1
