@@ -7,6 +7,7 @@
  */
 
 import { DEFAULT_SETTINGS, SETTINGS_ENTRY_ID, SETTINGS_FIELDS, decodeSettings } from '../core/config.ts'
+import { COLOR_FIELDS } from '../core/colors.ts'
 import type { PianoSettings, PianoSettingsScope, PianoSettingsSource } from '../core/config.ts'
 
 /** Structural slice of the remote API this module consumes. */
@@ -44,6 +45,7 @@ interface PianoSettingsWriteOp {
 }
 
 type PianoSettingsSnapshot = ReturnType<PianoSettingsScope['getSnapshot']>
+const COLOR_SETTING_FIELDS = new Set<keyof PianoSettings>(Object.values(COLOR_FIELDS))
 
 export interface PianoRemoteSettings {
   scope: PianoSettingsScope
@@ -54,7 +56,8 @@ export interface PianoRemoteSettings {
 /**
  * Keep one remote settings controller per plugin instance. Reads refresh on
  * `settings/document-updated` for this entry only; writes are serialized
- * through a queue and revalidate the entry revision on failure.
+ * through a queue and revalidate the entry revision on failure. Consecutive
+ * unstarted edits of one color share the latest value and completion promise.
  */
 export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRemoteSettings {
   let entry: PianoSettingsEntryView | undefined
@@ -75,6 +78,11 @@ export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRem
   let disposed = false
   let readGeneration = 0
   let writeQueue: Promise<void> = Promise.resolve()
+  let pendingColor: {
+    field: keyof PianoSettings
+    batch: { ops: PianoSettingsWriteOp[] }
+    operation: Promise<void>
+  } | undefined
   const listeners = new Set<() => void>()
 
   const publish = (status: PianoSettingsSnapshot['status'], writable: boolean): void => {
@@ -109,22 +117,32 @@ export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRem
     }
   }
 
-  const write = (ops: PianoSettingsWriteOp[]): Promise<void> => {
+  const write = (ops: PianoSettingsWriteOp[], colorField?: keyof PianoSettings): Promise<void> => {
+    if (colorField !== undefined && pendingColor?.field === colorField) {
+      pendingColor.batch.ops = ops
+      return pendingColor.operation
+    }
+    const batch = { ops }
     const operation = writeQueue.then(async () => {
+      // An in-flight request is immutable; only its unstarted successor can merge.
+      if (pendingColor?.batch === batch) pendingColor = undefined
       if (disposed) throw new Error('settings controller disposed')
       if (entry === undefined || !snapshot.writable) await refresh()
       if (entry === undefined || !snapshot.writable) throw new Error('settings unavailable')
       const revision = entry.revision ?? 0
       try {
-        const response = await remote.settings.mutate(SETTINGS_ENTRY_ID, ops, revision)
+        const response = await remote.settings.mutate(SETTINGS_ENTRY_ID, batch.ops, revision)
         if (!response.ok) throw new Error('settings mutation failed')
         entry = response.value
         publish('ready', snapshot.writable)
       } catch (error) {
+        console.warn('[dsh-piano-nav] Settings write failed', error)
         await refresh()
         throw error
       }
     })
+    // Other fields, unset and reset form ordering boundaries for coalescing.
+    pendingColor = colorField === undefined ? undefined : { field: colorField, batch, operation }
     writeQueue = operation.catch(() => {})
     return operation
   }
@@ -137,7 +155,7 @@ export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRem
         listeners.delete(listener)
       }
     },
-    set: (field, value) => write([{ op: 'set', path: [field], value }]),
+    set: (field, value) => write([{ op: 'set', path: [field], value }], COLOR_SETTING_FIELDS.has(field) ? field : undefined),
     unset: (field) => write([{ op: 'unset', path: [field] }]),
     reset: (fields = SETTINGS_FIELDS) => write(fields.map((field) => ({
       op: 'unset' as const,

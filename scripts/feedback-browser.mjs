@@ -88,6 +88,7 @@ try {
     const property = kind === 'turn' ? 'borderTopColor' : 'backgroundColor'
     const input = page.locator(`.smcp-color-label:has([data-kind="${kind}"]) input`)
     assert.equal(await inputColor(input, '#dd2244'), '#dd2244', 'controlled input must not restore the old color while awaiting the host')
+    await page.waitForFunction(() => window.settingsFixture.writeTimings.length === 1)
     assert.equal(await inputColor(input, '#008877'), '#008877')
     await page.waitForFunction(field => window.settingsFixture.persisted()[field] === '#dd2244', field)
     assert.equal(await input.inputValue(), '#008877', 'older acknowledgment cannot replace the latest draft')
