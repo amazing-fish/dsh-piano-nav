@@ -21,7 +21,7 @@ import { COLOR_FIELDS, DEFAULT_COLORS, SEMANTIC_KINDS, THEME_COLORS, paletteStyl
 import type { SemanticKind } from '../core/colors.ts'
 import { SEMANTIC_CSS, semanticLabel } from './semantic-style.ts'
 import type { PianoItem } from './navigation-model.ts'
-import { projectRailSlots } from './rail-slots.ts'
+import { projectRailSlots, railSlotIndex } from './rail-slots.ts'
 import { stackPositions, visibleWindow } from './strip.ts'
 import { PROJECT } from '../core/project.ts'
 import { translate } from './locales.ts'
@@ -53,7 +53,8 @@ function LayoutPreview({ settings }: { settings: PianoSettings }): ReactNode {
   const [expanded, setExpanded] = useState(false)
   const [selected, setSelected] = useState('demo:7')
   const slots = projectRailSlots(DEMO_ITEMS, -1, new Set(expanded ? DEMO_ITEMS.filter(item => item.kind === 'output').map(item => item.key) : []), new Set())
-  const center = Math.max(0, slots.findIndex(slot => slot.item.key === selected))
+  const center = Math.max(0, railSlotIndex(slots, DEMO_ITEMS.findIndex(item => item.key === selected)))
+  const selectedSlotKey = slots[center].item.key
   const range = visibleWindow(slots.length, center, settings.maxVisible)
   const visible = slots.slice(range.start, range.end)
   const height = Math.min(railHeight(settings), 240)
@@ -62,9 +63,10 @@ function LayoutPreview({ settings }: { settings: PianoSettings }): ReactNode {
   return <div className="smcp-preview smcp-unified" style={{ ...paletteStyle(settings), '--smcp-preview-gap': `${settings.keyGap}px`, '--smcp-preview-key-height': `${settings.keyHeight}px` } as CSSProperties}>
     <div className="smcp-preview-rail" style={{ height }} aria-label={t('settings.preview')}>
       {visible.map((slot, i) => <button type="button" key={slot.item.key}
-        className={`smcp-bar${slot.item.key === selected ? ' smcp-bar-current' : ''}`}
+        className={`smcp-bar${slot.item.key === selectedSlotKey ? ' smcp-bar-current' : ''}`}
+        aria-current={slot.item.key === selectedSlotKey ? 'true' : undefined}
         data-kind={slot.item.kind ?? 'turn'} data-role={slot.item.role}
-        style={{ top: positions[i] - settings.keyHeight / 2, height: settings.keyHeight, width: slot.item.key === selected ? 48 : 28 }}
+        style={{ top: positions[i] - settings.keyHeight / 2, height: settings.keyHeight, width: slot.item.key === selectedSlotKey ? 48 : 28 }}
         aria-label={`${kindLabel(slot.item.kind ?? 'turn', settings.language)}${slot.end - slot.start > 1 ? ` · ${t('settings.folded')}` : ''}`}
         title={kindLabel(slot.item.kind ?? 'turn', settings.language)}
         onClick={() => { setSelected(slot.item.key); setExpanded(slot.end - slot.start > 1) }} />)}
