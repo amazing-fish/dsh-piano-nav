@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Restore clear theme defaults for history keys and keep custom history colors
+  shared by actual borders, the legend, preview and color picker. Apply hover
+  and current emphasis to unloaded borders; correct the preview's history label.
+- Retain transparent unloaded keys and existing key sizes; 1–2px keys do not
+  have enough interior height to display a hollow centre.
 - Size the settings preview to its visible demo keys instead of the full window capacity.
 - Keep a disclosed process group open when navigating its members; retain retirement on other keys, group replacement and Escape.
 - Preserve the latest color-picker draft during asynchronous saves; roll back failed writes and restrict picker activation to the 32px swatch.

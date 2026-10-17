@@ -82,23 +82,26 @@ try {
     await click(page, outputs.nth(2)); assert.equal(await outputs.count(), 3)
     await click(page, preview.locator('[data-kind="final"]')); assert.equal(await outputs.count(), 1)
   })
-  await check('native color input retains draft across delayed acknowledgments and persists the latest selection', async page => {
-    const input = page.locator('.smcp-color-label:has([data-kind="output"]) input')
+  for (const kind of ['output', 'turn']) await check(`${kind} native color input retains draft across delayed acknowledgments and persists the latest selection`, async page => {
+    const field = kind === 'turn' ? 'colorHistory' : 'colorOutput'
+    const property = kind === 'turn' ? 'borderTopColor' : 'backgroundColor'
+    const input = page.locator(`.smcp-color-label:has([data-kind="${kind}"]) input`)
     assert.equal(await inputColor(input, '#dd2244'), '#dd2244', 'controlled input must not restore the old color while awaiting the host')
     assert.equal(await inputColor(input, '#008877'), '#008877')
-    await page.waitForFunction(() => window.settingsFixture.persisted().colorOutput === '#dd2244')
+    await page.waitForFunction(field => window.settingsFixture.persisted()[field] === '#dd2244', field)
     assert.equal(await input.inputValue(), '#008877', 'older acknowledgment cannot replace the latest draft')
-    await page.waitForFunction(() => window.settingsFixture.persisted().colorOutput === '#008877')
-    for (const selector of ['.smcp-legend-key[data-kind="output"]', '.smcp-preview-rail [data-kind="output"]', '.smcp-strip [data-kind="output"]']) {
-      await page.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).backgroundColor === 'rgb(0, 136, 119)', selector)
+    await page.waitForFunction(field => window.settingsFixture.persisted()[field] === '#008877', field)
+    for (const prefix of ['.smcp-legend-key', '.smcp-preview-rail .smcp-bar', '.smcp-strip .smcp-bar']) {
+      const selector = `${prefix}[data-kind="${kind}"]`
+      await page.waitForFunction(({ selector, property }) => getComputedStyle(document.querySelector(selector))[property] === 'rgb(0, 136, 119)', { selector, property })
     }
     await page.evaluate(() => { window.failWrite = true })
     assert.equal(await inputColor(input, '#123456'), '#123456')
     await page.getByRole('alert').waitFor()
-    await page.waitForFunction(() => document.querySelector('.smcp-color-label:has([data-kind="output"]) input').value === '#008877')
+    await page.waitForFunction(kind => document.querySelector(`.smcp-color-label:has([data-kind="${kind}"]) input`).value === '#008877', kind)
   }, { writeDelay: 250 })
-  await check('color picker opens only from the 32px swatch, not semantic text or row whitespace', async page => {
-    const row = page.locator('.smcp-color-label:has([data-kind="output"])')
+  for (const kind of ['output', 'turn']) await check(`${kind} color picker opens only from the 32px swatch, not semantic text or row whitespace`, async page => {
+    const row = page.locator(`.smcp-color-label:has([data-kind="${kind}"])`)
     const input = row.locator('input'), box = await input.boundingBox()
     assert.equal(box.width, 32); assert.equal(box.height, 32)
     await input.evaluate(element => { window.colorClicks = 0; element.addEventListener('click', event => { window.colorClicks++; event.preventDefault() }) })

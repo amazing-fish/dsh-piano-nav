@@ -133,7 +133,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   status.setAttribute('aria-live', 'polite')
   strip.append(status)
   const style = document.createElement('style')
-  style.textContent = '.smcp-unified[hidden]{display:none!important}.smcp-unified .smcp-bar[aria-busy="true"]{opacity:.4}.smcp-unified .smcp-bar[data-unloaded="true"]{background:transparent;border:1px solid currentColor;box-sizing:border-box}.smcp-navigation-status{position:absolute;left:0;top:100%;width:220px;font-size:12px;line-height:1.4;padding-top:12px;color:var(--dsw-alias-label-secondary,#73757a)}' + SEMANTIC_CSS
+  style.textContent = '.smcp-unified[hidden]{display:none!important}.smcp-unified .smcp-bar[aria-busy="true"]{opacity:.4}.smcp-navigation-status{position:absolute;left:0;top:100%;width:220px;font-size:12px;line-height:1.4;padding-top:12px;color:var(--dsw-alias-label-secondary,#73757a)}' + SEMANTIC_CSS
   const originalPosition = root.style.position
   const forcedPosition = window.getComputedStyle(root).position === 'static'
   if (forcedPosition) root.style.position = 'relative'

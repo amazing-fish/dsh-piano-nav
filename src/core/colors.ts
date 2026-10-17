@@ -15,12 +15,12 @@ export const THEME_COLORS = {
   light: {
     input: ['#2563eb', '#1d4ed8'], output: ['#8a8a8a', '#6b6b6b'],
     question: ['#b45309', '#92400e'], answer: ['#15803d', '#166534'],
-    final: ['#7c3aed', '#6d28d9'], turn: ['#c9c9cc', '#202124'],
+    final: ['#7c3aed', '#6d28d9'], turn: ['#202124', '#000000'],
   },
   dark: {
     input: ['#60a5fa', '#93c5fd'], output: ['#e5e5e5', '#ffffff'],
     question: ['#fbbf24', '#fde68a'], answer: ['#4ade80', '#86efac'],
-    final: ['#a78bfa', '#c4b5fd'], turn: ['rgba(255,255,255,.32)', 'rgba(255,255,255,.94)'],
+    final: ['#a78bfa', '#c4b5fd'], turn: ['#f1f1f3', '#ffffff'],
   },
 } as const
 export function isPianoColor(value: unknown): value is string {
