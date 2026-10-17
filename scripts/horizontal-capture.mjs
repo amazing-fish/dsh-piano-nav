@@ -6,7 +6,9 @@ import { buildRailFixture, railHtml } from './rail-browser-fixture.mjs'
 const tools = createRequire(path.resolve('.browser-tools/package.json'))
 const { chromium } = tools('playwright')
 const baseline = 'a8894d17371f7e0843d53cbb5539b4c07bc0de54'
-const bundles = [await buildRailFixture({ sourceRef: baseline }), await buildRailFixture()]
+const experiment = '3e8e71fcb5f47e3e23e5876a6f08d37476a7468e'
+// Preserve the historical #40 replay after later hover-policy revisions.
+const bundles = [await buildRailFixture({ sourceRef: baseline }), await buildRailFixture({ sourceRef: experiment })]
 const browser = await chromium.launch({ headless: true })
 await mkdir('test-results/horizontal-frames', { recursive: true })
 const pages = []
@@ -85,6 +87,6 @@ try {
       metrics.push({ label, frame, before: { width: captures[0].width, selected: captures[0].selected }, after: { width: captures[1].width, selected: captures[1].selected } })
     }
   }
-  await writeFile('test-results/horizontal-capture.json', JSON.stringify({ baseline, frameCount: index, logicalFrameMs: 16, replayFrameMs: 80, source: 'Actual components; synthetic data; controlled rAF and native CSS animation sample clocks', metrics }, null, 2))
+  await writeFile('test-results/horizontal-capture.json', JSON.stringify({ baseline, experiment, frameCount: index, logicalFrameMs: 16, replayFrameMs: 80, source: 'Actual components; synthetic data; controlled rAF and native CSS animation sample clocks', metrics }, null, 2))
   console.log(`${index} comparison frames captured`)
 } finally { await browser.close() }

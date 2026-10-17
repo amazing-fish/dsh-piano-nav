@@ -7,7 +7,9 @@ import { xyTrajectory } from './xy-trajectory.mjs'
 const tools = createRequire(path.resolve('.browser-tools/package.json'))
 const { chromium } = tools('playwright')
 const baseline = 'a8894d17371f7e0843d53cbb5539b4c07bc0de54', seed = 0x20261017
-const bundles = [await buildRailFixture({ sourceRef: baseline }), await buildRailFixture()]
+const experiment = '3e8e71fcb5f47e3e23e5876a6f08d37476a7468e'
+// Preserve the historical #40 replay after later hover-policy revisions.
+const bundles = [await buildRailFixture({ sourceRef: baseline }), await buildRailFixture({ sourceRef: experiment })]
 const browser = await chromium.launch({ headless: true }), pages = [], metrics = []
 await mkdir('test-results/xy-frames', { recursive: true })
 try {
@@ -80,7 +82,7 @@ try {
       await board.screenshot({ path: 'test-results/xy-random.png' }); stillCaptured = true
     }
   }
-  await writeFile('test-results/xy-capture.json', JSON.stringify({ baseline, seed, frameCount: frame, replayFrameMs: 100,
+  await writeFile('test-results/xy-capture.json', JSON.stringify({ baseline, experiment, seed, frameCount: frame, replayFrameMs: 100,
     source: 'Actual baseline and experiment components, synthetic Session, controlled sample clocks; every input replayed, every second step captured; not real-time playback', plan, metrics }, null, 2))
   console.log(`${frame} seeded X/Y comparison frames captured`)
 } finally { await browser.close() }

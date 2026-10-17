@@ -774,9 +774,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     })
     schedule()
   }
-  // Hover enters and exits through the same unexpanded key core. Wave growth
-  // must not enlarge its own hover lease. Clicks still use painted geometry;
-  // neither path accepts the unused 58px container or an unpainted target.
+  // Hover and clicks follow the visible key, including its expanded portion.
+  // Neither path accepts the unused 58px container or an unpainted target.
   const BAR_HIT_TOLERANCE = 3
   const baseWidth = (item: PianoItem): number => item.key === activeSlotKey ? 24 : 10
   const barWidth = (item: PianoItem, index: number, focusIndex: number | null, strength = 1): number => {
@@ -795,7 +794,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     }
     return best
   }
-  const keyHitAt = (clientX: number, clientY: number, hoverCore = false): { index: number; painted: number } | null => {
+  const keyHitAt = (clientX: number, clientY: number): { index: number; painted: number } | null => {
     const index = nearestIndex(clientY)
     if (index < 0) return null
     const slot = visibleSlots[index]
@@ -809,15 +808,14 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const painted = button === undefined
       ? baseWidth(item)
       : button.getBoundingClientRect().width
-    const limit = hoverCore ? Math.min(baseWidth(item), painted) : painted
     const x = clientX - stripViewportLeft
-    return x >= -BAR_HIT_TOLERANCE && x <= limit + BAR_HIT_TOLERANCE ? { index, painted } : null
+    return x >= -BAR_HIT_TOLERANCE && x <= painted + BAR_HIT_TOLERANCE ? { index, painted } : null
   }
   const applyPointer = (): void => {
     const sample = pendingPointer
     pendingPointer = null
     if (sample === null) return
-    const hit = keyHitAt(sample.x, sample.y, true)
+    const hit = keyHitAt(sample.x, sample.y)
     const slot = hit === null ? undefined : visibleSlots[hit.index]
     pointerInside = true
     browseStart ??= items[windowStart]?.key ?? null
@@ -826,7 +824,17 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       : (sample.y - stripViewportTop - visiblePositions[hit.index]) / settings.getSnapshot().keyGap
     const peak = slot === undefined ? 0 : barWidth(slot.item, slot.displayIndex, slot.displayIndex + pointerOffset!) - baseWidth(slot.item)
     const paintedStrength = hit === null || slot === undefined || peak === 0 ? 0 : (hit.painted - baseWidth(slot.item)) / peak
-    pointerWave.point(slot === undefined ? null : { key: slot.item.key, offset: pointerOffset! }, window.performance.now(), motionPreference?.matches, paintedStrength)
+    const now = window.performance.now(), reducedMotion = motionPreference?.matches
+    pointerWave.point(slot === undefined ? null : { key: slot.item.key, offset: pointerOffset! }, now, reducedMotion, paintedStrength)
+    if (slot !== undefined) {
+      // A new Y offset can narrow this frame's key. Revalidate the resulting
+      // paint without a second DOM read, even if no later pointer event arrives.
+      const nextWidth = barWidth(slot.item, slot.displayIndex, slot.displayIndex + pointerOffset!, pointerWave.sample(now, reducedMotion).strength)
+      if (sample.x - stripViewportLeft > nextWidth + BAR_HIT_TOLERANCE) {
+        selected = null; pointerOffset = null
+        pointerWave.point(null, now, reducedMotion)
+      }
+    }
   }
   const clearPointer = (): void => { pendingPointer = null; pointerOffset = null; pointerWave.reset() }
   const pointerMove = (event: PointerEvent): void => {

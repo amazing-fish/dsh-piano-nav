@@ -7,7 +7,7 @@ import { buildRailFixture, railHtml } from './rail-browser-fixture.mjs'
 const tools = createRequire(path.resolve('.browser-tools/package.json'))
 const { chromium } = tools('playwright')
 const browser = await chromium.launch({ headless: true })
-const bundle = await buildRailFixture()
+const bundle = await buildRailFixture({ sourceRef: process.env.HOVER_SOURCE_REF })
 const results = []
 let readerBaseAcquisition
 const snapshot = (page, key) => page.evaluate(key => {
@@ -48,13 +48,26 @@ try {
     }
     results.push(`finite entry and reduced motion: ${reducedMotion}`)
     const steady = await state()
-    for (const x of [3, 7, 11, 3]) { await move(x); assert.equal((await state()).preview, steady.preview) }
+    for (const x of [3, 7, 11, 30, 45, 30, 3]) {
+      await move(x)
+      const hovered = await state()
+      assert.equal(hovered.selected, p.key, 'moving inside the expanded painted key retains hover')
+      assert.equal(hovered.visible, true, 'painted-key hover retains the semantic preview')
+      assert.equal(hovered.preview, steady.preview)
+    }
     for (const counter of ['nodeRebuilds','itemRebuilds','turnRebuilds','domReconciles','mappedAnchorRebuilds','railProjections','hitTests']) {
       assert.equal((await state()).perf[counter], steady.perf[counter], `${counter} stays outside horizontal-only work`)
     }
-    await move(14)
+    // Y moves to a row midpoint: the same frame narrows the formerly centered key.
+    await page.mouse.move(p.x + 49, p.y + 5); await page.clock.runFor(16)
+    assert.equal((await state()).selected, undefined, 'diagonal movement outside the resulting paint retires hover')
+    assert.equal((await state()).visible, false)
+    await page.clock.runFor(160)
+    assert.equal((await state()).selected, undefined, 'stopping after the diagonal exit cannot retain stale hover')
+    await move(1); await page.clock.runFor(128)
+    await move(52)
     const exit = await state()
-    assert.equal(exit.selected, undefined, 'exit uses the same base key boundary as entry')
+    assert.equal(exit.selected, undefined, 'exit occurs beyond the painted key and its 3px tolerance')
     assert.equal(exit.visible, false, 'retirement has no semantic preview lease')
     if (reducedMotion !== 'reduce') assert.ok(exit.width > 40, 'visual exit starts from its current width')
     await page.clock.runFor(32)
@@ -70,14 +83,14 @@ try {
     }
     await page.clock.runFor(128)
     assert.ok((await state()).width > 47)
-    results.push(`stable core, preview, lightweight X-only work and interrupted exit: ${reducedMotion}`)
+    results.push(`painted boundary, preview, lightweight X-only work and interrupted exit: ${reducedMotion}`)
     // Click resolves its own painted geometry after flushing pending input.
     await page.evaluate(p => {
       const rail = document.querySelector('.smcp-unified')
       rail.dispatchEvent(new PointerEvent('pointermove', { clientX: p.x + 22, clientY: p.y }))
       rail.dispatchEvent(new MouseEvent('click', { clientX: p.x + 22, clientY: p.y, bubbles: true }))
     }, p)
-    if (reducedMotion !== 'reduce') assert.deepEqual((await state()).clicks, [4], 'still-painted departing pixels are clickable')
+    assert.deepEqual((await state()).clicks, [4], 'the expanded hovered key is clickable with either motion preference')
     await page.clock.runFor(160)
     await page.mouse.move(1100, 850); await page.clock.runFor(160)
     const idle = await state()
@@ -109,9 +122,20 @@ try {
     const p = await page.locator('.smcp-bar[data-key="turn:4"]').boundingBox()
     await page.mouse.move(p.x + 1, p.y + p.height / 2)
     await page.waitForFunction(() => document.querySelector('.smcp-bar-hover')?.dataset.key === 'turn:4')
-    await page.mouse.move(p.x + 14, p.y + p.height / 2)
+    await page.mouse.move(p.x + 40, p.y + p.height / 2)
+    await page.waitForFunction(() => document.querySelector('.smcp-bar-hover')?.dataset.key === 'turn:4')
+    await page.mouse.move(p.x + 52, p.y + p.height / 2)
     await page.waitForFunction(() => document.querySelector('.smcp-bar-hover') === null)
-    results.push(`dark theme core boundary at device scale ${deviceScaleFactor}`)
+    const reading = await page.locator('.smcp-bar-current').evaluate(el => {
+      const r = el.getBoundingClientRect(); return { x: r.x, y: r.y + r.height / 2, key: el.dataset.key }
+    })
+    await page.mouse.move(reading.x + 1, reading.y)
+    await page.waitForFunction(key => document.querySelector('.smcp-bar-hover')?.dataset.key === key, reading.key)
+    await page.mouse.move(reading.x + 35, reading.y)
+    await page.waitForFunction(key => document.querySelector('.smcp-bar-hover')?.dataset.key === key, reading.key)
+    await page.mouse.move(reading.x + 52, reading.y)
+    await page.waitForFunction(() => document.querySelector('.smcp-bar-hover') === null)
+    results.push(`dark theme painted boundary at device scale ${deviceScaleFactor}`)
     await page.close()
   }
   {
@@ -146,6 +170,8 @@ try {
     for (let i = 0; i < 7; i++) { await page.clock.runFor(16); widths.push((await snapshot(page, acquisition.key)).width) }
     assert.ok(widths.every((w, i) => i === 0 || w >= widths[i - 1]))
     assert.ok(widths.at(-1) > 47)
+    await page.mouse.move(acquisition.x + 29, acquisition.y); await page.clock.runFor(16)
+    assert.equal((await snapshot(page, acquisition.key)).selected, acquisition.key, 'expanded reading key retains hover at 30px')
     await page.mouse.move(1100, 850); await page.clock.runFor(160)
     const retired = await snapshot(page, acquisition.key)
     assert.ok(Math.abs(retired.width - 24) < .04)
