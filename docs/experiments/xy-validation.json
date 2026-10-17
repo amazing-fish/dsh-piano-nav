@@ -1,0 +1,303 @@
+{
+  "passed": 24,
+  "source": "Actual strip; synthetic history/collapsed Session; seeded trusted diagonal/jitter/reversal paths plus explicitly dispatched same-task bursts; controlled rAF; DPR is not Windows host acceptance",
+  "samples": 3600,
+  "rawInputs": 6664,
+  "results": [
+    {
+      "fixture": "history",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1,
+      "theme": "light",
+      "seed": 539365399,
+      "samples": 150,
+      "rawInputs": 283,
+      "sameKeyChecks": 15,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1,
+      "theme": "dark",
+      "seed": 3193801168,
+      "samples": 150,
+      "rawInputs": 277,
+      "sameKeyChecks": 12,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1.25,
+      "theme": "light",
+      "seed": 1553269641,
+      "samples": 150,
+      "rawInputs": 286,
+      "sameKeyChecks": 18,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1.25,
+      "theme": "dark",
+      "seed": 4207705410,
+      "samples": 150,
+      "rawInputs": 271,
+      "sameKeyChecks": 16,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1.5,
+      "theme": "light",
+      "seed": 2567173883,
+      "samples": 150,
+      "rawInputs": 245,
+      "sameKeyChecks": 20,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1.5,
+      "theme": "dark",
+      "seed": 926642356,
+      "samples": 150,
+      "rawInputs": 272,
+      "sameKeyChecks": 9,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1,
+      "theme": "light",
+      "seed": 3581078125,
+      "samples": 150,
+      "rawInputs": 280,
+      "sameKeyChecks": 13,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1,
+      "theme": "dark",
+      "seed": 1940546598,
+      "samples": 150,
+      "rawInputs": 312,
+      "sameKeyChecks": 12,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1.25,
+      "theme": "light",
+      "seed": 300015071,
+      "samples": 150,
+      "rawInputs": 277,
+      "sameKeyChecks": 18,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1.25,
+      "theme": "dark",
+      "seed": 2954450840,
+      "samples": 150,
+      "rawInputs": 242,
+      "sameKeyChecks": 10,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1.5,
+      "theme": "light",
+      "seed": 1313919313,
+      "samples": 150,
+      "rawInputs": 266,
+      "sameKeyChecks": 18,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "history",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1.5,
+      "theme": "dark",
+      "seed": 3968355082,
+      "samples": 150,
+      "rawInputs": 290,
+      "sameKeyChecks": 17,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1,
+      "theme": "light",
+      "seed": 2327823555,
+      "samples": 150,
+      "rawInputs": 288,
+      "sameKeyChecks": 27,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1,
+      "theme": "dark",
+      "seed": 687292028,
+      "samples": 150,
+      "rawInputs": 301,
+      "sameKeyChecks": 10,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1.25,
+      "theme": "light",
+      "seed": 3341727797,
+      "samples": 150,
+      "rawInputs": 276,
+      "sameKeyChecks": 11,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1.25,
+      "theme": "dark",
+      "seed": 1701196270,
+      "samples": 150,
+      "rawInputs": 278,
+      "sameKeyChecks": 12,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1.5,
+      "theme": "light",
+      "seed": 60664743,
+      "samples": 150,
+      "rawInputs": 272,
+      "sameKeyChecks": 17,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "no-preference",
+      "deviceScaleFactor": 1.5,
+      "theme": "dark",
+      "seed": 2715100512,
+      "samples": 150,
+      "rawInputs": 306,
+      "sameKeyChecks": 23,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1,
+      "theme": "light",
+      "seed": 1074568985,
+      "samples": 150,
+      "rawInputs": 287,
+      "sameKeyChecks": 20,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1,
+      "theme": "dark",
+      "seed": 3729004754,
+      "samples": 150,
+      "rawInputs": 310,
+      "sameKeyChecks": 13,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1.25,
+      "theme": "light",
+      "seed": 2088473227,
+      "samples": 150,
+      "rawInputs": 275,
+      "sameKeyChecks": 13,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1.25,
+      "theme": "dark",
+      "seed": 447941700,
+      "samples": 150,
+      "rawInputs": 256,
+      "sameKeyChecks": 17,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1.5,
+      "theme": "light",
+      "seed": 3102377469,
+      "samples": 150,
+      "rawInputs": 255,
+      "sameKeyChecks": 17,
+      "jointChanges": 24
+    },
+    {
+      "fixture": "collapsed",
+      "reducedMotion": "reduce",
+      "deviceScaleFactor": 1.5,
+      "theme": "dark",
+      "seed": 1461845942,
+      "samples": 150,
+      "rawInputs": 259,
+      "sameKeyChecks": 14,
+      "jointChanges": 24
+    }
+  ],
+  "productSourceChanged": true,
+  "baseSeed": 539365399,
+  "testScriptSha256": {
+    "scripts/xy-browser.mjs": "1e17fd5338ce14ca0eb072e445b4de132dea5b5fb5a48ecf928527e59ff23013",
+    "scripts/xy-trajectory.mjs": "c3f4fe2bed907d7e7bbd7e373fce52a20a4ee23142c88f026ad5b3b074740553"
+  },
+  "commands": [
+    "node scripts/xy-browser.mjs",
+    "node scripts/horizontal-browser.mjs",
+    "node scripts/pointer-browser.mjs"
+  ],
+  "additionalRegression": {
+    "horizontal": 10,
+    "pointer": 11
+  },
+  "productSourceBaseRef": "008c898889bf452a8a1b646d1484c3ac583a53e6",
+  "productSourceBlobs": {
+    "src/client/pointer-wave.ts": "1e6ade7f174f7e12ed66a4aff8cea5e0834135d2",
+    "src/client/strip.ts": "facc55e5b982ae90d4986ff81e770b0ba8fbff37",
+    "src/client/styles.ts": "c19dd3eaa4dfbb48408e49e825ef4d2a39f67c3b"
+  },
+  "readerBaseAcquisition": {
+    "oldProductRef": "008c898889bf452a8a1b646d1484c3ac583a53e6",
+    "before": 17.6875,
+    "oldAcquired": 24,
+    "fixedAcquired": 17.6875,
+    "method": "Actual native width transition paused at 12ms, actual scroll to retained process key; trusted mouse acquisition, controlled rAF",
+    "review": "https://github.com/amazing-fish/dsh-piano-nav/pull/41#discussion_r4302180837"
+  },
+  "fullVerify": "passed; Node 24.19.0 / pnpm 10.17.1",
+  "package": "passed; 105529 bytes / 12 files"
+}

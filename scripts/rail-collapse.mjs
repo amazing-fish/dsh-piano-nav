@@ -60,6 +60,9 @@ let passed = 0
 async function check(name, run, historyOnly = false, options = {}) {
   const dom = new JSDOM('<!doctype html><body><main><div data-conversation-scroll><section><nav aria-label="Turns"></nav><div data-chat-flow></div></section></div></main></body>', { pretendToBeVisual: true })
   const { window } = dom, { document } = window
+  // Nonvisual disclosure contracts use reduced motion; timed painting is
+  // covered by horizontal-browser.mjs in actual Chromium.
+  window.matchMedia = () => ({ matches: true })
   Object.assign(globalThis, { window, document, Event: window.Event, MutationObserver: window.MutationObserver })
   const root = document.querySelector('main'), scroll = document.querySelector('[data-conversation-scroll]'), flow = document.querySelector('[data-chat-flow]')
   Object.defineProperties(root, { clientWidth: { value: 1280 }, clientHeight: { value: 900 } })

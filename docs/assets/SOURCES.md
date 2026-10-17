@@ -40,3 +40,15 @@ and the 390px layout. Publication status is tracked separately.
 The earlier `settings.png` remains an archived 1.3.0 capture. Current README
 references the versioned 1.3.1 image. Captures use the installed Noto Sans CJK
 font as a test-environment font; no font files enter the plugin package.
+
+## Horizontal pointer experiment (#40)
+
+`horizontal-before-after.gif`, `horizontal-entry.png`, and `horizontal-exit.png`
+are captures of the actual strip/style code using `scripts/horizontal-capture.mjs`.
+The baseline source is fixed to `a8894d17371f7e0843d53cbb5539b4c07bc0de54`;
+the experimental source is the reviewed PR tree. Both use the same synthetic
+Session and replayed pointer path. The rail is magnified 3×. JavaScript rAF
+and native CSS animation samples use a controlled 16ms clock; each image is
+played for 80ms (5× slower replay). This illustrates behavior, not FPS, input
+latency, Windows host acceptance or production performance. The orange marker
+and captions belong to the evidence layout, not the product interface.
