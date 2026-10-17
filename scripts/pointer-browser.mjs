@@ -39,6 +39,7 @@ try {
     const { page, points, errors } = await open(reducedMotion)
     const start = points[3]
     await page.mouse.move(start.x, start.y); await settle(page)
+    await page.waitForTimeout(130) // 96ms entry envelope, then test steady Y following.
     const before = await snapshot(page)
     const within = []
     for (const offset of [1, 2, 3, 4]) {
@@ -122,6 +123,7 @@ try {
   {
     const { page, points, errors } = await open('no-preference')
     await page.mouse.move(points[3].x, points[3].y); await settle(page)
+    await page.waitForTimeout(130)
     const before = await snapshot(page)
     await page.evaluate(p => {
       window.pointerGeometryReads = 0

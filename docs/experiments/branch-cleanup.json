@@ -3,8 +3,8 @@
   "repository": "amazing-fish/dsh-piano-nav",
   "defaultBranch": "master",
   "base": "a8894d17371f7e0843d53cbb5539b4c07bc0de54",
-  "state": "verified_candidates_not_deleted",
-  "blocker": "GitHub connector has no delete-ref tool; CLI is unauthenticated; connected Browser unavailable. Cloud browser fallback awaits user approval.",
+  "state": "deleted_and_remote_verified",
+  "blocker": null,
   "candidates": [
     {
       "branch": "docs/readme-effect-previews",
@@ -98,5 +98,7 @@
   ],
   "experimentalBranch": "experiment/horizontal-pointer-experience",
   "issue": "https://github.com/amazing-fish/dsh-piano-nav/issues/40",
-  "nextAction": "Before deleting, reread remote HEAD for each candidate, confirm no open PR uses it as head/base, and skip any changed branch. Preserve master, experiment branch and all listed retained unique branches."
+  "nextAction": "No branch deletion remains. Retain unique branches until separately reconciled.",
+  "authorization": "2026-10-17 user: 执行删除",
+  "verification": "GitHub branch UI showed Deleted for all 15; REST branches collection returned only master, experiment branch and 3 retained unique branches."
 }

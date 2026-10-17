@@ -34,7 +34,8 @@ const CSS = `
   transition: width 82ms cubic-bezier(.2, .8, .2, 1);
 }
 /* Pointer-driven widths are already synchronized to animation frames. */
-.smcp-pointer-follow .smcp-bar { transition: none; }
+.smcp-pointer-follow .smcp-bar,
+.smcp-pointer-frame .smcp-bar { transition: none; }
 .smcp-bar-current,
 .smcp-bar-hover {
   background: var(--smcp-key-active, #202124);
