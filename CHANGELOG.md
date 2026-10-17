@@ -4,7 +4,8 @@
 
 - Reserve localized settings feedback and the preview's expanded demo space so
   failed saves, retries and process folding do not move the page. Retain errors
-  until the corresponding operation succeeds; respect reduced motion.
+  until the corresponding operation succeeds; respect reduced motion. Ignore
+  obsolete clipboard completions so copy feedback follows the latest attempt.
 - Restore clear theme defaults for history keys and keep custom history colors
   shared by actual borders, the legend, preview and color picker. Apply hover
   and current emphasis to unloaded borders; correct the preview's history label.

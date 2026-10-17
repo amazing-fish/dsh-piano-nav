@@ -155,6 +155,7 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
   const t = (key: SmContextPianoKey): string => translate(settings.language, key)
   const [error, setError] = useState<SettingsErrorKey | null>(null)
   const [copied, setCopied] = useState(false)
+  const copyGeneration = useRef(0)
   const dark = useSyncExternalStore(subscribeTheme, hostIsDark, () => false)
   const disabled = !snapshot.writable
 
@@ -164,15 +165,17 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
   const write = <K extends keyof PianoSettings>(field: K, value: PianoSettings[K]): Promise<void> => save(scope.set(field, value))
   const reset = (): void => { void save(scope.reset()) }
   const copyCommand = (): void => {
+    const ticket = ++copyGeneration.current
     setCopied(false)
     void (async () => {
       try {
         if (window.navigator.clipboard === undefined) throw new Error('clipboard unavailable')
         await window.navigator.clipboard.writeText(INSTALL_COMMAND)
+        if (ticket !== copyGeneration.current) return
         setCopied(true)
         setError(current => current === 'settings.copyError' ? null : current)
       } catch {
-        setError('settings.copyError')
+        if (ticket === copyGeneration.current) setError('settings.copyError')
       }
     })()
   }

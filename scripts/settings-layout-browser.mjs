@@ -165,6 +165,39 @@ try {
   await page.close()
   results.push('palette/full reset retry feedback and clipboard failures clear only after the corresponding operation succeeds')
 
+  // Native clipboard permissions/transport can settle requests out of order.
+  for (const latestFirst of [true, false]) for (const latestSuccess of [true, false]) {
+    const page = await start()
+    await page.evaluate(() => {
+      window.copyRequests = []
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+        writeText: () => new Promise((resolve, reject) => window.copyRequests.push({ resolve, reject })),
+      } })
+    })
+    const button = page.locator('.smcp-settings-command-box button')
+    await button.click(); await button.click()
+    assert.equal(await page.evaluate(() => window.copyRequests.length), 2)
+    const settle = async (index, success) => {
+      await page.evaluate(async ({ index, success }) => {
+        const request = window.copyRequests[index]
+        if (success) request.resolve(); else request.reject(new Error('copy denied'))
+        await new Promise(requestAnimationFrame)
+      }, { index, success })
+    }
+    if (latestFirst) await settle(1, latestSuccess)
+    await settle(0, !latestSuccess)
+    if (!latestFirst) {
+      assert.equal(await button.innerText(), 'Copy', 'obsolete completion cannot mark the pending latest attempt copied')
+      assert.equal(await page.locator('[role="alert"]').textContent(), '', 'obsolete completion cannot report an error')
+      await settle(1, latestSuccess)
+    }
+    assert.equal(await button.innerText(), latestSuccess ? 'Copied' : 'Copy')
+    assert.equal(await page.locator('[role="alert"]').textContent(), latestSuccess ? '' : 'Copy failed. Select the command manually.')
+    evidence.push({ scenario: `clipboard-latestFirst-${latestFirst}-latestSuccess-${latestSuccess}`, sampledFrames: 0 })
+    await page.close()
+  }
+  results.push('four clipboard completion orderings retain only the latest attempt, including while it remains pending')
+
   assert.deepEqual(errors, [])
   await writeFile('test-results/settings-layout-browser.json', JSON.stringify({ sourceRef: sourceRef ?? 'working tree', environment: 'headless Chromium; actual settings UI; synthetic DSH transport', results, evidence }, null, 2))
   console.log(`${results.length} settings layout scenario groups passed`)
