@@ -19,6 +19,18 @@ export const SEMANTIC_CSS = `
 body[data-ds-dark-theme] .smcp-unified { --smcp-active-mix: #fff; }
 ${paletteRules(false)}
 ${paletteRules(true)}
+/* History uses the same palette in the rail, legend and preview. At 1–2px
+ * height the borders fill the key; transparency does not promise a hollow centre. */
+.smcp-unified .smcp-bar[data-unloaded="true"] {
+  background: transparent;
+  border: 1px solid currentColor;
+  box-sizing: border-box;
+}
+.smcp-unified .smcp-bar[data-unloaded="true"].smcp-bar-current,
+.smcp-unified .smcp-bar[data-unloaded="true"].smcp-bar-hover,
+.smcp-preview-rail .smcp-bar[data-unloaded="true"]:hover {
+  border-color: var(--smcp-key-active);
+}
 body[data-ds-dark-theme] .smcp-tooltip,
 body[data-ds-dark-theme] .smcp-tooltip-title,
 body[data-ds-dark-theme] .smcp-key-label {

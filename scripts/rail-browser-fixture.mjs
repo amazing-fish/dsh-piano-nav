@@ -1,9 +1,10 @@
 /** Shared real-strip Chromium fixture; synthetic Session data, native DOM contract. */
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 const tools = createRequire(path.resolve('.browser-tools/package.json'))
 const { build } = tools('esbuild')
-export async function buildRailFixture({ settingsPage = false } = {}) {
+export async function buildRailFixture({ settingsPage = false, sourceRef } = {}) {
   const { outputFiles } = await build({
   stdin: { resolveDir: path.resolve('scripts'), sourcefile: 'rail-fixture.ts', contents: `
     import { attachKeyStrip } from '../src/client/strip.ts'
@@ -61,6 +62,7 @@ export async function buildRailFixture({ settingsPage = false } = {}) {
           return { ok: true, value: { writable: !window.readOnly, namespaces: [{ ns: 'sm-context-piano', revision, value }] } }
         },
         mutate: async (ns, ops, expected) => {
+          if (window.writeDelay) await new Promise(resolve => setTimeout(resolve, window.writeDelay))
           if (window.failWrite || window.readOnly) throw new Error('write failed')
           if (expected !== revision) throw new Error('stale revision')
           for (const op of ops) { if (op.op === 'set') value = { ...value, [op.path[0]]: op.value }; else { value = { ...value }; delete value[op.path[0]] } }
@@ -82,6 +84,12 @@ export async function buildRailFixture({ settingsPage = false } = {}) {
     window.railFixture = { clicks, settings, selection, target, sources, nodeMap, flow, scroll, dispose: () => { stop(); stylesStop() } }
   `, loader: 'ts' }, bundle: true, write: false, format: 'iife', platform: 'browser',
   loader: { '.png': 'dataurl' }, jsx: 'automatic',
+  plugins: sourceRef === undefined ? [] : [{ name: 'fixed-source-comparison', setup(build) {
+    build.onLoad({ filter: /[\\/]src[\\/].*\.tsx?$/ }, ({ path: filename }) => ({
+      contents: execFileSync('git', ['show', `${sourceRef}:${path.relative(process.cwd(), filename).replaceAll('\\', '/')}`], { encoding: 'utf8' }),
+      loader: filename.endsWith('.tsx') ? 'tsx' : 'ts', resolveDir: path.dirname(filename),
+    }))
+  } }],
 })
   return outputFiles[0].text
 }

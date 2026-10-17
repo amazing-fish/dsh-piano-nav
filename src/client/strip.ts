@@ -19,6 +19,7 @@ import { SEMANTIC_CSS, semanticLabel, landingFailure } from './semantic-style.ts
 import type { SmContextPianoKey } from './locales.ts'
 import type { PianoSelectedSessionSource } from './session-probe.tsx'
 import { COLOR_FIELDS, paletteStyle } from '../core/colors.ts'
+import { createPointerWave } from './pointer-wave.ts'
 import { DEFAULT_SETTINGS, DEFAULT_SETTINGS_SOURCE, railHeight } from '../core/config.ts'
 import type { PianoSettingsSource } from '../core/config.ts'
 
@@ -133,7 +134,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   status.setAttribute('aria-live', 'polite')
   strip.append(status)
   const style = document.createElement('style')
-  style.textContent = '.smcp-unified[hidden]{display:none!important}.smcp-unified .smcp-bar[aria-busy="true"]{opacity:.4}.smcp-unified .smcp-bar[data-unloaded="true"]{background:transparent;border:1px solid currentColor;box-sizing:border-box}.smcp-navigation-status{position:absolute;left:0;top:100%;width:220px;font-size:12px;line-height:1.4;padding-top:12px;color:var(--dsw-alias-label-secondary,#73757a)}' + SEMANTIC_CSS
+  style.textContent = '.smcp-unified[hidden]{display:none!important}.smcp-unified .smcp-bar[aria-busy="true"]{opacity:.4}.smcp-navigation-status{position:absolute;left:0;top:100%;width:220px;font-size:12px;line-height:1.4;padding-top:12px;color:var(--dsw-alias-label-secondary,#73757a)}' + SEMANTIC_CSS
   const originalPosition = root.style.position
   const forcedPosition = window.getComputedStyle(root).position === 'static'
   if (forcedPosition) root.style.position = 'relative'
@@ -175,6 +176,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   // Fraction of a pitch relative to the selected key, independent of its
   // window index so layout/streaming can preserve the selected preview.
   let pointerOffset: number | null = null
+  const pointerWave = createPointerWave()
+  const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)')
   let requestedTurn: number | null = null
   let failedTurn: number | null = null
   let localFailure = false
@@ -267,6 +270,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     strip.hidden = true
     closePreview()
     pendingPointer = null; pointerOffset = null; pointerInside = false
+    pointerWave.reset()
     debug.mode = 'native-fallback'
     debug.hiddenReason = reason
     debug.nativeReject = owner.lastReject
@@ -531,17 +535,27 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       closePreview()
       if (strip.hasAttribute('aria-activedescendant')) strip.removeAttribute('aria-activedescendant')
     }
-    // Pointer motion already arrives at frame cadence. A CSS transition here
-    // would chase each new target and add latency when the pointer reverses.
+    // Only amplitude eases on entry/exit. Y continues to follow the latest
+    // sample directly; retirement has no semantic selection or click lease.
+    const wave = pointerWave.sample(window.performance.now(), motionPreference?.matches)
+    const waveSlot = slotForKey(wave.anchor?.key ?? null)
+    if (wave.anchor !== null && waveSlot === undefined) pointerWave.reset()
     const followingPointer = focusIndex >= 0 && pointerOffset !== null
     if (strip.classList.contains('smcp-pointer-follow') !== followingPointer) strip.classList.toggle('smcp-pointer-follow', followingPointer)
-    const waveCenter = focusIndex < 0 ? null : focusIndex + (pointerOffset ?? 0)
+    // Also suppress CSS chasing on the final fade frame. The next non-pointer
+    // render restores normal keyboard/reader transitions from the settled width.
+    strip.classList.toggle('smcp-pointer-frame', pending === DIRTY_POINTER || wave.moving)
+    const waveCenter = followingPointer ? focusIndex + pointerOffset!
+      : focusedSlot !== undefined ? focusIndex
+      : waveSlot === undefined ? null : waveSlot.displayIndex + (wave.anchor?.offset ?? 0)
+    const strength = followingPointer || focusedSlot === undefined ? wave.strength : 1
     visibleSlots.forEach(slot => {
       const button = buttons.get(slot.item.key)
       if (button === undefined) return
       writeClass(button, 'smcp-bar-hover', slot === focusedSlot)
-      writeStyle(button, 'width', `${barWidth(slot.item, slot.displayIndex, waveCenter)}px`)
+      writeStyle(button, 'width', `${barWidth(slot.item, slot.displayIndex, waveCenter, strength)}px`)
     })
+    if (wave.moving && waveSlot !== undefined) schedule(DIRTY_POINTER)
   }
   const render = (pending: number): void => {
     perf.renders++
@@ -739,7 +753,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const activate = (item: PianoItem | undefined): void => {
     if (item === undefined || !nativeReady || strip.hidden) return
-    clearExpansion()
+    // A disclosed group is a navigation list: moving between its members
+    // must preserve it. Other semantic/history keys still retire the group.
+    if (!expandedKeys.has(item.key)) clearExpansion()
     // An unloaded turn whose official load button is virtualized out has no
     // runnable action this frame (no button to click, no row to scroll to).
     // Retire disclosure even when the strip's geometry click or keyboard
@@ -758,16 +774,17 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     })
     schedule()
   }
-  // #19 hover hot-zone gate: the pointer only counts as hovering a key when
-  // it lies within the key's RENDERED width plus a small tolerance. The
-  // renderer and the hit gate must share one width model, so the visible hot
-  // zone always equals what is on screen — moving through the blank right
-  // margin retires the selection and clicking it activates nothing.
+  // Hover enters and exits through the same unexpanded key core. Wave growth
+  // must not enlarge its own hover lease. Clicks still use painted geometry;
+  // neither path accepts the unused 58px container or an unpainted target.
   const BAR_HIT_TOLERANCE = 3
-  const barWidth = (item: PianoItem, index: number, focusIndex: number | null): number => {
-    const base = item.key === activeSlotKey ? 24 : 10
+  const baseWidth = (item: PianoItem): number => item.key === activeSlotKey ? 24 : 10
+  const barWidth = (item: PianoItem, index: number, focusIndex: number | null, strength = 1): number => {
+    const base = baseWidth(item)
     const wave = focusIndex === null ? 0 : Math.exp(-((index - focusIndex) ** 2) / (2 * 1.35 ** 2))
-    return base + (48 - base) * wave
+    // A newly current key may still be painting between 10px and its 24px
+    // base. A signed acquisition preserves it without inverting other keys.
+    return Math.max(10, base + (48 - base) * wave * strength)
   }
   const nearestIndex = (clientY: number): number => {
     if (visibleSlots.length === 0) return -1
@@ -778,38 +795,40 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     }
     return best
   }
-  const keyHitAt = (clientX: number, clientY: number): number => {
+  const keyHitAt = (clientX: number, clientY: number, hoverCore = false): { index: number; painted: number } | null => {
     const index = nearestIndex(clientY)
-    if (index < 0) return -1
+    if (index < 0) return null
     const slot = visibleSlots[index]
-    if (slot === undefined) return -1
+    if (slot === undefined) return null
     // Hidden members must not leave a tall invisible click/hover region.
-    if (Math.abs(clientY - stripViewportTop - visiblePositions[index]) > settings.getSnapshot().keyGap / 2) return -1
+    if (Math.abs(clientY - stripViewportTop - visiblePositions[index]) > settings.getSnapshot().keyGap / 2) return null
     const item = slot.item
-    // Follow the PAINTED width: barWidth is the animation TARGET, and the
-    // keyboard/retirement width transition runs 82ms, so a freshly selected key would
-    // accept hits in space it has not painted yet while a retired selection
-    // would reject still-visible bar pixels mid-collapse. The button always
-    // exists after the first render; the formula only backs the pre-mount edge.
+    // Geometry is read once per pointer frame. A keyboard transition or finite
+    // pointer envelope can be between widths: targets never authorize clicks.
     const button = buttons.get(item.key)
     const painted = button === undefined
-      ? barWidth(item, slot.displayIndex, slotForKey(selected)?.displayIndex ?? null)
+      ? baseWidth(item)
       : button.getBoundingClientRect().width
+    const limit = hoverCore ? Math.min(baseWidth(item), painted) : painted
     const x = clientX - stripViewportLeft
-    return x >= -BAR_HIT_TOLERANCE && x <= painted + BAR_HIT_TOLERANCE ? index : -1
+    return x >= -BAR_HIT_TOLERANCE && x <= limit + BAR_HIT_TOLERANCE ? { index, painted } : null
   }
   const applyPointer = (): void => {
     const sample = pendingPointer
     pendingPointer = null
     if (sample === null) return
-    const hit = keyHitAt(sample.x, sample.y)
+    const hit = keyHitAt(sample.x, sample.y, true)
+    const slot = hit === null ? undefined : visibleSlots[hit.index]
     pointerInside = true
     browseStart ??= items[windowStart]?.key ?? null
-    selected = hit < 0 ? null : visibleSlots[hit].item.key
-    pointerOffset = hit < 0 ? null
-      : (sample.y - stripViewportTop - visiblePositions[hit]) / settings.getSnapshot().keyGap
+    selected = slot?.item.key ?? null
+    pointerOffset = hit === null ? null
+      : (sample.y - stripViewportTop - visiblePositions[hit.index]) / settings.getSnapshot().keyGap
+    const peak = slot === undefined ? 0 : barWidth(slot.item, slot.displayIndex, slot.displayIndex + pointerOffset!) - baseWidth(slot.item)
+    const paintedStrength = hit === null || slot === undefined || peak === 0 ? 0 : (hit.painted - baseWidth(slot.item)) / peak
+    pointerWave.point(slot === undefined ? null : { key: slot.item.key, offset: pointerOffset! }, window.performance.now(), motionPreference?.matches, paintedStrength)
   }
-  const clearPointer = (): void => { pendingPointer = null; pointerOffset = null }
+  const clearPointer = (): void => { pendingPointer = null; pointerOffset = null; pointerWave.reset() }
   const pointerMove = (event: PointerEvent): void => {
     // Read painted geometry once for the latest sample in the next frame,
     // rather than once for every raw high-frequency pointer event.
@@ -817,15 +836,19 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     schedule(DIRTY_POINTER)
   }
   const retireExpansion = (): void => { clearExpansion(); selected = null; browseStart = null; schedule(DIRTY_VIEW) }
-  const clearHover = (): void => {
-    clearPointer()
+  const releaseHover = (): void => {
     selected = null
     if (expandedKeys.size === 0) browseStart = null
     // Leaving an unexpanded rail also releases manual browsing and recenters
     // its window on the reader; this requires the normal projection/window path.
     schedule(DIRTY_VIEW)
   }
-  const pointerLeave = (): void => { pointerInside = false; clearHover() }
+  const clearHover = (): void => { clearPointer(); releaseHover() }
+  const pointerLeave = (): void => {
+    pendingPointer = null; pointerOffset = null; pointerInside = false
+    pointerWave.point(null, window.performance.now(), motionPreference?.matches)
+    releaseHover()
+  }
   const engage = (key: string | null): void => {
     // Home/End followed by Enter, or a second activation after disclosure,
     // can arrive before rAF. Apply the queued projection before resolving it.
@@ -833,6 +856,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (!nativeReady || strip.hidden) return
     const slot = slotForKey(key)
     if (slot === undefined) return
+    clearPointer()
     if (slot.end - slot.start > 1) {
       clearExpansion()
       for (let index = slot.start; index < slot.end; index++) {
@@ -859,7 +883,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const key = (event.target as HTMLElement).closest<HTMLElement>('[data-key]')?.dataset.key
     if (key !== undefined) { engage(key); return }
     const hit = keyHitAt(event.clientX, event.clientY)
-    if (hit >= 0) engage(visibleSlots[hit].item.key)
+    if (hit !== null) engage(visibleSlots[hit.index].item.key)
   }
   const wheel = (event: WheelEvent): void => {
     if (event.deltaY === 0 || items.length === 0) return
@@ -1009,6 +1033,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   if (composerSeat !== null) resize?.observe(composerSeat)
   strip.addEventListener('pointermove', pointerMove); strip.addEventListener('pointerleave', pointerLeave)
   strip.addEventListener('blur', clearHover)
+  const motionChanged = (): void => { schedule(DIRTY_POINTER) }
+  motionPreference?.addEventListener?.('change', motionChanged)
   strip.addEventListener('click', click); strip.addEventListener('wheel', wheel, { passive: false }); strip.addEventListener('keydown', keydown)
   scrollport.addEventListener('scroll', onScroll, { passive: true }); scrollport.addEventListener('wheel', cancel, { passive: true })
   scrollport.addEventListener('touchstart', readerPointer, { passive: true }); scrollport.addEventListener('pointerdown', readerPointer, { passive: true })
@@ -1037,6 +1063,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   const dispose = (): void => {
     if (!alive) return
     alive = false; activation++; landing.cancel()
+    clearPointer()
+    motionPreference?.removeEventListener?.('change', motionChanged)
     if (binding?.session.sessionId === selection.getSnapshot()) owner.cancel()
     owner.release(); sourceStop?.(); listStop(); selectedStop(); settingsStop(); structureDom.disconnect(); nativeStructureDom.disconnect(); attributeDom.disconnect(); composerDom?.disconnect(); resize?.disconnect()
     if (retry !== undefined) clearTimeout(retry)

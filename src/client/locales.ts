@@ -4,7 +4,7 @@ import type { PianoLanguage } from '../core/config.ts'
 
 const zh = {
   'settings.preview': "实时布局预览",
-  'settings.previewDesc': "演示数据。点击过程组展开，点击成员或其他键收回；颜色和尺寸与导航共用设置。",
+  'settings.previewDesc': "演示数据。点击灰键展开并连续选择成员，点击其他类型键收回。",
   'settings.folded': "过程组 · 点击展开",
   'settings.first': "查看开头",
   'settings.last': "查看末尾",
@@ -15,7 +15,7 @@ const zh = {
   'settings.resetColors': "恢复默认配色",
   'settings.guide': "导航操作说明",
   'settings.guideHistory': "完整历史可通过窗口浏览；未加载轮次沿原生入口加载。最大显示数量只限制窗口内的琴键数，折叠组计一枚。",
-  'settings.guideFold': "只有同轮连续过程输出参与折叠。首次点击组只展开；点击成员、其他键或另一组时收回旧组。提问、回答、输入、最终结果和历史入口独立显示。",
+  'settings.guideFold': "只有同轮连续过程输出参与折叠。首次点击组只展开；点击同组成员定位并保持展开，点击其他类型键或另一组时收回旧组。提问、回答、输入、最终结果和历史入口独立显示。",
   'settings.guideKeys': "↑/↓ 选择，PageUp/PageDown 翻窗，Home/End 到首尾，Enter/Space 激活，Escape 收回。轨道滚轮浏览窗口，正文滚动更新阅读位置。",
   'nav.aria': '对话段落快速导航',
   'settings.nav': '琴键导航',
@@ -48,7 +48,7 @@ const zh = {
 
 const en: Record<keyof typeof zh, string> = {
   'settings.preview': "Live layout preview",
-  'settings.previewDesc': "Demo data. Click a process group to expand; a member or another key folds it. Shares colors and dimensions with navigation.",
+  'settings.previewDesc': "Demo data. Expand gray keys and select their members; another key kind folds the group.",
   'settings.folded': "Process group · Click to expand",
   'settings.first': "Show first",
   'settings.last': "Show last",
@@ -59,7 +59,7 @@ const en: Record<keyof typeof zh, string> = {
   'settings.resetColors': "Restore default colors",
   'settings.guide': "Navigation guide",
   'settings.guideHistory': "Browse the full history through the window; unloaded turns use native loading. The visible limit counts displayed keys, with a folded group counting as one.",
-  'settings.guideFold': "Only consecutive process outputs in the same turn fold. First activation expands; a member, another key or another group folds the previous group. Questions, answers, inputs, final results and history entries stay separate.",
+  'settings.guideFold': "Only consecutive process outputs in the same turn fold. First activation expands; navigating members keeps that group open. Another key kind or group folds the previous group. Questions, answers, inputs, final results and history entries stay separate.",
   'settings.guideKeys': "↑/↓ select; PageUp/PageDown browse; Home/End go to either end; Enter/Space activate; Escape folds. The rail wheel browses keys; transcript scrolling updates the reading position.",
   'nav.aria': 'Conversation paragraph navigator',
   'settings.nav': 'Piano Navigator',
@@ -92,7 +92,7 @@ const en: Record<keyof typeof zh, string> = {
 
 const zhTW: Record<keyof typeof zh, string> = {
   'settings.preview': "即時版面預覽",
-  'settings.previewDesc': "示範資料。點擊過程群組展開，點擊成員或其他鍵收回；顏色和尺寸與導覽共用設定。",
+  'settings.previewDesc': "示範資料。點擊灰鍵展開並連續選擇成員，點擊其他類型鍵收回。",
   'settings.folded': "過程群組 · 點擊展開",
   'settings.first': "查看開頭",
   'settings.last': "查看末尾",
@@ -103,7 +103,7 @@ const zhTW: Record<keyof typeof zh, string> = {
   'settings.resetColors': "恢復預設配色",
   'settings.guide': "導覽操作說明",
   'settings.guideHistory': "完整歷史可透過視窗瀏覽；未載入輪次沿原生入口載入。最大顯示數量只限制視窗內的琴鍵數，折疊群組計一枚。",
-  'settings.guideFold': "只有同輪連續過程輸出參與折疊。首次點擊群組只展開；點擊成員、其他鍵或另一群組時收回舊群組。提問、回答、輸入、最終結果和歷史入口獨立顯示。",
+  'settings.guideFold': "只有同輪連續過程輸出參與折疊。首次點擊群組只展開；點擊同群組成員定位並保持展開，點擊其他類型鍵或另一群組時收回舊群組。提問、回答、輸入、最終結果和歷史入口獨立顯示。",
   'settings.guideKeys': "↑/↓ 選擇，PageUp/PageDown 翻窗，Home/End 到首尾，Enter/Space 啟動，Escape 收回。軌道滾輪瀏覽視窗，正文捲動更新閱讀位置。",
   'nav.aria': '對話段落快速導覽',
   'settings.nav': '琴鍵導覽',

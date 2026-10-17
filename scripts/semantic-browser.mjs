@@ -218,7 +218,8 @@ try {
       await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 3)
       await activate(key('output').first())
       await page.waitForFunction(() => !document.querySelector('[data-chat-anchor-key="p2"]').hasAttribute('hidden'))
-      await waitFolded()
+      assert.equal(await key('output').count(), 3, 'native process reveal preserves the disclosed navigation list')
+      await activate(key('final')); await waitFolded()
     }
     await activate(group)
     await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 3)
@@ -228,7 +229,11 @@ try {
     for (const target of [key('input'), key('final', 1), key('input', 1)]) { await activate(target); await waitFolded() }
     await activate(group)
     await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 3)
-    await activate(key('output').first()); await waitFolded()
+    await activate(key('output').first())
+    await page.waitForFunction(() => !document.querySelector('[data-chat-anchor-key="p2"]').hasAttribute('hidden'))
+    await activate(key('output').nth(1))
+    assert.equal(await key('output').count(), 3, 'consecutive native member navigation keeps the group open')
+    await activate(key('final')); await waitFolded()
     assert.equal(await page.locator('[data-chat-anchor-key="p2"]').getAttribute('hidden'), null, 'rail retirement keeps native process contents visible')
     assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
   }, '?processCount=3&processOnly=1')

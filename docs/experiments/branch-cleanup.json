@@ -1,0 +1,104 @@
+{
+  "date": "2026-10-17",
+  "repository": "amazing-fish/dsh-piano-nav",
+  "defaultBranch": "master",
+  "base": "a8894d17371f7e0843d53cbb5539b4c07bc0de54",
+  "state": "deleted_and_remote_verified",
+  "blocker": null,
+  "candidates": [
+    {
+      "branch": "docs/readme-effect-previews",
+      "expectedHead": "3b88d20e0776c287cb401d7d4c2f9f48d9642493",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "feat/semantic-piano-keys",
+      "expectedHead": "857a1503083859b3926d821893abdf687187c21b",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "feat/single-piano-full-history",
+      "expectedHead": "2aad297a14f54bc332db8f7fb527db0d20d462ca",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "feat/1.3.1-settings",
+      "expectedHead": "c20c11b48eaf364a7da5f953e0e8395d7047fc07",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "fix/click-only-collapsed-keys",
+      "expectedHead": "17243cb665849e1b2b6d63a7dd45d703c45403b2",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "fix/dsh-0.1.5-navigator-compat",
+      "expectedHead": "5cc48ae91e7276a1bffdfe84d5bf9ab21db95977",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "fix/issue-26-process-rail",
+      "expectedHead": "1a1ec18f85cf864b3dd21b434e0aaee5ecd99d88",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "fix/issue-28-folded-semantics",
+      "expectedHead": "da8ad8673c9fbdcbbf8624274b12596bb89cf2fa",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "fix/issue-30-navigation-collapse",
+      "expectedHead": "9e289595749a0f6876991700929241fdc117eb57",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "fix/process-only-compact-rail",
+      "expectedHead": "73b1117a110869d6467cbf8b040d649f9feabded",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "fix/smooth-pointer-wave",
+      "expectedHead": "c9cf16a5862d365a37c4c12712e94ccd226a0bf5",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "perf/runtime-hot-path",
+      "expectedHead": "3486eaa41eee5b8f672fa26ae4b2b31c0dffc4ed",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "refactor/independent-piano-release",
+      "expectedHead": "20431f6093053d3ef7d17aca373499ca4ce8930c",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "refactor/semantic-key-palette",
+      "expectedHead": "89dd7af46832270abc1eba02596f9c9194332b1a",
+      "evidence": "Exact HEAD of merged PR; ancestor of master"
+    },
+    {
+      "branch": "docs/npm-1.3.0-publication",
+      "expectedHead": "60456fc8e237c036359bb01f6a3338cd29f6b57f",
+      "evidence": "PR #37 superseded by #39; release JSON identical and documentation changes preserved"
+    }
+  ],
+  "retainedUniqueBranches": [
+    {
+      "branch": "feat/key-role-colors",
+      "head": "2196673c88a35c132487b4c9b4b9f55c8e251635"
+    },
+    {
+      "branch": "feat/rail-edge-snap",
+      "head": "7b1a326736278773f6a1c67122ea351884920c83"
+    },
+    {
+      "branch": "fix/dsh-0.1.7-rc.2-compat",
+      "head": "8155189b944d3b64c44ffe848e5c2ed697359e3b"
+    }
+  ],
+  "experimentalBranch": "experiment/horizontal-pointer-experience",
+  "issue": "https://github.com/amazing-fish/dsh-piano-nav/issues/40",
+  "nextAction": "No branch deletion remains. Retain unique branches until separately reconciled.",
+  "authorization": "2026-10-17 user: 执行删除",
+  "verification": "GitHub branch UI showed Deleted for all 15; REST branches collection returned only master, experiment branch and 3 retained unique branches."
+}

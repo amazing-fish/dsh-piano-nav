@@ -34,7 +34,8 @@ const CSS = `
   transition: width 82ms cubic-bezier(.2, .8, .2, 1);
 }
 /* Pointer-driven widths are already synchronized to animation frames. */
-.smcp-pointer-follow .smcp-bar { transition: none; }
+.smcp-pointer-follow .smcp-bar,
+.smcp-pointer-frame .smcp-bar { transition: none; }
 .smcp-bar-current,
 .smcp-bar-hover {
   background: var(--smcp-key-active, #202124);
@@ -354,12 +355,13 @@ body[data-ds-dark-theme] .smcp-settings-command-box code { color: #f1f1f3; }
 .smcp-preview-rail .smcp-bar::after { content: ''; position: absolute; inset: calc((var(--smcp-preview-key-height) - var(--smcp-preview-gap)) / 2) 0; }
 .smcp-preview-rail .smcp-bar:focus-visible { outline: 2px solid var(--dsw-alias-border-focus, #4c7ef3); outline-offset: 3px; }
 .smcp-preview-copy p, .smcp-settings-help p { font-size: 13px; line-height: 1.65; color: var(--dsw-alias-label-secondary, #73757a); }
+.smcp-preview-copy p { margin: 6px 0; }
 .smcp-preview-copy strong { font-size: 13px; }
 .smcp-preview-pages { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
 .smcp-preview-pages button, .smcp-color-auto { font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--dsw-alias-border-l2, #c9c9cc); border-radius: 6px; color: inherit; background: transparent; cursor: pointer; }
 .smcp-color-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
 .smcp-color-row { min-width: 0; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid var(--dsw-alias-border-l4, rgba(127,127,127,.15)); padding: 12px 0; }
-.smcp-color-label { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+.smcp-color-label { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .smcp-color-label > span:nth-child(2) { flex: 1; font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
 .smcp-color-label small { display: block; font-size: 11px; color: var(--dsw-alias-label-secondary, #73757a); margin-top: 3px; }
 .smcp-unified .smcp-legend-key { display: block; position: static; width: 24px; height: 3px; flex: none; }
