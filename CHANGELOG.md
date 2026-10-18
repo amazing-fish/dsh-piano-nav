@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.2 — release preparation
+## 1.3.2 — 2026-10-18
 
 - Keep hover and previews active throughout the currently painted key,
   including its expanded portion; exit beyond its visible width plus 3px.
@@ -22,7 +22,10 @@
 - Keep a disclosed process group open when navigating its members; retain retirement on other keys, group replacement and Escape.
 - Preserve the latest color-picker draft during asynchronous saves; roll back failed writes and restrict picker activation to the 32px swatch.
 
-Publication and registry verification are pending.
+Published as npm latest on 2026-10-18. The registry download matches the
+frozen artifact byte for byte; installed host/client loading and v1.3.2
+settings identity were verified. See the
+[publication record](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/releases/1.3.2.md).
 
 ## 1.3.1 — 2026-10-17
 
