@@ -17,6 +17,7 @@ jobs:
           node-version: '24'
       - name: Isolated contracts
         run: |
+          node scripts/release-preflight-test.mjs
           node --experimental-strip-types scripts/chat-source.mjs
           node --experimental-strip-types scripts/navigation-contract.mjs
           node --experimental-strip-types scripts/full-history-contract.mjs

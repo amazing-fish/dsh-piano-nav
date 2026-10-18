@@ -2,11 +2,12 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
-import { delimiter, dirname, join, resolve } from 'node:path'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import vm from 'node:vm'
+import { runNpm } from './npm-cli.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const requireHere = createRequire(import.meta.url)
@@ -14,28 +15,15 @@ const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
 const artifacts = join(root, 'artifacts')
 await mkdir(artifacts, { recursive: true })
 
-// Run npm's JS entry with Node on both Windows and Unix; no shell quoting.
-let npmCli
-for (const directory of (process.env.PATH ?? '').split(delimiter)) {
-  try {
-    const executable = await realpath(join(directory, process.platform === 'win32' ? 'npm.cmd' : 'npm'))
-    const candidate = process.platform === 'win32'
-      ? join(dirname(executable), 'node_modules/npm/bin/npm-cli.js') : executable
-    await access(candidate)
-    npmCli = candidate
-    break
-  } catch {}
-}
-assert.ok(npmCli, 'npm CLI is required to verify the published tarball')
-const npm = args => execFileSync(process.execPath, [npmCli, ...args], {
-  cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
-})
-const [packed] = JSON.parse(npm(['pack', '--ignore-scripts', '--json', '--pack-destination', artifacts]))
+const npm = args => runNpm(args, { cwd: root })
+// A registry download can exercise exactly the same install/load contract.
+const suppliedTarball = process.env.PIANO_PACKAGE_TARBALL
+const [packed] = JSON.parse(npm(['pack', ...(suppliedTarball ? [resolve(suppliedTarball), '--dry-run'] : []), '--ignore-scripts', '--json', '--pack-destination', artifacts]))
 const expected = [...manifest.files, 'package.json'].sort()
 assert.deepEqual(packed.files.map(file => file.path).sort(), expected, 'package file allowlist')
 assert.equal(packed.name, manifest.name)
 assert.equal(packed.version, manifest.version)
-const tarball = resolve(artifacts, packed.filename)
+const tarball = suppliedTarball ? resolve(suppliedTarball) : resolve(artifacts, packed.filename)
 const integrity = `sha512-${createHash('sha512').update(await readFile(tarball)).digest('base64')}`
 assert.equal(integrity, packed.integrity)
 

@@ -1,0 +1,60 @@
+name: Publish verified npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable package version to publish
+        required: true
+        type: string
+      commit:
+        description: Expected full master commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'amazing-fish/dsh-piano-nav' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_COMMIT: ${{ inputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.17.1'
+      - run: node scripts/release-preflight.mjs
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - run: pnpm test:package
+      - name: Publish the tested tarball with OIDC
+        env:
+          REQUIRE_RELEASE_ARTIFACT: 'true'
+        run: |
+          node scripts/release-preflight.mjs
+          npm publish "./artifacts/dsh-piano-nav-${RELEASE_VERSION}.tgz" --access public --tag latest --registry=https://registry.npmjs.org
+      - run: node scripts/verify-published.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-release-evidence
+          path: |
+            artifacts/package-manifest.json
+            artifacts/registry-verification.json
+            artifacts/*.tgz

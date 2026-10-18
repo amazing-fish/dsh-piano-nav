@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Prepare a manually triggered GitHub Actions OIDC publishing workflow. Guard
+  the requested master commit/version and tested archive; verify the downloaded
+  registry package. npm trusted-publisher binding and its first real publish
+  remain pending; account 2FA stays enabled.
+
+## 1.3.3 — 2026-10-18
+
 - Apply only changed color variables while dragging; keep color rows independent
   of the settings page and omit navigation rendering and geometry reads for
   palette-only changes. Decode host settings only on confirmed updates and
@@ -13,7 +20,7 @@
 - Keep tooltip surfaces neutral in light/dark themes even when a host layer
   is tinted, while retaining system forced-color behavior.
 
-## 1.3.2 — release preparation
+## 1.3.2 — 2026-10-18
 
 - Keep hover and previews active throughout the currently painted key,
   including its expanded portion; exit beyond its visible width plus 3px.
@@ -35,7 +42,7 @@
 - Keep a disclosed process group open when navigating its members; retain retirement on other keys, group replacement and Escape.
 - Preserve the latest color-picker draft during asynchronous saves; roll back failed writes and restrict picker activation to the 32px swatch.
 
-Publication and registry verification are pending.
+Published and registry-verified on 2026-10-18; latest was 1.3.2 at verification.
 
 ## 1.3.1 — 2026-10-17
 
