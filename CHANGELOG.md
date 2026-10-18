@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.2 — release preparation
 
 - Keep hover and previews active throughout the currently painted key,
   including its expanded portion; exit beyond its visible width plus 3px.
@@ -21,6 +21,8 @@
 - Size the settings preview to its expanded demo keys within the visible window instead of the full window capacity.
 - Keep a disclosed process group open when navigating its members; retain retirement on other keys, group replacement and Escape.
 - Preserve the latest color-picker draft during asynchronous saves; roll back failed writes and restrict picker activation to the 32px swatch.
+
+Publication and registry verification are pending.
 
 ## 1.3.1 — 2026-10-17
 
