@@ -86,7 +86,12 @@ try {
     assert.equal(await key('output', 1).count(), 1)
     await activate(key('output', 1))
     await page.waitForFunction(() => !document.querySelector('[data-chat-anchor-key="p1"]').hasAttribute('hidden'))
-    assert.ok(Math.abs(await rowTop('[data-chat-anchor-key="p1"]') - 24) < 3)
+    // Native disclosure becomes visible before the landing task resumes on rAF.
+    // Wait for the same precise offset instead of treating unhide as completion.
+    await page.waitForFunction(() => {
+      const row = document.querySelector('[data-chat-anchor-key="p1"]')
+      return Math.abs(row.getBoundingClientRect().top - row.closest('[data-conversation-scroll]').getBoundingClientRect().top - 24) < 3
+    })
     assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
   })
   await test('Compact mode exposes hidden-source question/answer keys and answer landing reveals the native process', async () => {
