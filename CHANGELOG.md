@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Apply only changed color variables while dragging; keep color rows independent
+  of the settings page and omit navigation rendering and geometry reads for
+  palette-only changes. Decode host settings only on confirmed updates and
+  avoid duplicate visual notifications or completion handlers.
+- Preview color edits, automatic theme colors and palette resets immediately
+  across the picker, legend, demo and actual rail while saving in the background.
+  Preserve the latest intent through older acknowledgments, roll back failed
+  writes and reject stale revision reads; show pending persistence explicitly.
+- Keep tooltip surfaces neutral in light/dark themes even when a host layer
+  is tinted, while retaining system forced-color behavior.
+
 ## 1.3.2 — release preparation
 
 - Keep hover and previews active throughout the currently painted key,

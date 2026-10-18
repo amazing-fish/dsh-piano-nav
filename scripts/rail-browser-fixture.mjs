@@ -63,6 +63,7 @@ export async function buildRailFixture({ settingsPage = false, sourceRef } = {})
         },
         mutate: async (ns, ops, expected) => {
           const timing = { ops: structuredClone(ops), startedAt: performance.now() }; writeTimings.push(timing)
+          if (window.holdWrites) await new Promise(resolve => { timing.release = resolve })
           if (window.writeDelay) await new Promise(resolve => setTimeout(resolve, window.writeDelay))
           if (window.failWrite || window.readOnly) throw Object.assign(new Error(window.writeErrorMessage ?? 'write failed'), { code: window.writeErrorCode ?? 'fixture/write-failed' })
           if (expected !== revision) throw new Error('stale revision')
@@ -77,7 +78,8 @@ export async function buildRailFixture({ settingsPage = false, sourceRef } = {})
     const controller = createPianoRemoteSettings(remote)
     settings = controller.source
     const panel = document.createElement('aside'); panel.id = 'settings-panel'; document.body.append(panel)
-    createRoot(panel).render(React.createElement(PianoSettingsPage, { scope: controller.scope }))
+    const page = React.createElement(PianoSettingsPage, { scope: controller.scope })
+    createRoot(panel).render(window.profileSettings ? React.createElement(React.Profiler, { id: 'settings', onRender: (...args) => window.profileSettings(...args) }, page) : page)
     window.settingsFixture = { controller, writes, writeTimings, persisted: () => value, refresh: () => { for (const fn of listeners) fn('sm-context-piano') } }
     ` : ''}
     const stylesStop = installStyles()
