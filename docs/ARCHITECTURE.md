@@ -56,6 +56,11 @@ Observer 只关注有意义的结构边界与契约属性，避免逐 token 的 
 
 ## 设置预览与配色
 
+远端设置控制器为每类颜色保留一份最新待确认值，色块、图例、预览和实际轨道共享
+该值；`saving` 明示后台持久化仍未完成，revision 仍代表已确认文档。每个写入批次
+只清理自己仍拥有的预览，失败回退到最新已确认值，较旧响应不能覆盖新选择。
+语言、启用和尺寸等非颜色字段仍使用宿主确认值；串行写入与同字段待执行合并规则不变。
+
 颜色覆盖以平铺字段进入原 settings entry。host schema 和客户端 decoder 共用严格 hex
 校验；空值表示主题自动色，未知/非法值不会写入 CSS。设置页与轨道共用 paletteStyle 和
 语义 CSS，预览还复用 projectRailSlots、visibleWindow 与 stackPositions，不挂载会话探针

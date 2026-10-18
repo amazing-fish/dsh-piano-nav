@@ -85,6 +85,8 @@ export interface PianoSettingsSource {
  * 0.1.7 contract it is backed by `remote.settings` (see remote-settings.ts).
  */
 export interface PianoSettingsSnapshot {
+  /** Color preview is visible while the host is still confirming persistence. */
+  saving?: boolean
   status: 'loading' | 'ready' | 'unavailable'
   writable: boolean
   revision: number

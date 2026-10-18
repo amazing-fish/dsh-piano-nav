@@ -53,7 +53,8 @@ const CSS = `
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, .11));
   border-radius: 16px;
-  background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, .98));
+  /* Preview cards keep a neutral surface even when the host's layer is tinted. */
+  background: rgba(255, 255, 255, .98);
   box-shadow: 0 8px 28px rgba(0, 0, 0, .10), 0 2px 8px rgba(0, 0, 0, .05);
   color: var(--dsw-alias-label-primary, #202124);
   opacity: 0;
@@ -316,7 +317,7 @@ body[data-ds-dark-theme] .smcp-bar {
   --smcp-key-active: rgba(255, 255, 255, .94);
 }
 body[data-ds-dark-theme] .smcp-tooltip {
-  background: var(--dsw-alias-bg-layer-2, rgba(35, 35, 39, .98));
+  background: rgba(35, 35, 39, .98);
   border-color: var(--dsw-alias-border-l2, rgba(255, 255, 255, .10));
   box-shadow: 0 10px 32px rgba(0, 0, 0, .34);
 }

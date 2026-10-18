@@ -63,6 +63,7 @@ export async function buildRailFixture({ settingsPage = false, sourceRef } = {})
         },
         mutate: async (ns, ops, expected) => {
           const timing = { ops: structuredClone(ops), startedAt: performance.now() }; writeTimings.push(timing)
+          if (window.holdWrites) await new Promise(resolve => { timing.release = resolve })
           if (window.writeDelay) await new Promise(resolve => setTimeout(resolve, window.writeDelay))
           if (window.failWrite || window.readOnly) throw Object.assign(new Error(window.writeErrorMessage ?? 'write failed'), { code: window.writeErrorCode ?? 'fixture/write-failed' })
           if (expected !== revision) throw new Error('stale revision')

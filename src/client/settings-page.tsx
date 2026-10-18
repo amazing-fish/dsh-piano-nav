@@ -34,7 +34,7 @@ const LANGUAGE_OPTIONS: readonly { value: PianoLanguage; label: string }[] = [
   { value: 'zh-TW', label: '繁體中文' },
 ]
 type SettingsErrorKey = 'settings.writeError' | 'settings.copyError'
-const FEEDBACK_KEYS = ['settings.writeError', 'settings.copyError', 'settings.loading', 'settings.unavailable'] as const
+const FEEDBACK_KEYS = ['settings.writeError', 'settings.copyError', 'settings.loading', 'settings.unavailable', 'settings.saving'] as const
 const hostIsDark = (): boolean => typeof document !== 'undefined' && document.body?.hasAttribute('data-ds-dark-theme') === true
 const subscribeTheme = (listener: () => void): (() => void) => {
   if (typeof MutationObserver === 'undefined' || !document.body) return () => {}
@@ -125,25 +125,15 @@ function RangeRow(props: RangeRowProps): ReactNode {
   )
 }
 
-/** Keep the chooser's draft stable until its latest host write completes. */
+/** The controller shares the latest choice with every color consumer. */
 function ColorInput({ value, label, disabled, onCommit }: {
   value: string
   label: string
   disabled: boolean
   onCommit: (color: string) => Promise<void>
 }): ReactNode {
-  const [draft, setDraft] = useState<string | null>(null)
-  const generation = useRef(0)
-  return <input type="color" aria-label={label} value={draft ?? value} disabled={disabled}
-    onChange={event => {
-      const color = event.target.value
-      const ticket = ++generation.current
-      setDraft(color)
-      void onCommit(color).finally(() => {
-        // Earlier acknowledgments must not overwrite a newer chooser input.
-        if (generation.current === ticket) setDraft(null)
-      })
-    }} />
+  return <input type="color" aria-label={label} value={value} disabled={disabled}
+    onChange={event => { void onCommit(event.target.value) }} />
 }
 
 export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
@@ -205,7 +195,7 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
         {/* Measure every localized message so wrapped text also has room. */}
         {FEEDBACK_KEYS.map(key => <p key={key} className="smcp-settings-feedback-reserve" aria-hidden="true">{t(key)}</p>)}
         <p className="smcp-settings-error smcp-settings-page-error" role="alert">{error === null ? '' : t(error)}</p>
-        <p className="smcp-settings-note" role="status">{error !== null ? '' : snapshot.status === 'loading' ? t('settings.loading') : snapshot.status === 'unavailable' ? t('settings.unavailable') : ''}</p>
+        <p className="smcp-settings-note" role="status">{error !== null ? '' : snapshot.status === 'loading' ? t('settings.loading') : snapshot.status === 'unavailable' ? t('settings.unavailable') : snapshot.saving ? t('settings.saving') : ''}</p>
       </div>
 
       <section className="smcp-settings-card"><LayoutPreview settings={settings} /></section>

@@ -7,7 +7,7 @@
  */
 
 import { DEFAULT_SETTINGS, SETTINGS_ENTRY_ID, SETTINGS_FIELDS, decodeSettings } from '../core/config.ts'
-import { COLOR_FIELDS } from '../core/colors.ts'
+import { COLOR_FIELDS, isPianoColor } from '../core/colors.ts'
 import type { PianoSettings, PianoSettingsScope, PianoSettingsSource } from '../core/config.ts'
 
 /** Structural slice of the remote API this module consumes. */
@@ -45,6 +45,7 @@ interface PianoSettingsWriteOp {
 }
 
 type PianoSettingsSnapshot = ReturnType<PianoSettingsScope['getSnapshot']>
+interface WriteBatch { ops: PianoSettingsWriteOp[] }
 const COLOR_SETTING_FIELDS = new Set<keyof PianoSettings>(Object.values(COLOR_FIELDS))
 
 export interface PianoRemoteSettings {
@@ -58,6 +59,8 @@ export interface PianoRemoteSettings {
  * `settings/document-updated` for this entry only; writes are serialized
  * through a queue and revalidate the entry revision on failure. Consecutive
  * unstarted edits of one color share the latest value and completion promise.
+ * Color-only previews publish immediately; a batch may retire only its own
+ * still-current previews after confirmation or failure.
  */
 export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRemoteSettings {
   let entry: PianoSettingsEntryView | undefined
@@ -78,22 +81,44 @@ export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRem
   let disposed = false
   let readGeneration = 0
   let writeQueue: Promise<void> = Promise.resolve()
+  // One preview per color, shared by the picker, legend, demo and real rail.
+  const colorPreviews = new Map<keyof PianoSettings, { batch: WriteBatch; value: string }>()
   let pendingColor: {
     field: keyof PianoSettings
-    batch: { ops: PianoSettingsWriteOp[] }
+    batch: WriteBatch
     operation: Promise<void>
   } | undefined
   const listeners = new Set<() => void>()
 
   const publish = (status: PianoSettingsSnapshot['status'], writable: boolean): void => {
     if (disposed) return
+    const confirmed = entry === undefined ? (described ? DEFAULT_SETTINGS : unknownSettings()) : decodeSettings(entry.value) ?? DEFAULT_SETTINGS
+    const preview = status === 'ready' && writable ? Object.fromEntries([...colorPreviews].map(([field, choice]) => [field, choice.value])) : {}
     snapshot = {
       status,
       writable,
       revision: entry?.revision ?? 0,
-      value: entry === undefined ? (described ? DEFAULT_SETTINGS : unknownSettings()) : decodeSettings(entry.value) ?? DEFAULT_SETTINGS,
+      value: { ...confirmed, ...preview },
+      saving: status === 'ready' && writable && colorPreviews.size > 0,
     }
     for (const listener of listeners) listener()
+  }
+
+  const acceptEntry = (next: PianoSettingsEntryView | undefined): void => {
+    // A describe begun before an acknowledgment can finish after it.
+    if (next?.revision !== undefined && entry?.revision !== undefined && next.revision < entry.revision) return
+    entry = next
+  }
+  const previewColors = (batch: WriteBatch): void => {
+    if (disposed || snapshot.status !== 'ready' || !snapshot.writable) return
+    let changed = false
+    for (const op of batch.ops) {
+      const value = op.op === 'unset' ? '' : op.value
+      if (COLOR_SETTING_FIELDS.has(op.path[0]) && isPianoColor(value)) {
+        colorPreviews.set(op.path[0], { batch, value }); changed = true
+      }
+    }
+    if (changed) publish(snapshot.status, snapshot.writable)
   }
 
   const refresh = async (): Promise<void> => {
@@ -103,7 +128,7 @@ export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRem
       if (disposed || generation !== readGeneration) return
       if (!response.ok) throw new Error('settings describe failed')
       const result = response.value
-      entry = result.namespaces.find((candidate) => candidate.ns === SETTINGS_ENTRY_ID)
+      acceptEntry(result.namespaces.find((candidate) => candidate.ns === SETTINGS_ENTRY_ID))
       described = true
       // A writable document without this entry cannot be written yet: DSH 0.1.7
       // `describe()` only lists active entries exporting a Config, and
@@ -120,30 +145,40 @@ export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRem
   const write = (ops: PianoSettingsWriteOp[], colorField?: keyof PianoSettings): Promise<void> => {
     if (colorField !== undefined && pendingColor?.field === colorField) {
       pendingColor.batch.ops = ops
+      previewColors(pendingColor.batch)
       return pendingColor.operation
     }
     const batch = { ops }
     const operation = writeQueue.then(async () => {
       // An in-flight request is immutable; only its unstarted successor can merge.
       if (pendingColor?.batch === batch) pendingColor = undefined
-      if (disposed) throw new Error('settings controller disposed')
-      if (entry === undefined || !snapshot.writable) await refresh()
-      if (entry === undefined || !snapshot.writable) throw new Error('settings unavailable')
-      const revision = entry.revision ?? 0
+      let committed = false
       try {
+        if (disposed) throw new Error('settings controller disposed')
+        if (entry === undefined || !snapshot.writable) await refresh()
+        if (entry === undefined || !snapshot.writable) throw new Error('settings unavailable')
+        const revision = entry.revision ?? 0
         const response = await remote.settings.mutate(SETTINGS_ENTRY_ID, batch.ops, revision)
         if (!response.ok) throw new Error('settings mutation failed')
-        entry = response.value
-        publish('ready', snapshot.writable)
+        acceptEntry(response.value)
+        committed = true
       } catch (error) {
-        console.warn('[dsh-piano-nav] Settings write failed', error)
-        await refresh()
+        if (!disposed) {
+          console.warn('[dsh-piano-nav] Settings write failed', error)
+          await refresh()
+        }
         throw error
+      } finally {
+        for (const [field, choice] of colorPreviews) {
+          if (choice.batch === batch) colorPreviews.delete(field)
+        }
+        publish(committed ? 'ready' : snapshot.status, snapshot.writable)
       }
     })
     // Other fields, unset and reset form ordering boundaries for coalescing.
     pendingColor = colorField === undefined ? undefined : { field: colorField, batch, operation }
     writeQueue = operation.catch(() => {})
+    previewColors(batch)
     return operation
   }
 
@@ -179,6 +214,7 @@ export function createPianoRemoteSettings(remote: PianoSettingsRemote): PianoRem
     dispose: () => {
       disposed = true
       readGeneration += 1
+      colorPreviews.clear()
       stopListening()
       listeners.clear()
     },
