@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.3 — release preparation
 
 - Apply only changed color variables while dragging; keep color rows independent
   of the settings page and omit navigation rendering and geometry reads for
@@ -13,7 +13,7 @@
 - Keep tooltip surfaces neutral in light/dark themes even when a host layer
   is tinted, while retaining system forced-color behavior.
 
-## 1.3.2 — release preparation
+## 1.3.2 — 2026-10-18
 
 - Keep hover and previews active throughout the currently painted key,
   including its expanded portion; exit beyond its visible width plus 3px.
@@ -35,7 +35,7 @@
 - Keep a disclosed process group open when navigating its members; retain retirement on other keys, group replacement and Escape.
 - Preserve the latest color-picker draft during asynchronous saves; roll back failed writes and restrict picker activation to the 32px swatch.
 
-Publication and registry verification are pending.
+Published and registry-verified on 2026-10-18; latest was 1.3.2 at verification.
 
 ## 1.3.1 — 2026-10-17
 
