@@ -81,8 +81,13 @@ npm dist-tag ls dsh-piano-nav --registry=https://registry.npmjs.org
 不验证连接。因此在工作流合入、下一次真实发布就绪时绑定，不为了测试绑定另造版本，
 不重复上传已发布的1.3.3。首次 OIDC 发布成功前，状态记为“待实发验证”。
 
-2026-10-18：仓库侧工作流已准备，npm端绑定及首次真实OIDC发布尚未完成。
-本地验证覆盖发布防护和已公开1.3.3的注册表/下载包核验，不能代替OIDC认证成功。
+2026-10-18 约20:31（UTC+8）：账号本人通过 npm CLI 创建绑定成功，ID 为
+`3e0d4ed1-c9c6-42d1-9b1f-a98f2c528d78`，repository 为 `amazing-fish/dsh-piano-nav`，
+file 为 `publish.yml`，environment 未指定，权限为 `publish, stage publish`。
+依据为账号本人提供的官方 CLI 成功输出；本执行环境尚未独立复读 npm 配置。
+首次真实 OIDC 发布仍待完成，需在创建后2天内成功；精确截止按 npm 实际创建时间。
+CLI 网页验证的5分钟免重复验证窗口与绑定的2天首次发布验证期分开计算。
+本地发布防护和1.3.3制品检查不能代替OIDC认证成功，后续状态集中跟踪 #60。
 
 官方参考：[publish](https://docs.npmjs.com/cli/v11/commands/npm-publish/)、
 [login](https://docs.npmjs.com/cli/v11/commands/npm-login/)、

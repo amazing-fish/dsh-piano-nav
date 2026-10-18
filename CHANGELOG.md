@@ -4,8 +4,8 @@
 
 - Prepare a manually triggered GitHub Actions OIDC publishing workflow. Guard
   the requested master commit/version and tested archive; verify the downloaded
-  registry package. npm trusted-publisher binding and its first real publish
-  remain pending; account 2FA stays enabled.
+  registry package. The maintainer has created the npm trusted-publisher
+  binding; its first real OIDC publish remains pending. Account 2FA stays enabled.
 
 ## 1.3.3 — 2026-10-18
 
