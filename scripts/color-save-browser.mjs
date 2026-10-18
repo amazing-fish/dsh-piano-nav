@@ -35,11 +35,11 @@ try {
         if (input.value !== color) throw new Error('picker restored a stale value')
         if (i < 8) await new Promise(resolve => setTimeout(resolve, 60))
       }
-      // The actual host-backed source becomes effective when its write completes.
+      // UI now previews before persistence; measure the confirmed host value.
       await new Promise(resolve => {
         const scope = window.settingsFixture.controller.scope
-        if (scope.getSnapshot().value[field] === '#888888') return resolve()
-        const stop = scope.subscribe(() => { if (scope.getSnapshot().value[field] === '#888888') { stop(); resolve() } })
+        if (window.settingsFixture.persisted()[field] === '#888888') return resolve()
+        const stop = scope.subscribe(() => { if (window.settingsFixture.persisted()[field] === '#888888') { stop(); resolve() } })
       })
       const writes = window.settingsFixture.writeTimings
       const last = writes.at(-1)
@@ -49,6 +49,7 @@ try {
         singleWriteMs: last.finishedAt - last.startedAt, values: writes.map(w => w.ops[0].value) }
     }, { field, kind })
     measurements.push(timing)
+    for (const key of ['effectiveMs', 'afterLastInputMs', 'queueWaitMs', 'singleWriteMs']) assert.ok(Number.isFinite(timing[key]), `${key} must describe a completed write`)
     await page.waitForFunction(({ kind }) => document.querySelector(`.smcp-color-label:has([data-kind="${kind}"]) input`).value === '#888888', { kind })
     assert.equal(await page.locator(`.smcp-legend-key[data-kind="${kind}"]`).evaluate(el => getComputedStyle(el).getPropertyValue('--smcp-key').trim()), '#888888')
     if (!sourceRef) {

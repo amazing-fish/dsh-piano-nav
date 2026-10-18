@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+- Prepare a manually triggered GitHub Actions OIDC publishing workflow. Guard
+  the requested master commit/version and tested archive; verify the downloaded
+  registry package. npm trusted-publisher binding and its first real publish
+  remain pending; account 2FA stays enabled.
+
+## 1.3.3 — 2026-10-18
+
+- Apply only changed color variables while dragging; keep color rows independent
+  of the settings page and omit navigation rendering and geometry reads for
+  palette-only changes. Decode host settings only on confirmed updates and
+  avoid duplicate visual notifications or completion handlers.
+- Preview color edits, automatic theme colors and palette resets immediately
+  across the picker, legend, demo and actual rail while saving in the background.
+  Preserve the latest intent through older acknowledgments, roll back failed
+  writes and reject stale revision reads; show pending persistence explicitly.
+- Keep tooltip surfaces neutral in light/dark themes even when a host layer
+  is tinted, while retaining system forced-color behavior.
+
 ## 1.3.2 — 2026-10-18
 
 - Keep hover and previews active throughout the currently painted key,
@@ -22,10 +42,8 @@
 - Keep a disclosed process group open when navigating its members; retain retirement on other keys, group replacement and Escape.
 - Preserve the latest color-picker draft during asynchronous saves; roll back failed writes and restrict picker activation to the 32px swatch.
 
-Published as npm latest on 2026-10-18. The registry download matches the
-frozen artifact byte for byte; installed host/client loading and v1.3.2
-settings identity were verified. See the
-[publication record](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/releases/1.3.2.md).
+Published and registry-verified on 2026-10-18; latest was 1.3.2 at verification.
+See the [historical publication record](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/releases/1.3.2.md).
 
 ## 1.3.1 — 2026-10-17
 

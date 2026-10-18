@@ -53,8 +53,36 @@ npm dist-tag ls dsh-piano-nav --registry=https://registry.npmjs.org
 核对远端 integrity 和本地清单一致，下载后再做安装/加载验证，记录源提交和实际日期。
 成功后才将 CHANGELOG 的 release preparation 改为真实发布日期。
 
-首发后可在 npm 配置 trusted publisher，再另行增加已验证的发布 workflow。当前仓库
-没有预设已登录或已配置 OIDC 的承诺。
+## 免逐次网页验证：GitHub Actions OIDC
+
+仓库提供 `.github/workflows/publish.yml`，手动启动发布指定的稳定版本和完整 master
+提交 SHA。工作流检查仓库、分支、提交、版本和注册表状态；构建并安装验证 tarball，
+核对字节未变后才上传该文件，随后用全新缓存下载并执行同一安装/加载检查。
+已有版本和网络/服务端错误均停止，不自动覆盖或重发。`pnpm test:package` 也接受
+`PIANO_PACKAGE_TARBALL` 指向下载包，避免核验时重新打一个不同的包。
+
+合入工作流后，在 npm 的包设置 → Trusted publishing 中一次绑定：
+
+| 字段 | 值 |
+| --- | --- |
+| Provider | GitHub Actions |
+| Organization or user | `amazing-fish` |
+| Repository | `dsh-piano-nav` |
+| Workflow filename | `publish.yml`（只填文件名） |
+| Environment | 留空（工作流未使用 environment） |
+| Allowed actions | 允许直接 `npm publish`，仅允许 `npm stage publish` 不足以运行本流程 |
+
+发布在 GitHub-hosted runner 上使用 `id-token: write`；Node24，npm至少11.5.1。
+不需要长期 npm 写 token，也不用关闭账号2FA。每次后续授权发布时，在 GitHub Actions
+选择 `Publish verified npm package`，从 `master` 启动并填写预期版本与40位提交 SHA。
+默认分支变更或版本已存在会在上传前失败，需重新核对本次发布意图。
+
+官方当前规则：新绑定必须在 **2天内完成首次成功发布**，否则过期；保存配置本身
+不验证连接。因此在工作流合入、下一次真实发布就绪时绑定，不为了测试绑定另造版本，
+不重复上传已发布的1.3.3。首次 OIDC 发布成功前，状态记为“待实发验证”。
+
+2026-10-18：仓库侧工作流已准备，npm端绑定及首次真实OIDC发布尚未完成。
+本地验证覆盖发布防护和已公开1.3.3的注册表/下载包核验，不能代替OIDC认证成功。
 
 官方参考：[publish](https://docs.npmjs.com/cli/v11/commands/npm-publish/)、
 [login](https://docs.npmjs.com/cli/v11/commands/npm-login/)、

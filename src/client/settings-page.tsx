@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { ChangeEvent, CSSProperties, ReactNode } from 'react'
 import type {
   InjectFace,
@@ -16,8 +16,9 @@ import type {
   PianoLanguage,
   PianoSettings,
   PianoSettingsScope,
+  PianoSettingsSnapshot,
 } from '../core/config.ts'
-import { COLOR_FIELDS, SEMANTIC_KINDS, THEME_COLORS, paletteStyle } from '../core/colors.ts'
+import { COLOR_FIELDS, SEMANTIC_KINDS, THEME_COLORS, paletteStyle, syncPalette } from '../core/colors.ts'
 import type { SemanticKind } from '../core/colors.ts'
 import { SEMANTIC_CSS, semanticLabel } from './semantic-style.ts'
 import type { PianoItem } from './navigation-model.ts'
@@ -34,8 +35,9 @@ const LANGUAGE_OPTIONS: readonly { value: PianoLanguage; label: string }[] = [
   { value: 'zh-TW', label: '繁體中文' },
 ]
 type SettingsErrorKey = 'settings.writeError' | 'settings.copyError'
-const FEEDBACK_KEYS = ['settings.writeError', 'settings.copyError', 'settings.loading', 'settings.unavailable'] as const
+const FEEDBACK_KEYS = ['settings.writeError', 'settings.copyError', 'settings.loading', 'settings.unavailable', 'settings.saving'] as const
 const hostIsDark = (): boolean => typeof document !== 'undefined' && document.body?.hasAttribute('data-ds-dark-theme') === true
+const usePaletteEffect = typeof document === 'undefined' ? useEffect : useLayoutEffect
 const subscribeTheme = (listener: () => void): (() => void) => {
   if (typeof MutationObserver === 'undefined' || !document.body) return () => {}
   const observer = new MutationObserver(listener)
@@ -63,7 +65,7 @@ function LayoutPreview({ settings }: { settings: PianoSettings }): ReactNode {
   const height = Math.max(40, (Math.min(DEMO_ITEMS.length, settings.maxVisible) - 1) * settings.keyGap + settings.keyHeight)
   const positions = stackPositions(visible.length, height, settings.keyGap, settings.keyHeight)
   const t = (key: SmContextPianoKey): string => translate(settings.language, key)
-  return <div className="smcp-preview smcp-unified" style={{ ...paletteStyle(settings), '--smcp-preview-gap': `${settings.keyGap}px`, '--smcp-preview-key-height': `${settings.keyHeight}px` } as CSSProperties}>
+  return <div className="smcp-preview smcp-unified" style={{ '--smcp-preview-gap': `${settings.keyGap}px`, '--smcp-preview-key-height': `${settings.keyHeight}px` } as CSSProperties}>
     <div className="smcp-preview-rail" style={{ height }} aria-label={t('settings.preview')}>
       {visible.map((slot, i) => <button type="button" key={slot.item.key}
         className={`smcp-bar${slot.item.key === selectedSlotKey ? ' smcp-bar-current' : ''}`}
@@ -125,32 +127,56 @@ function RangeRow(props: RangeRowProps): ReactNode {
   )
 }
 
-/** Keep the chooser's draft stable until its latest host write completes. */
+/** The controller shares the latest choice with every color consumer. */
 function ColorInput({ value, label, disabled, onCommit }: {
   value: string
   label: string
   disabled: boolean
   onCommit: (color: string) => Promise<void>
 }): ReactNode {
-  const [draft, setDraft] = useState<string | null>(null)
-  const generation = useRef(0)
-  return <input type="color" aria-label={label} value={draft ?? value} disabled={disabled}
-    onChange={event => {
-      const color = event.target.value
-      const ticket = ++generation.current
-      setDraft(color)
-      void onCommit(color).finally(() => {
-        // Earlier acknowledgments must not overwrite a newer chooser input.
-        if (generation.current === ticket) setDraft(null)
-      })
-    }} />
+  return <input type="color" aria-label={label} value={value} disabled={disabled}
+    onChange={event => { void onCommit(event.target.value) }} />
+}
+
+/** Select only the state this component renders; retain identity on other edits. */
+function useSettingsSelector<T>(scope: PianoSettingsScope, select: (snapshot: PianoSettingsSnapshot) => T, equal: (a: T, b: T) => boolean = Object.is): T {
+  const cached = useRef<{ value: T }>()
+  const subscribe = useCallback((listener: () => void) => scope.subscribe(listener), [scope])
+  const getSnapshot = (): T => {
+    const value = select(scope.getSnapshot())
+    if (cached.current === undefined || !equal(cached.current.value, value)) cached.current = { value }
+    return cached.current.value
+  }
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
+const pageSnapshotEqual = (a: PianoSettingsSnapshot, b: PianoSettingsSnapshot): boolean =>
+  a.status === b.status && a.writable === b.writable && a.saving === b.saving
+  && a.value.language === b.value.language && a.value.enabled === b.value.enabled
+  && a.value.keyHeight === b.value.keyHeight && a.value.keyGap === b.value.keyGap && a.value.maxVisible === b.value.maxVisible
+
+function ColorRow({ scope, kind, language, dark, disabled, save }: {
+  scope: PianoSettingsScope; kind: SemanticKind; language: PianoLanguage; dark: boolean; disabled: boolean
+  save: (operation: Promise<void>) => Promise<void>
+}): ReactNode {
+  const field = COLOR_FIELDS[kind]
+  const value = useSettingsSelector(scope, snapshot => snapshot.value[field])
+  const label = kindLabel(kind, language), themeColor = translate(language, 'settings.themeColor')
+  return <div className="smcp-color-row">
+    <div className="smcp-color-label">
+      <span className="smcp-legend-key smcp-bar" data-kind={kind} data-unloaded={kind === 'turn'} aria-hidden="true" style={paletteStyle({ [field]: value }) as CSSProperties} />
+      <span>{label}<small>{value || themeColor}</small></span>
+      <ColorInput label={label} value={value || THEME_COLORS[dark ? 'dark' : 'light'][kind][0]} disabled={disabled}
+        onCommit={color => save(scope.set(field, color))} />
+    </div>
+    <button type="button" className="smcp-color-auto" disabled={disabled || !value}
+      aria-label={`${label} · ${themeColor}`} onClick={() => save(scope.set(field, ''))}>{translate(language, 'settings.auto')}</button>
+  </div>
 }
 
 export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
   const { scope } = props
-  const subscribe = useCallback((listener: () => void) => scope.subscribe(listener), [scope])
-  const getSnapshot = useCallback(() => scope.getSnapshot(), [scope])
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const snapshot = useSettingsSelector(scope, snapshot => snapshot, pageSnapshotEqual)
   const settings = decodeSettings(snapshot.value) ?? DEFAULT_SETTINGS
   const t = (key: SmContextPianoKey): string => translate(settings.language, key)
   const [error, setError] = useState<SettingsErrorKey | null>(null)
@@ -158,10 +184,30 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
   const copyGeneration = useRef(0)
   const dark = useSyncExternalStore(subscribeTheme, hostIsDark, () => false)
   const disabled = !snapshot.writable
+  const paletteRoot = useRef<HTMLDivElement>(null)
+  usePaletteEffect(() => {
+    const root = paletteRoot.current
+    if (root === null) return
+    let previous = scope.getSnapshot().value
+    syncPalette(root.style, previous)
+    return scope.subscribe(() => {
+      const next = scope.getSnapshot().value
+      syncPalette(root.style, next, previous)
+      previous = next
+    })
+  }, [scope])
 
-  const save = (operation: Promise<void>): Promise<void> => operation.then(() => {
-    setError(current => current === 'settings.writeError' ? null : current)
-  }).catch(() => { setError('settings.writeError') })
+  // Coalesced picker inputs share one persistence result and one error handler.
+  const saveHandlers = useRef(new WeakMap<Promise<void>, Promise<void>>())
+  const save = useCallback((operation: Promise<void>): Promise<void> => {
+    const existing = saveHandlers.current.get(operation)
+    if (existing !== undefined) return existing
+    const handled = operation.then(() => {
+      setError(current => current === 'settings.writeError' ? null : current)
+    }).catch(() => { setError('settings.writeError') })
+    saveHandlers.current.set(operation, handled)
+    return handled
+  }, [])
   const write = <K extends keyof PianoSettings>(field: K, value: PianoSettings[K]): Promise<void> => save(scope.set(field, value))
   const reset = (): void => { void save(scope.reset()) }
   const copyCommand = (): void => {
@@ -205,30 +251,16 @@ export function PianoSettingsPage(props: PianoSettingsPageProps): ReactNode {
         {/* Measure every localized message so wrapped text also has room. */}
         {FEEDBACK_KEYS.map(key => <p key={key} className="smcp-settings-feedback-reserve" aria-hidden="true">{t(key)}</p>)}
         <p className="smcp-settings-error smcp-settings-page-error" role="alert">{error === null ? '' : t(error)}</p>
-        <p className="smcp-settings-note" role="status">{error !== null ? '' : snapshot.status === 'loading' ? t('settings.loading') : snapshot.status === 'unavailable' ? t('settings.unavailable') : ''}</p>
+        <p className="smcp-settings-note" role="status">{error !== null ? '' : snapshot.status === 'loading' ? t('settings.loading') : snapshot.status === 'unavailable' ? t('settings.unavailable') : snapshot.saving ? t('settings.saving') : ''}</p>
       </div>
 
-      <section className="smcp-settings-card"><LayoutPreview settings={settings} /></section>
+      <section className="smcp-settings-card smcp-unified" ref={paletteRoot}><LayoutPreview settings={settings} /></section>
 
-      <section className="smcp-settings-card smcp-unified" style={paletteStyle(settings) as CSSProperties}>
+      <section className="smcp-settings-card smcp-unified">
         <h2>{t('settings.colors')}</h2>
         <p className="smcp-settings-note">{t('settings.colorsDesc')}</p>
         <div className="smcp-color-grid">
-          {SEMANTIC_KINDS.map(kind => {
-            const field = COLOR_FIELDS[kind]
-            return <div className="smcp-color-row" key={kind}>
-              <div className="smcp-color-label">
-                <span className="smcp-legend-key smcp-bar" data-kind={kind} data-unloaded={kind === 'turn'} aria-hidden="true" />
-                <span>{kindLabel(kind, settings.language)}<small>{settings[field] || t('settings.themeColor')}</small></span>
-                <ColorInput label={kindLabel(kind, settings.language)}
-                  value={settings[field] || THEME_COLORS[dark ? 'dark' : 'light'][kind][0]} disabled={disabled}
-                  onCommit={color => write(field, color)} />
-              </div>
-              <button type="button" className="smcp-color-auto" disabled={disabled || !settings[field]}
-                aria-label={`${kindLabel(kind, settings.language)} · ${t('settings.themeColor')}`}
-                onClick={() => write(field, '')}>{t('settings.auto')}</button>
-            </div>
-          })}
+          {SEMANTIC_KINDS.map(kind => <ColorRow key={kind} scope={scope} kind={kind} language={settings.language} dark={dark} disabled={disabled} save={save} />)}
         </div>
         <button type="button" className="smcp-settings-reset" disabled={disabled}
           onClick={() => { void save(scope.reset(Object.values(COLOR_FIELDS))) }}>
