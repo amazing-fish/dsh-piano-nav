@@ -10,15 +10,26 @@ import { railFixtureData } from './rail-fixture-data.mjs'
 
 const grey = Array.from({ length: 12 }, (_, i) => ({ key: `g${i}`, turn: 1, kind: 'output', role: 'assistant', anchorKey: `a${i}`, title: `Output ${i}`, preview: '' }))
 const slots = (items = grey, active = 11, expanded = new Set(), protectedTurns = new Set()) => projectRailSlots(items, active, expanded, protectedTurns)
-assert.deepEqual(slots().map(s => [s.start, s.end, s.sourceIndex, s.displayIndex]), [[0, 9, 4, 0], [9, 10, 9, 1], [10, 11, 10, 2], [11, 12, 11, 3]])
-assert.equal(slots(grey, 6).filter(s => s.end - s.start > 1).length, 2)
+assert.deepEqual(slots().map(s => [s.start, s.end, s.sourceIndex, s.displayIndex]), [[0, 12, 5, 0]])
+// Compare the complete projection across invalid, in-range and distant readers.
+for (const expanded of [new Set(), new Set(['g3', 'g4']), new Set(grey.map(item => item.key))]) {
+  for (const protectedTurns of [new Set(), new Set([1])]) {
+    for (const collapsed of [new Set(), new Set(grey.map(item => item.key))]) {
+      const expected = projectRailSlots(grey, -1, expanded, protectedTurns, collapsed)
+      for (const active of [-1, 0, 3, 6, 11, 12, 30]) {
+        assert.deepEqual(projectRailSlots(grey, active, expanded, protectedTurns, collapsed), expected,
+          'reading position must never change the complete group signature')
+      }
+    }
+  }
+}
 for (const kind of ['input', 'question', 'answer', 'final']) {
   const items = grey.map(item => ({ ...item }))
   items[3] = { ...items[3], kind, role: kind === 'input' || kind === 'answer' ? 'user' : 'assistant' }
   assert.ok(slots(items).some(slot => slot.start === 3 && slot.end === 4), `${kind} must stay a separate key`)
 }
 assert.equal(slots(grey.slice(0, 2), -1)[0].sourceIndex, 0, 'representative identity stays a real member')
-assert.equal(slots(grey, 11, new Set(grey.slice(0, 9).map(item => item.key))).length, 12)
+assert.equal(slots(grey, 11, new Set(grey.slice(0, 9).map(item => item.key))).length, 10)
 assert.equal(slots(grey, 11, new Set(), new Set([1])).length, 12)
 for (const extra of [{ role: 'turn', kind: undefined }, { role: 'turn', kind: 'output' }, { role: 'assistant', kind: undefined }]) {
   assert.equal(slots(grey.map(item => ({ ...item, ...extra }))).length, 12, 'history and ambiguous semantics never collapse')
@@ -219,14 +230,19 @@ await check('all three languages name the process group correctly', async ({ col
     settings.set({ ...settings.getSnapshot(), language }); await settle(); assert.equal(collapsed().getAttribute('aria-label'), copy)
   }
 })
-await check('same selected key repositions tooltip as reading changes compression', async ({ bars, point, pointer, document, read, rail, compact }) => {
+await check('reading inside visible process output preserves grouping, selection and tooltip position', async ({ bars, point, pointer, document, read, compact, collapsed }) => {
   const history = bars().find(b => b.dataset.key === 'turn:2'), p = point(history)
   await pointer(p.x, p.y)
   const tooltip = document.querySelector('.smcp-tooltip'), oldTop = tooltip.style.top
-  await read('p6'); compact(7)
-  assert.notEqual(tooltip.style.top, oldTop)
-  assert.equal(Number.parseFloat(tooltip.style.top), Number.parseFloat(rail().style.top) + Number.parseFloat(history.style.top) + 1 - 48)
-  assert.equal(document.getElementById(rail().getAttribute('aria-activedescendant')), history)
+  const signature = () => bars().map(b => [b.dataset.key, b.dataset.count, b.style.top])
+  const before = signature()
+  for (const anchor of ['p6', 'p2', 'p0', 'f3', 'u3']) {
+    await read(anchor); compact(4)
+    assert.equal(collapsed().dataset.count, '7')
+    assert.deepEqual(signature(), before)
+    assert.equal(tooltip.style.top, oldTop)
+    assert.equal(document.getElementById(history.closest('.smcp-unified').getAttribute('aria-activedescendant')), history)
+  }
 })
 console.log(`${passed} rail collapse interaction tests passed`)
 
@@ -278,15 +294,15 @@ await check('longer-than-capacity groups retain every member for keyboard browsi
 }, false, { processCount: 12, hidden: true })
 console.log(`${passed} total rail interaction tests passed`)
 
-await check('folded outputs ignore adjacent reading protection; DOM-only reveal restores it even with hidden source nodes', async ({ bars, collapsed, read, flow, settle, nodeMap, rail }) => {
+await check('DOM-only reveal and refold preserve grouping even with hidden source nodes', async ({ bars, collapsed, read, flow, settle, nodeMap, rail }) => {
   await read('u3')
   assert.equal(collapsed().dataset.count, '8')
   assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 1)
   for (const row of flow.querySelectorAll('[data-chat-anchor-key^="p"]')) row.removeAttribute('hidden')
   await settle(); await read('p7')
   assert.equal(nodeMap.get('p7').visibility, 'hidden', 'native disclosure need not republish node visibility')
-  assert.equal(bars().filter(b => b.dataset.kind === 'output' && b.dataset.collapsed === 'false').length, 3)
-  assert.equal(collapsed().dataset.count, '5')
+  assert.equal(bars().filter(b => b.dataset.kind === 'output' && b.dataset.collapsed === 'false').length, 0)
+  assert.equal(collapsed().dataset.count, '8')
   for (const row of flow.querySelectorAll('[data-chat-anchor-key^="p"]')) row.setAttribute('hidden', 'until-found')
   await settle(); await read('u3')
   assert.equal(collapsed().dataset.count, '8')
@@ -334,7 +350,7 @@ await check('final navigation retires visible prose even when the reading line s
   assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 3)
   await press('Escape'); folded()
   selection.set('s2'); await settle()
-  assert.equal(collapsed(), null, 'retired member keys must not leak to another session with the same node keys')
+  assert.equal(collapsed().dataset.count, '3', 'new session uses the same default collapsed grouping')
 }, false, { processCount: 3 })
 
 await check('opening another group retires the old one even when reading moves into it', async ({ bars, settle, read, clicks }) => {
@@ -362,3 +378,4 @@ await check('disabled history geometry click and keyboard retire expansion witho
   assert.equal(collapsed().dataset.count, '3'); assert.deepEqual(clicks, [])
 }, false, { processCount: 3 })
 console.log(`${passed} total rail interaction tests passed including navigation retirement`)
+

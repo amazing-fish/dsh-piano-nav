@@ -39,6 +39,11 @@ jobs:
           version: '10.17.1'
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: issue58-built-lib
+          path: lib/
       - run: pnpm test:package
       - run: git diff --exit-code -- pnpm-lock.yaml
 
@@ -77,3 +82,4 @@ jobs:
         with:
           name: original-chatview-browser-evidence
           path: test-results/
+

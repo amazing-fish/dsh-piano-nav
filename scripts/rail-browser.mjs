@@ -29,6 +29,26 @@ try {
       assert.equal(boxes.at(-1).top - boxes[0].top + 2, (count - 1) * 12 + 2)
     }
     await assertCompact(4)
+    // Actual scroll/resize events must not split visible process groups.
+    const signature = () => page.locator('.smcp-bar').evaluateAll(els => els.map(el => [el.dataset.key, el.dataset.count ?? null]))
+    const stable = await signature()
+    for (const anchor of ['p6', 'p2', 'p0', 'f3']) {
+      await page.evaluate(key => {
+        const { scroll, flow } = window.railFixture
+        const row = flow.querySelector('[data-chat-anchor-key="' + key + '"]')
+        scroll.scrollTop += row.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 80
+        scroll.dispatchEvent(new Event('scroll'))
+      }, anchor)
+      await page.waitForTimeout(120)
+      assert.deepEqual(await signature(), stable)
+      assert.equal(await group.getAttribute('data-count'), '7')
+    }
+    await page.setViewportSize({ width: 1180, height: 800 })
+    await page.waitForTimeout(120)
+    assert.deepEqual(await signature(), stable)
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.waitForTimeout(120)
+    await assertCompact(4)
     const before = await geometry()
     assert.equal(await group.getAttribute('data-role'), 'assistant')
     assert.equal(await group.getAttribute('aria-label'), 'AI · Process output (7 segments) · Click to expand')
@@ -161,3 +181,4 @@ try {
   await writeFile('test-results/rail-browser.json', JSON.stringify({ passed, source: 'Real strip/styles/native adapter; synthetic Session data; actual Chromium painted geometry' }, null, 2))
 } finally { await browser.close() }
 console.log(`${passed} rail Chromium scenarios passed`)
+
