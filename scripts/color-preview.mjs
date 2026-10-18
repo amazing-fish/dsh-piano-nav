@@ -129,4 +129,21 @@ await check('disposal prevents late notifications and queued writes', async () =
   f.requests[0].resolve(); await a; assert.ok(await b instanceof Error)
   assert.equal(notifications, stopped); assert.equal(f.requests.length, 1)
 })
+await check('duplicate colors retain batch ownership without waking visual consumers', async () => {
+  const f = await fixture({ colorInput: '#123456' })
+  let sourceChanges = 0, scopeChanges = 0
+  f.source.subscribe(() => { sourceChanges++ }); f.scope.subscribe(() => { scopeChanges++ })
+  const a = f.scope.set('colorInput', '#445566'); await tick()
+  const b = f.scope.set('colorInput', '#445566'), c = f.scope.set('colorInput', '#445566')
+  assert.strictEqual(b, c); assert.equal(sourceChanges, 1); assert.equal(scopeChanges, 1)
+  const shown = f.source.getSnapshot()
+  f.requests[0].resolve(); await a; await tick()
+  assert.equal(f.scope.getSnapshot().saving, true, 'equal newer preview still owns the pending result')
+  assert.strictEqual(f.source.getSnapshot(), shown)
+  f.requests[1].resolve(); await b
+  assert.equal(f.scope.getSnapshot().saving, false); assert.equal(sourceChanges, 1)
+  f.refresh(); await tick()
+  assert.equal(scopeChanges, 3, 'identical host refresh emits no duplicate scope snapshot')
+  f.dispose()
+})
 console.log(`${passed} shared color preview checks passed`)

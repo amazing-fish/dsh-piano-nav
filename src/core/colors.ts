@@ -27,6 +27,24 @@ export function isPianoColor(value: unknown): value is string {
   return typeof value === 'string' && COLOR_PATTERN.test(value)
 }
 
+const activeColor = (value: string): string => `color-mix(in srgb, ${value} 76%, var(--smcp-active-mix, #000))`
+
+/** A palette edit changes two inherited variables; it never needs key layout. */
+export function syncPalette(style: { setProperty(name: string, value: string): void; removeProperty(name: string): string }, next: Partial<PianoColors>, previous: Partial<PianoColors> = {}): void {
+  for (const kind of SEMANTIC_KINDS) {
+    const field = COLOR_FIELDS[kind], value = next[field]
+    if (value === previous[field]) continue
+    const normal = `--smcp-${kind}-color`, active = `--smcp-${kind}-active-color`
+    if (value && isPianoColor(value)) {
+      style.setProperty(normal, value)
+      style.setProperty(active, activeColor(value))
+    } else {
+      style.removeProperty(normal)
+      style.removeProperty(active)
+    }
+  }
+}
+
 /** Same CSS variables on the rail, legend and preview; never accepts arbitrary CSS. */
 export function paletteStyle(settings: Partial<PianoColors>): Record<string, string> {
   const style: Record<string, string> = {}
@@ -34,7 +52,7 @@ export function paletteStyle(settings: Partial<PianoColors>): Record<string, str
     const value = settings[COLOR_FIELDS[kind]]
     if (value && isPianoColor(value)) {
       style[`--smcp-${kind}-color`] = value
-      style[`--smcp-${kind}-active-color`] = `color-mix(in srgb, ${value} 76%, var(--smcp-active-mix, #000))`
+      style[`--smcp-${kind}-active-color`] = activeColor(value)
     }
   }
   return style
