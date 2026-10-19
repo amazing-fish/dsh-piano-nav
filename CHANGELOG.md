@@ -1,11 +1,15 @@
 # Changelog
 
-## Unreleased
+## 1.3.4 — release preparation
 
-- Prepare a manually triggered GitHub Actions OIDC publishing workflow. Guard
+- Keep completed process groups stable while scrolling or resizing; reading
+  position changes highlight/windowing only. Preserve explicit expansion,
+  same-group navigation, retirement and busy/pending/failure protection.
+
+- Add a manually triggered GitHub Actions OIDC publishing workflow. Guard
   the requested master commit/version and tested archive; verify the downloaded
-  registry package. npm trusted-publisher binding and its first real publish
-  remain pending; account 2FA stays enabled.
+  registry package before creating a versioned GitHub Release for market update
+  notes. Account 2FA stays enabled; npm and GitHub publication are separate jobs.
 
 ## 1.3.3 — 2026-10-18
 

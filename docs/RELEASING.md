@@ -88,3 +88,21 @@ npm dist-tag ls dsh-piano-nav --registry=https://registry.npmjs.org
 [login](https://docs.npmjs.com/cli/v11/commands/npm-login/)、
 [2FA 设置](https://docs.npmjs.com/configuring-two-factor-authentication/)、
 [trusted publishing](https://docs.npmjs.com/trusted-publishers/)。
+
+## dsh-market 更新说明与安装来源
+
+npm 发布与 GitHub Release 是不同交付。`dsh-market` 的更新说明优先读取市场每日
+抓取的 GitHub Release；没有可用 Release 时退回提交列表。提交列表找不到用户所装
+提交的边界，会注明“最近提交（无法对应你当前安装的版本，仅供参考）”。
+Git 安装的更新范围显示提交 SHA；npm 安装显示语义版本。不要把 SHA 范围解释成
+npm 版本号错误，也不要仅修改 package.json 就宣称市场说明已更新。
+
+发布工作流在 npm 注册表、下载包字节及安装/加载核验全部成功后，由独立的
+`github-release` job 创建 `v<version>` 标签和对应 GitHub Release，指向实际发布源
+提交，附同一 tarball 与核验记录，说明摘自 CHANGELOG 的对应版本段。仅此 job
+获得 `contents: write`，npm 发布 job 继续只读仓库。首次执行仍待实发验证。
+若 npm 已成功而 Release 创建失败，保留已发布版本，单独修复 Release；不要重发
+同一 npm 版本或为了补说明另造版本。市场目录和更新说明有每日刷新、客户端缓存，
+GitHub Release 创建成功也不等于用户市场页面已立即更新。
+
+依据：dsh-market 的 `src/changelog.ts` 与 `src/client/MarketSection.tsx`。
