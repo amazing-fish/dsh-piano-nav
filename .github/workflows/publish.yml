@@ -58,3 +58,33 @@ jobs:
             artifacts/package-manifest.json
             artifacts/registry-verification.json
             artifacts/*.tgz
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_COMMIT: ${{ inputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-release-evidence
+          path: artifacts
+      - run: node scripts/github-release-notes.mjs
+      - name: Publish versioned GitHub Release for market update notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${RELEASE_VERSION}" \
+            "artifacts/dsh-piano-nav-${RELEASE_VERSION}.tgz" \
+            artifacts/registry-verification.json \
+            --repo "$GITHUB_REPOSITORY" --target "$RELEASE_COMMIT" \
+            --title "v${RELEASE_VERSION}" --notes-file artifacts/github-release-notes.md
