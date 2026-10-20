@@ -148,6 +148,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let sourceStop: (() => void) | undefined
   let retry: ReturnType<typeof setTimeout> | undefined
   let streamRefresh: ReturnType<typeof setTimeout> | undefined
+  let streamDirtyFlags = 0
   let lastStreamSemanticAt = Number.NEGATIVE_INFINITY
   let retries = 0
   let nodes: readonly ChatConversationViewNode[] = []
@@ -295,23 +296,29 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   const clearStreamRefresh = (discardDirty = false): void => {
     if (streamRefresh !== undefined) window.clearTimeout(streamRefresh)
     streamRefresh = undefined
-    if (discardDirty) keyedDirtyKeys.clear()
+    if (discardDirty) { keyedDirtyKeys.clear(); streamDirtyFlags = 0 }
   }
-  const scheduleKeyedSemantic = (keys: readonly string[]): void => {
+  const flushStreamSemantic = (): void => {
+    const pending = streamDirtyFlags
+    streamDirtyFlags = 0
+    lastStreamSemanticAt = window.performance.now()
+    if (pending !== 0) schedule(pending)
+  }
+  const scheduleKeyedSemantic = (keys: readonly string[], flags = DIRTY_KEYED_NODES | DIRTY_VIEW): void => {
     for (const key of keys) keyedDirtyKeys.add(key)
+    streamDirtyFlags |= flags
     const now = window.performance.now()
     const wait = STREAM_SEMANTIC_MIN_INTERVAL_MS - (now - lastStreamSemanticAt)
     if (wait <= 0) {
-      lastStreamSemanticAt = now
-      schedule(DIRTY_KEYED_NODES | DIRTY_VIEW)
+      clearStreamRefresh()
+      flushStreamSemantic()
       return
     }
     if (streamRefresh !== undefined) return
     streamRefresh = window.setTimeout(() => {
       streamRefresh = undefined
       if (!alive) return
-      lastStreamSemanticAt = window.performance.now()
-      schedule(DIRTY_KEYED_NODES | DIRTY_VIEW)
+      flushStreamSemantic()
     }, wait)
   }
   const readingKey = (): string | null => {
@@ -750,7 +757,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
         if (!alive || binding !== next) return
         nodes = value
         if (change === 'navigation') {
-          schedule(DIRTY_TURNS | DIRTY_NATIVE_STATE | DIRTY_VIEW)
+          scheduleKeyedSemantic([], DIRTY_TURNS | DIRTY_NATIVE_STATE | DIRTY_VIEW)
           return
         }
         if (change === 'keyed') {

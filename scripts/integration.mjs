@@ -444,6 +444,25 @@ await check('continuous keyed streaming stays turn-local and throttled', async (
   assert.ok(keyed >= 1 && keyed <= 3, `expected 1..3 turn-local semantic updates for burst, got ${keyed}`)
   assert.match(document.querySelector('.smcp-tooltip').textContent, /stream burst 11/)
 })
+await check('navigation previews and keyed tokens share the existing stream throttle', async () => {
+  const snapshot = chat.getSnapshot()
+  let navigation = snapshot.navigation.items()
+  chat.set({ ...snapshot, navigation: { items: () => navigation } })
+  await frame()
+  const before = { ...globalThis.__smcpDebug.perf }
+  for (let index = 0; index < 12; index++) {
+    map.get('a1').data.blocks[0].text = `navigation burst ${index}`
+    navigation = navigation.map(item => item.turn === 1 ? { ...item, response: `navigation burst ${index}` } : item)
+    sources.get('a1').emit(); chat.emit()
+    await new Promise(resolve => setTimeout(resolve, 10))
+  }
+  await new Promise(resolve => setTimeout(resolve, 180)); await frame()
+  const after = globalThis.__smcpDebug.perf
+  const rebuilds = after.turnRebuilds - before.turnRebuilds
+  assert.ok(rebuilds >= 1 && rebuilds <= 3, `expected 1..3 coalesced navigation updates, got ${rebuilds}`)
+  assert.equal(after.nodeRebuilds, before.nodeRebuilds)
+  assert.match(document.querySelector('.smcp-tooltip').textContent, /navigation burst 11/)
+})
 
 await check('contract drift restores official UI and hides Piano, never both', async () => {
   nativeButton(3).setAttribute('aria-label', 'changed-contract'); await frame()
