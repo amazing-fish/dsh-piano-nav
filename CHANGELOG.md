@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.5 — release preparation
+## 1.3.5 — 2026-10-20
 
 - Recover question/answer navigation when the host publishes loaded Turn metadata
   without changing Chat order or node-store identity. Keep keyed updates local.
@@ -10,7 +10,7 @@
 - Add an on-demand, content-free question diagnostic summary to distinguish
   source, projection, native-anchor, Turn assembly and visible-window gaps.
 
-## 1.3.4 — release preparation
+## 1.3.4 — 2026-10-19
 
 - Keep completed process groups stable while scrolling or resizing; reading
   position changes highlight/windowing only. Preserve explicit expansion,
@@ -57,6 +57,7 @@
 - Preserve the latest color-picker draft during asynchronous saves; roll back failed writes and restrict picker activation to the 32px swatch.
 
 Published and registry-verified on 2026-10-18; latest was 1.3.2 at verification.
+See the [historical publication record](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/releases/1.3.2.md).
 
 ## 1.3.1 — 2026-10-17
 

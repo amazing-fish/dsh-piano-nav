@@ -1,0 +1,45 @@
+{
+  "name": "dsh-piano-nav",
+  "version": "1.3.2",
+  "latest": "1.3.2",
+  "publishedAt": "2026-10-18T09:23:18.259Z",
+  "sourceCommit": "63942c07fc9bb59a9e20c1d6311fd71b7c6eeb60",
+  "reviewedHead": "d0e2cb7c2ee7908ce68d61e4774ccb8e565bb4de",
+  "artifactSourceCommit": "d0e2cb7c2ee7908ce68d61e4774ccb8e565bb4de",
+  "sourceTree": "fb50f6d7f6844d4c5435b4b99225a70a625462ae",
+  "productMerge": "6e69f4581954127b6a82a4cc5ef9c51c01e16acc",
+  "reviewedProductHead": "7da8147fbdb22212c78270bc0f43e80938d1ed21",
+  "repository": "git+https://github.com/amazing-fish/dsh-piano-nav.git",
+  "tarball": "https://registry.npmjs.org/dsh-piano-nav/-/dsh-piano-nav-1.3.2.tgz",
+  "size": 107816,
+  "files": 12,
+  "unpackedSize": 263352,
+  "integrity": "sha512-NB5Ye2XiJ97voaW/0IzrQatS73MNS+TbFCrP7EJ9ceA2dkLgBQc/YUBPw9HbR9VY51c7yKnq2Y/vUE12vUq5lw==",
+  "shasum": "6043b2f5cf82d1fc9c70111090b2af1314bfac43",
+  "sha256": "3da01172abaa4b84c1bb264cb74d766a62120596a3b8f226e830e9ef64118822",
+  "byteIdentical": true,
+  "checks": [
+    "registry metadata",
+    "latest tag",
+    "integrity and shasum",
+    "byte-identical fresh-cache download",
+    "file allowlist",
+    "offline tarball install",
+    "host import",
+    "client loader",
+    "settings compatibility",
+    "rendered public identity"
+  ],
+  "verifiedAt": "2026-10-18T09:26:40.193Z",
+  "environment": {
+    "node": "v24.19.0",
+    "pnpm": "10.17.1",
+    "npm": "11.9.0",
+    "peers": "provided by the validated development environment",
+    "host": "synthetic settings transport; not a real-user DSH session"
+  },
+  "listing": {
+    "pr": "https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/7645",
+    "status": "previous submission merged; no new submission required for this patch; public site deployment not verified"
+  }
+}

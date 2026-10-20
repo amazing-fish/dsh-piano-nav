@@ -137,5 +137,10 @@ Release 重跑时不再写入，上传中断的草稿保留已核验附件供下
 不要求 npm latest 仍指向它，也不改变 npm dist-tag 或将旧 Release 设为 GitHub Latest。
 
 恢复与正常发布共享同一并发组，避免两条流程同时写发布状态。一次性的
-`complete-1.3.5.yml` 已由此通用入口替代。本实现的场景回归使用合成 npm/GitHub
-响应；实际 runner 恢复须在工作流合入后执行并单独记录，不能将离线通过当成实发。
+`complete-1.3.5.yml` 已由此通用入口替代。场景回归覆盖合成 npm/GitHub 响应。2026-10-21，PR #67 合入后的
+[真实恢复运行39466178368](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39466178368)
+以1.3.5、原发布源 `ba7172d5adb3fa69b7b9f9725065e4b91e760a2c` 和原运行39379588893
+通过：取回冻结包、重新下载注册表字节、安装及host/client加载均成功，111193 bytes /12文件，
+SHA256 `1f9fd712236fbcd407986b0ab7a84f7c158e8cea514c354c83d2ba3a8ab66c95`。
+现有公开Release及两个附件ID和摘要保留，未重复上传npm或Release附件。该实跑验证了
+“完整公开版本再次恢复”的幂等路径；缺失草稿、上传中断及错误拒绝路径仍以场景回归为证据。
