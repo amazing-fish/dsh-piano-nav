@@ -93,7 +93,7 @@ function releaseFixture({ draft = true, latest = '1.3.5', missing = false } = {}
   verified.receiptSha256 = createHash('sha256').update(receipt).digest('hex')
   const state = { tag: missing ? null : { object: { type: 'commit', sha: source } },
     release: missing ? null : { id: 1, tag_name: 'v1.3.5', draft, prerelease: false, html_url: 'https://github.com/example/release', assets: [] },
-    receipts: new Map(), writes: [], failUpload: false }
+    receipts: new Map(), writes: [], failUpload: false, prefix: [], pages: [] }
   const addAsset = name => {
     const asset = { id: (state.release.assets.length + 1) * 10, name, state: 'uploaded', digest: `sha256:${verified.sha256}` }
     state.release.assets.push(asset)
@@ -103,7 +103,15 @@ function releaseFixture({ draft = true, latest = '1.3.5', missing = false } = {}
     if (method !== 'GET') state.writes.push({ method, path, body })
     if (path.includes('/git/ref/')) return structuredClone(state.tag)
     if (path.endsWith('/git/refs')) { state.tag = { object: { type: 'commit', sha: body.sha } }; return state.tag }
+    // Match GitHub's actual distinction: lookup-by-tag cannot see a draft.
+    if (path.includes('/releases/tags/')) return state.release?.draft ? null : structuredClone(state.release)
+    if (path.includes('/releases?')) {
+      const page = Number(new URL(`https://api.github.com/${path}`).searchParams.get('page'))
+      state.pages.push(page)
+      return structuredClone([...state.prefix, ...(state.release ? [state.release] : [])].slice((page - 1) * 100, page * 100))
+    }
     if (method === 'POST' && path.endsWith('/releases')) {
+      assert.equal(state.release, null, 'cannot create a duplicate Release')
       state.release = { id: 1, ...body, assets: [], html_url: 'https://github.com/example/release' }
     }
     if (method === 'PATCH') Object.assign(state.release, body)
@@ -122,6 +130,19 @@ for (const missing of [false, true]) {
   await completeRelease(f.options)
   assert.equal(f.state.writes.length, writes, 'second completion performs no writes')
   assert.equal(f.state.release.assets.length, 2)
+}
+{
+  const f = releaseFixture()
+  f.state.prefix = Array.from({ length: 100 }, (_, id) => ({ id: id + 100, tag_name: `v0.0.${id}`, draft: false }))
+  await completeRelease(f.options)
+  assert.deepEqual(f.state.pages, [1, 2], 'existing draft found beyond first page')
+  assert.equal(f.state.writes.filter(x => x.method === 'POST' && x.path.endsWith('/releases')).length, 0, 'no replacement Release created')
+}
+{
+  const f = releaseFixture()
+  f.state.prefix = [{ ...f.state.release, id: 2 }]
+  await assert.rejects(() => completeRelease(f.options), /multiple Releases/)
+  assert.equal(f.state.writes.length, 0)
 }
 {
   const f = releaseFixture()
@@ -146,4 +167,4 @@ for (const invalid of ['tag', 'tarball', 'receipt', 'prerelease']) {
   await completeRelease(f.options)
   assert.equal(f.state.writes.find(x => x.method === 'PATCH').body.make_latest, 'false')
 }
-console.log('Release completion: missing/draft/public states, interruption/resume, no duplicate uploads, conflict rejection and historical Latest preservation passed')
+console.log('Release completion: missing/draft/public states, paginated draft lookup, interruption/resume, no duplicate uploads, conflict rejection and historical Latest preservation passed')

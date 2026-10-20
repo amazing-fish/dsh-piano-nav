@@ -47,7 +47,18 @@ export async function completeRelease({ api, upload, readAsset, verified, notes,
     assert.equal(object.type, 'commit')
     assert.equal(object.sha, source, 'existing tag must point to original source')
   }
-  let release = await api('GET', `${endpoint}/releases/tags/${tag}`)
+  // The tag endpoint only returns published releases. Authenticated listing is
+  // required to find drafts, including a draft left by an interrupted upload.
+  let release = null
+  for (let page = 1; ; page++) {
+    const releases = await api('GET', `${endpoint}/releases?per_page=100&page=${page}`)
+    assert.ok(Array.isArray(releases), 'authenticated Release listing required')
+    for (const candidate of releases) if (candidate.tag_name === tag) {
+      assert.equal(release, null, 'multiple Releases for the same tag; inspect manually')
+      release = candidate
+    }
+    if (releases.length < 100) break
+  }
   if (release) {
     assert.equal(release.tag_name, tag)
     assert.equal(release.prerelease, false)
