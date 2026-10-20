@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { buildNavigationNodes, turnOf } from '../src/client/keys.ts'
 import { buildPianoItems, mergeNavigationTurns } from '../src/client/navigation-model.ts'
 import { semanticLabel } from '../src/client/semantic-style.ts'
+import { buildQuestionKeys, createQuestionDiagnostics } from '../src/client/question-keys.ts'
 const location = turn => ({ kind: 'step', turn: { turn, data: new Map() }, step: { step: 0 } })
 const assistant = (key, turn, step, value, extra = {}) => ({
   key, kind: 'assistant-step', target: 'chat', visibility: 'visible', location: location(turn), anchorSeq: step * 10,
@@ -147,6 +148,41 @@ test('hidden nested asks retain their call identities and duplicate calls stay a
 test('bounded untrusted JSON and cyclic call trees cannot freeze projection', () => {
   const huge = ask(); huge.data.root.argsRaw = ' '.repeat(262145); assert.deepEqual(buildNavigationNodes([huge]), [])
   const cycle = ask(); cycle.data.root.subCalls.push(cycle.data.root); assert.equal(buildNavigationNodes([cycle]).length, 1)
+})
+test('question diagnostics identify missing source evidence without changing accepted-answer semantics', () => {
+  const cases = [
+    ['pending', ask(), 'pending', 1],
+    ['answered', ask('c', undefined, [{ id: 'q1', selected: ['A'] }]), 'answered', 1],
+    ['unanswered', ask('c', undefined, []), 'unanswered', 1],
+  ]
+  const error = ask('error', undefined, []); error.data.root.isError = true
+  cases.push(['error', error, 'error', 1])
+  const invalid = ask('invalid', undefined, []); invalid.data.root.content[0].text = '{invalid'
+  cases.push(['invalid result', invalid, 'invalidResults', 1])
+  const unknown = ask('unknown', undefined, [{ id: 'q1', selected: ['A'] }]); delete unknown.data.root.isError
+  cases.push(['missing error flag', unknown, 'invalidResults', 1])
+  const unlocated = ask(); delete unlocated.location
+  cases.push(['unlocated', unlocated, 'missingTurn', 1])
+  const truncated = ask('truncated', undefined, []); truncated.data.root.call = null
+  cases.push(['truncated call head', truncated, 'missingCallHead', 1])
+  const malformed = ask(); malformed.data.root.argsRaw = '{}'
+  cases.push(['invalid questions', malformed, 'invalidQuestions', 1])
+  for (const [label, node, field, expected] of cases) {
+    const diagnostic = createQuestionDiagnostics()
+    const keys = [...buildQuestionKeys([node], turnOf, diagnostic).values()].flat()
+    assert.equal(diagnostic[field], expected, label)
+    assert.deepEqual(keys, buildNavigationNodes([node]), label)
+    assert.equal(diagnostic.questionKeys, keys.filter(key => key.kind === 'question').length)
+    assert.equal(diagnostic.answerKeys, keys.filter(key => key.kind === 'answer').length)
+    assert.ok(Object.values(diagnostic).every(value => typeof value === 'number'), 'counts only')
+    if (node === unknown) assert.deepEqual(keys.map(key => key.kind), ['question'])
+  }
+  const duplicate = createQuestionDiagnostics(), first = ask('same'), second = { ...ask('same'), key: 'another' }
+  assert.equal(buildQuestionKeys([first, second], turnOf, duplicate).size, 0)
+  assert.equal(duplicate.duplicateCallIds, 1)
+  const recovered = createQuestionDiagnostics()
+  assert.equal(buildQuestionKeys([first], turnOf, recovered).size, 1)
+  assert.equal(recovered.duplicateCallIds, 0, 'each read describes current data, not historical counts')
 })
 test('semantic role/kind survives the full-history model and is localized', () => {
   const final = assistant('f', 1, 2, 'Final')

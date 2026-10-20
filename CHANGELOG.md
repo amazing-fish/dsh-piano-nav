@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Recover question/answer navigation when the host publishes loaded Turn metadata
+  without changing Chat order or node-store identity. Keep keyed updates local.
+- Add an on-demand, content-free question diagnostic summary to distinguish
+  source, projection, native-anchor, Turn assembly and visible-window gaps.
+
 ## 1.3.4 — release preparation
 
 - Keep completed process groups stable while scrolling or resizing; reading

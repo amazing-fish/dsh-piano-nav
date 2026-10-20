@@ -3,6 +3,7 @@ import type {
   ChatConversationViewNode,
   ChatNodeSource,
   ChatSnapshot,
+  TurnNavigationItem,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 
 export interface PianoChatSource {
@@ -19,7 +20,7 @@ export interface PianoChatSource {
  */
 export function observeChatNodes(
   source: PianoChatSource,
-  publish: (nodes: readonly ChatConversationViewNode[], change?: 'structure' | 'keyed', dirtyKeys?: readonly string[]) => void,
+  publish: (nodes: readonly ChatConversationViewNode[], change?: 'structure' | 'keyed' | 'navigation', dirtyKeys?: readonly string[]) => void,
   schedule: (callback: () => void) => void = queueMicrotask,
 ): () => void {
   let alive = true
@@ -33,6 +34,7 @@ export function observeChatNodes(
   let indexByKey = new Map<string, number>()
   let orderIdentity: readonly string[] | undefined
   let storeIdentity: ChatSnapshot['nodes'] | undefined
+  let navigationIdentity: readonly TurnNavigationItem[] | undefined
 
   const dispose = (): void => {
     if (!alive) return
@@ -46,6 +48,7 @@ export function observeChatNodes(
     indexByKey.clear()
     orderIdentity = undefined
     storeIdentity = undefined
+    navigationIdentity = undefined
   }
 
   const enqueue = (): void => {
@@ -94,7 +97,16 @@ export function observeChatNodes(
 
   const reconcileStructure = (): boolean => {
     const snapshot = source.getSnapshot()
-    if (snapshot !== undefined && snapshot.order === orderIdentity && snapshot.nodes === storeIdentity) return false
+    if (snapshot !== undefined && snapshot.order === orderIdentity && snapshot.nodes === storeIdentity) {
+      // Turn boundaries can update the official navigation index without any
+      // node upsert. Keep that publication without rereading the transcript.
+      const navigation = snapshot.navigation?.items()
+      if (navigation !== navigationIdentity) {
+        navigationIdentity = navigation
+        publish(orderedNodes, 'navigation')
+      }
+      return false
+    }
     const nextOrder = snapshot?.order ?? []
     const remaining = new Set(nextOrder)
     for (const [key, entry] of subscriptions) {
@@ -122,6 +134,7 @@ export function observeChatNodes(
     indexByKey = nextIndex
     orderIdentity = snapshot?.order
     storeIdentity = snapshot?.nodes
+    navigationIdentity = snapshot?.navigation?.items()
     publish(orderedNodes, 'structure')
     return true
   }

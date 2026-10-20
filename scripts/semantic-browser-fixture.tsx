@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { ChatView } from '../.semantic-fixture/vendor/ChatView.tsx'
 import { DisclosureRow } from '../.semantic-fixture/vendor/DisclosureRow.tsx'
 import { AskQuestionCard } from '../.semantic-fixture/vendor/AskQuestionCard.tsx'
+import { toolDefinition } from '../.semantic-fixture/vendor/tool.ts'
 import { attachKeyStrip } from '../src/client/strip.ts'
 import { installStyles } from '../src/client/styles.ts'
 const observable = (initial: any) => {
@@ -30,6 +31,7 @@ const withQuestions = !fixtureOptions.has('processOnly')
 const nodes = new Map<string, any>()
 const sources = new Map<string, any>()
 const specs = new Map<string, any>()
+let loadedNavigation: any[] = []
 const turn = (n: number) => ({ turn: n, data: new Map() })
 const node = (key: string, kind: string, n: number, seq: number, data: any) => ({ key, kind, target: 'chat', visibility: 'visible', anchorSeq: seq, location: { kind: 'step', turn: turn(n), step: { step: data.step ?? 0 } }, data })
 const assistant = (key: string, n: number, step: number, text: string) => {
@@ -38,6 +40,22 @@ const assistant = (key: string, n: number, step: number, text: string) => {
 }
 const questions = [{ id: 'route', question: 'Which route should we take?', options: [{ label: 'A' }, { label: 'B' }], multi_select: false }, { id: 'checks', question: 'Which checks should run?', multi_select: true }]
 const answers = [{ id: 'checks', selected: ['Unit', 'Browser'], custom: 'Windows' }, { id: 'route', selected: ['B'] }]
+function projectedQuestion(seq: number) {
+  // Run the pinned official call/result projection, rather than inventing a
+  // settled root. In particular, an absent event isError becomes boolean false.
+  const location = { kind: 'step', turn: turn(2), step: { step: 1 } }
+  const start = { location, event: { type: 'tool/call', seq, time: 1,
+    data: { callId: 'qa', name: 'ask_user_question', arguments: JSON.stringify({ questions }), turn: 2, step: 1 } } }
+  let state = toolDefinition.start!(undefined as any, start as any)
+  const matches: any[] = [start]
+  if (!pending) {
+    const result = { location, event: { type: 'tool/result', seq: seq + 1, time: 2,
+      data: { message: { source: { callId: 'qa' }, content: [{ content: [{ type: 'text', text: JSON.stringify({ answers }) }] }] } } } }
+    state = toolDefinition.update!({ state } as any, result as any)
+    matches.push(result)
+  }
+  return toolDefinition.buildViewNode!({ key: 'tool2', id: 'qa', start, matches, state } as any) as any
+}
 function rebuild() {
   nodes.clear(); specs.clear()
   const order: string[] = []
@@ -52,9 +70,7 @@ function rebuild() {
       add({ ...assistant(step === 1 ? `p${n}` : `p${n}-${step}`, n, step, `PROCESS_${n}_${step}: working through the task`), visibility: 'hidden' })
     }
     if (n === 2 && withQuestions) {
-      const root = pending ? { callId: 'qa', name: 'ask_user_question', argsRaw: JSON.stringify({ questions }), subCalls: [] }
-        : { kind: 'tool-result', callId: 'qa', call: { name: 'ask_user_question', argsRaw: JSON.stringify({ questions }) }, isError: false, content: [{ type: 'text', text: JSON.stringify({ answers }) }], subCalls: [] }
-      add({ ...node('tool2', 'tool-call', n, n * 100 + answerStep * 10 - 5, { root }), visibility: 'hidden' })
+      add({ ...projectedQuestion(n * 100 + answerStep * 10 - 5), visibility: 'hidden' })
     }
     const spec = { turn: n, controlAnchorSeq: n * 100 + answerStep * 10 - 2, processStartSeq: n * 100 + 10, answerAnchorSeq: closed ? n * 100 + answerStep * 10 : null, answerStep: closed ? answerStep : null, inlineReasoning: false, messageCount: processCount, toolCallCount: n === 2 && withQuestions ? 1 : 0, subagentCount: 0 }
     add(node(`control${n}`, 'turn-process', n, spec.controlAnchorSeq, spec))
@@ -64,15 +80,15 @@ function rebuild() {
   }
   const store = {
     get: (key: string) => nodes.get(key),
+    values: () => [...nodes.values()],
     source: (key: string) => {
-      // Each key has an independently disposable subscription even though the
-      // synthetic fixture publishes through one bus. Removing a key must not
-      // delete the target subscription that happens to use the same callback.
-      if (!sources.has(key)) sources.set(key, { getSnapshot: () => nodes.get(key), subscribe: (fn: () => void) => chat.subscribe(() => fn()) })
+      if (!sources.has(key)) sources.set(key, observable(nodes.get(key)))
       return sources.get(key)
     },
   }
-  chat.set({ order, nodes: store, navigation: { items: () => navigation }, timeline: { turnOrder: [], turns: new Map() } })
+  loadedNavigation = navigation
+  chat.set({ order, nodes: store, navigation: { items: () => loadedNavigation }, timeline: { turnOrder: [], turns: new Map() } })
+  for (const [key, source] of sources) source.set(nodes.get(key))
   outline.set(navigation.map(item => ({ ...item, seq: item.turn * 100 })))
 }
 function Tool({ root }: any) {
@@ -125,6 +141,16 @@ const dispose = attachKeyStrip(ctx, (() => 'Piano navigation') as any, activeSes
   summary: () => ({ submissionCalls, processOpen: view.getSnapshot().turnProcesses }),
   waiting() { pending = true; state.set({ ...state.getSnapshot(), running: true }); rebuild() },
   answer() { pending = false; state.set({ ...state.getSnapshot(), running: false }); rebuild() },
+  navigationOnly(loaded: boolean) {
+    loadedNavigation = outline.getSnapshot().filter((item: any) => loaded || item.turn !== 2)
+    chat.set({ ...chat.getSnapshot() })
+  },
+  locateQuestion(located: boolean) {
+    const value = nodes.get('tool2')
+    const next = { ...value, location: located ? { kind: 'step', turn: turn(2), step: { step: 1 } } : { kind: 'unresolved' } }
+    nodes.set('tool2', next); sources.get('tool2')?.set(next)
+  },
+  dropQuestionAnchor() { document.querySelector('[data-chat-anchor-key="tool2"]')?.remove() },
   normal() { compact = false; mounted++; render() },
   disable() { settings.set({ ...settings.getSnapshot(), enabled: false }) },
   disappear() { activeSession.set(undefined); selection.set({ current: undefined, byId: {} }); app.unmount() },

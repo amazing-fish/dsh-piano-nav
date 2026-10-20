@@ -8,7 +8,7 @@ import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import { observeChatNodes } from './chat-source.ts'
 import { buildNavigationNodesWithQuestions, turnOf } from './keys.ts'
 import type { KeyDescriptor } from './keys.ts'
-import { buildQuestionKeys } from './question-keys.ts'
+import { buildQuestionKeys, createQuestionDiagnostics } from './question-keys.ts'
 import { buildPianoItems, buildPianoItemsForTurn, mergeNavigationTurns } from './navigation-model.ts'
 import type { NavigationTurn, PianoItem } from './navigation-model.ts'
 import { projectRailSlots, railSlotIndex } from './rail-slots.ts'
@@ -216,7 +216,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let tooltipPosition: string | null = null
   const buttons = new Map<string, HTMLButtonElement>()
   const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, railProjections: 0, pointerFrames: 0, hitTests: 0, barWrites: 0 }
-  const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0 }, perf }
+  const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0 }, perf,
+    questions: () => questionSummary() }
   const writeData = (button: HTMLButtonElement, name: string, value: string): void => {
     if (button.dataset[name] === value) return
     button.dataset[name] = value
@@ -342,6 +343,26 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     // Native process disclosure may change only the DOM, leaving the source
     // node's visibility untouched. The mounted row is the display authority.
     return [segment.kind === 'output' ? { ...segment, folded: !visible } : segment]
+  }
+  // Explicit debug read only; no transcript scan on streaming or pointer frames.
+  const questionSummary = () => {
+    const snapshot = binding === undefined ? undefined : ctx.uiConversation.binding(binding).target('chat').getSnapshot()
+    const order = new Set(snapshot?.order ?? [])
+    const materialized = snapshot?.nodes.values() ?? []
+    const projection = createQuestionDiagnostics()
+    buildQuestionKeys(nodes, turnOf, projection)
+    const interactive = (item: { kind?: string }) => item.kind === 'question' || item.kind === 'answer'
+    const generated = segments.filter(interactive)
+    const available = generated.flatMap(availableSegment)
+    return {
+      source: { orderedNodes: order.size, observedNodes: nodes.length, materializedNodes: materialized.length,
+        missingOrderedNodes: [...order].filter(key => snapshot?.nodes.get(key) === undefined).length,
+        toolNodesOutsideOrder: materialized.filter(node => node.kind === 'tool-call' && !order.has(node.key)).length },
+      projection,
+      display: { generated: generated.length, unavailableAnchors: generated.length - available.length,
+        unassembled: available.filter(segment => segment.turn === null || turnByNumber.get(segment.turn)?.anchor.kind !== 'loaded').length,
+        assembled: items.filter(interactive).length, visible: visibleSlots.filter(slot => interactive(slot.item)).length },
+    }
   }
   const projectSlots = (): RailSlot[] => {
     const protection = `${busyTurn}:${requestedTurn}:${failedTurn}`
@@ -728,6 +749,10 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       stops.push(observeChatNodes(target, (value, change, dirtyKeys) => {
         if (!alive || binding !== next) return
         nodes = value
+        if (change === 'navigation') {
+          schedule(DIRTY_TURNS | DIRTY_NATIVE_STATE | DIRTY_VIEW)
+          return
+        }
         if (change === 'keyed') {
           scheduleKeyedSemantic(dirtyKeys ?? [])
           return
