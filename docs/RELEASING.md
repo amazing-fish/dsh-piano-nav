@@ -81,8 +81,9 @@ npm dist-tag ls dsh-piano-nav --registry=https://registry.npmjs.org
 不验证连接。因此在工作流合入、下一次真实发布就绪时绑定，不为了测试绑定另造版本，
 不重复上传已发布的1.3.3。首次 OIDC 发布成功前，状态记为“待实发验证”。
 
-2026-10-18：仓库侧工作流已准备，npm端绑定及首次真实OIDC发布尚未完成。
-本地验证覆盖发布防护和已公开1.3.3的注册表/下载包核验，不能代替OIDC认证成功。
+账号本人于2026-10-18创建绑定；1.3.4 已于2026-10-19完成首次真实OIDC发布、
+注册表下载及安装/加载核验，#60 已关闭。后续 1.3.5 npm 发布同样成功；其 GitHub
+Release 曾因元数据传播竞态中断，已于2026-10-20恢复，过程见 #65。
 
 官方参考：[publish](https://docs.npmjs.com/cli/v11/commands/npm-publish/)、
 [login](https://docs.npmjs.com/cli/v11/commands/npm-login/)、
@@ -107,3 +108,34 @@ npm 版本号错误，也不要仅修改 package.json 就宣称市场说明已�
 GitHub Release 创建成功也不等于用户市场页面已立即更新。
 
 依据：dsh-market 的 `src/changelog.ts` 与 `src/client/MarketSection.tsx`。
+
+## npm 已公开后的核验重试与 Release 恢复
+
+`verify-published.mjs` 分别重试精确元数据查询和 `npm pack` 下载，只接受 npm 的
+`E404` / `ETARGET` 传播错误。每步最多9次，间隔15秒；每次网络请求关闭 npm 内层
+重试，网络超时30秒，下载每次使用新缓存并要求在线校验。认证、网络、完整性和
+其他错误立即失败；超过次数也停止。重试不运行 `npm publish`。
+
+若 npm 已存在而 GitHub Release 缺失或停留在草稿，使用
+`.github/workflows/recover-release.yml` 的 `Recover verified GitHub Release`，
+从 `master` 手动启动：
+
+| 输入 | 含义 |
+| --- | --- |
+| `version` | 已公开的稳定版本，例如 `1.3.5` |
+| `commit` | 原发布源的完整40位 SHA，不填当前 master 来代替 |
+| `run_id` | 原 `publish.yml` 的运行 ID，需保有 `npm-release-evidence` 附件 |
+
+恢复会核对原运行的仓库、工作流、分支、源提交和版本；下载该次冻结包及清单，
+从注册表重新下载并对照字节，使用原版本的宿主依赖再次执行安装/加载契约。
+它不重新构建发布包，也不申请 npm OIDC 权限。过期或缺失的原CI附件需人工处理，
+不能用当前源码重新打包来代替已发布字节。
+
+核验通过后才补齐标签、草稿或缺失附件，并公开同一个 Release。已有标签必须指向
+原发布源，已有包摘要及核验记录必须匹配；不一致即停止，不覆盖附件。完整公开的
+Release 重跑时不再写入，上传中断的草稿保留已核验附件供下次接续。恢复旧版本时
+不要求 npm latest 仍指向它，也不改变 npm dist-tag 或将旧 Release 设为 GitHub Latest。
+
+恢复与正常发布共享同一并发组，避免两条流程同时写发布状态。一次性的
+`complete-1.3.5.yml` 已由此通用入口替代。本实现的场景回归使用合成 npm/GitHub
+响应；实际 runner 恢复须在工作流合入后执行并单独记录，不能将离线通过当成实发。

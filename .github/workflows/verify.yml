@@ -18,6 +18,7 @@ jobs:
       - name: Isolated contracts
         run: |
           node scripts/release-preflight-test.mjs
+          node scripts/release-recovery-test.mjs
           node --experimental-strip-types scripts/chat-source.mjs
           node --experimental-strip-types scripts/navigation-contract.mjs
           node --experimental-strip-types scripts/full-history-contract.mjs
@@ -40,6 +41,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
       - run: pnpm test:package
+      - run: node scripts/release-recovery-test.mjs
       - run: git diff --exit-code -- pnpm-lock.yaml
 
   original-chatview-browser:
