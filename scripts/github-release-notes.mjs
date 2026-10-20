@@ -3,12 +3,12 @@ import assert from 'node:assert/strict'
 import { readFile, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 
-export function githubReleaseNotes(manifest, verified, changelog, commit) {
+export function githubReleaseNotes(manifest, verified, changelog, commit, { requireLatest = true } = {}) {
   assert.match(commit ?? '', /^[0-9a-f]{40}$/, 'exact release commit required')
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/, 'stable version required')
   assert.equal(verified.name, manifest.name)
   assert.equal(verified.version, manifest.version)
-  assert.equal(verified.latest, manifest.version)
+  if (requireLatest) assert.equal(verified.latest, manifest.version)
   assert.equal(verified.sourceCommit, commit)
   assert.equal(verified.byteIdentical, true, 'downloaded artifact must match')
   assert.match(verified.sha256 ?? '', /^[0-9a-f]{64}$/)

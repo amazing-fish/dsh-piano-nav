@@ -1,6 +1,6 @@
 # 当前交付状态
 
-核验日期：2026-10-20。仓库 amazing-fish/dsh-piano-nav；已公开的 npm latest 为 1.3.4，源提交 dc7b247；用户已确认市场可更新。问答恢复与流式通知合并已由 PR #63 合入（1c35740），1.3.5 正在准备发布；以注册表核验和 GitHub Release 为实际交付依据。
+核验日期：2026-10-21（UTC+8）。仓库 amazing-fish/dsh-piano-nav；npm 1.3.5 已于2026-10-20公开，发布源 ba7172d5adb3fa69b7b9f9725065e4b91e760a2c；GitHub v1.3.5 已由 PR #66 的恢复流程公开。1.3.5 npm 上传成功后的 pack/ETARGET 传播竞态与长期恢复流程集中跟踪 #65，真实长会话问答验收集中跟踪 #57。
 
 | Issue | 状态与证据 |
 | --- | --- |
@@ -22,6 +22,7 @@
 | #57 | PR #63 已合入；修复独立轮次发布被忽略的问答恢复路径，补充计数诊断并保留流式节流。CI、Codex 和合成会话回归通过；真实长会话验收继续开放。 |
 | #58 | PR #61 已合入并包含于 npm 1.3.4；用户确认市场可更新且未发现问题，已关闭。 |
 | #60 | 已关闭；1.3.4 首次真实 OIDC 发布、下载包核验和 GitHub Release 全部成功，账号 2FA 保留。 |
+| #65 | 1.3.5 已恢复公开，未重发 npm。本分支补齐元数据/下载传播错误的有界重试和通用幂等 Release 恢复入口；代码回归与合入后 runner 验证分开记录，尚未据此关闭。 |
 
 仓库已改名，原 Issue/PR 历史保留。原 Awesome DSH Plugin
 [申请 #7645](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/7645)
@@ -29,5 +30,7 @@
 [db0a7f4](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/commit/db0a7f4f3b1ab376c8d67739fa537fbf68599376)。
 这是上游源码条目已接受的证据；公开站点部署尚未核验。
 
-实际发布源、注册表时间、产物摘要与下载/安装检查见
+1.3.5 的公开产物与注册表核验见 [GitHub Release](https://github.com/amazing-fish/dsh-piano-nav/releases/tag/v1.3.5)及其 `registry-verification.json` 附件；恢复运行见 [39385448813](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39385448813)。PR #54 的 1.3.2 历史归档仍开放且有冲突，需独立同步，不将其未合入内容当作当前主线事实。
+
+历史1.3.3发布源、注册表时间、产物摘要与下载/安装检查见
 [1.3.3 发布记录](releases/1.3.3.md)及[机器可读记录](releases/1.3.3.json)。

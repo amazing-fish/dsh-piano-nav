@@ -34,4 +34,6 @@ for (const invalid of [{ version: '1.3.3' }, { sourceCommit: 'c'.repeat(40) }, {
   assert.throws(() => githubReleaseNotes(releaseManifest, { ...verifiedRelease, ...invalid }, releaseLog, 'a'.repeat(40)))
 }
 assert.throws(() => githubReleaseNotes(releaseManifest, verifiedRelease, '## 1.3.3\nOld notes', 'a'.repeat(40)))
+assert.match(githubReleaseNotes(releaseManifest, { ...verifiedRelease, latest: '1.3.5' }, releaseLog, 'a'.repeat(40), { requireLatest: false }), /Stable groups/)
+assert.throws(() => githubReleaseNotes(releaseManifest, { ...verifiedRelease, latest: '1.3.5' }, releaseLog, 'a'.repeat(40)))
 console.log('GitHub Release notes: exact version/source/verified artifact required; only selected changelog included')
