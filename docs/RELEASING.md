@@ -100,7 +100,8 @@ npm 版本号错误，也不要仅修改 package.json 就宣称市场说明已�
 发布工作流在 npm 注册表、下载包字节及安装/加载核验全部成功后，由独立的
 `github-release` job 创建 `v<version>` 标签和对应 GitHub Release，指向实际发布源
 提交，附同一 tarball 与核验记录，说明摘自 CHANGELOG 的对应版本段。仅此 job
-获得 `contents: write`，npm 发布 job 继续只读仓库。首次执行仍待实发验证。
+获得 `contents: write`，npm 发布 job 继续只读仓库。首次执行已于 1.3.4 成功，见
+[发布工作流](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39196082947)。
 若 npm 已成功而 Release 创建失败，保留已发布版本，单独修复 Release；不要重发
 同一 npm 版本或为了补说明另造版本。市场目录和更新说明有每日刷新、客户端缓存，
 GitHub Release 创建成功也不等于用户市场页面已立即更新。
