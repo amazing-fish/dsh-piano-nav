@@ -19,8 +19,10 @@ const sources = {
   'vendor/DisclosureRow.module.css': 'packages/client/ui-primitives/src/DisclosureRow.module.css',
   'vendor/AskQuestionCard.tsx': 'packages/client/ui-tool/src/client/tool/components/AskQuestionCard.tsx',
   'vendor/AskQuestionCard.module.css': 'packages/client/ui-tool/src/client/tool/components/AskQuestionCard.module.css',
+  'vendor/tool.ts': 'packages/client/ui-chat/src/client/conversation-nodes/tool.ts',
+  'vendor/common.ts': 'packages/client/ui-chat/src/client/conversation-nodes/common.ts',
 }
-const known = { 'vendor/ChatNodeSeat.tsx': '40e08dbaf72bdf166a409b9c6a1f8b4fdee3b53d', 'vendor/searchable-hidden.ts': '5a0f47c82ed527479c84bea1c36dbcbe51a31506', 'vendor/DisclosureRow.tsx': 'f04ad8986a36bc2845446f3aeb211f6fecaf281c' }
+const known = { 'vendor/ChatNodeSeat.tsx': '40e08dbaf72bdf166a409b9c6a1f8b4fdee3b53d', 'vendor/searchable-hidden.ts': '5a0f47c82ed527479c84bea1c36dbcbe51a31506', 'vendor/DisclosureRow.tsx': 'f04ad8986a36bc2845446f3aeb211f6fecaf281c', 'vendor/tool.ts': '15f93b146514f3d0ddb6cbd7f650c56e393bb7fd' }
 const hashes = {}
 await Promise.all(Object.entries(sources).map(async ([file, source]) => {
   const response = await fetch(`https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/${pinned}/${source}`)
@@ -128,6 +130,31 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="answer"]').length === 2)
     assert.equal(await key('question').first().evaluate(el => el === window.savedQuestionKey), true)
     assert.equal(await key('final').count(), 1)
+  })
+  await test('navigation-only publications recover question/answer keys with unchanged order and node store', async () => {
+    const before = await page.evaluate(() => ({ ...window.__smcpDebug.perf }))
+    await page.evaluate(() => window.semanticFixture.navigationOnly(false))
+    await page.waitForFunction(() => window.__smcpDebug.questions().display.unassembled === 4)
+    assert.equal(await key('question').count(), 0); assert.equal(await key('answer').count(), 0)
+    await page.evaluate(() => window.semanticFixture.navigationOnly(true))
+    await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="answer"]').length === 2)
+    const after = await page.evaluate(() => ({ ...window.__smcpDebug.perf }))
+    assert.equal(after.nodeRebuilds, before.nodeRebuilds, 'navigation-only update does not rebuild semantic nodes')
+    assert.equal(after.turnRebuilds, before.turnRebuilds + 2)
+    const diagnostic = await page.evaluate(() => window.__smcpDebug.questions())
+    assert.equal(diagnostic.projection.questionKeys, 2); assert.equal(diagnostic.projection.answerKeys, 2)
+    assert.equal(diagnostic.display.unassembled, 0); assert.equal(diagnostic.display.assembled, 4)
+    assert.ok(!JSON.stringify(diagnostic).includes('Which route'))
+  })
+  await test('question location recovery and absent native anchors are distinguishable without content', async () => {
+    await page.evaluate(() => window.semanticFixture.locateQuestion(false))
+    await page.waitForFunction(() => window.__smcpDebug.questions().projection.missingTurn === 1 && window.__smcpDebug.questions().display.assembled === 0)
+    assert.equal(await key('question').count(), 0)
+    await page.evaluate(() => window.semanticFixture.locateQuestion(true))
+    await page.waitForFunction(() => document.querySelectorAll('.smcp-bar[data-kind="answer"]').length === 2)
+    await page.evaluate(() => window.semanticFixture.dropQuestionAnchor())
+    await page.waitForFunction(() => window.__smcpDebug.questions().display.unavailableAnchors === 4 && window.__smcpDebug.questions().display.assembled === 0)
+    assert.equal((await page.evaluate(() => window.__smcpDebug.questions())).projection.answerKeys, 2)
   })
   await test('semantic palette distinguishes output, input, answer, question and final in light/dark themes', async () => {
     await page.evaluate(() => window.semanticFixture.normal())
