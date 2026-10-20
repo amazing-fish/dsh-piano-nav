@@ -102,3 +102,13 @@ dsh plugin --profile web add link:C:/projects/dsh-piano-nav
 
 查看[兼容说明](COMPATIBILITY.md)。反馈中提供 DSH/插件版本、普通/紧凑模式、复现动作，
 以及 `window.__smcpDebug` 的 mode/hiddenReason/nativeReject；避免提交会话正文或凭据。
+
+问答键缺失时，在浏览器控制台执行 `window.__smcpDebug?.questions()`，复制这份计数摘要：
+
+- `source.toolNodesOutsideOrder`：已在宿主存储中，但不在当前 Chat 顺序内的工具节点；不能据此断言它们都是问答。
+- `projection`：调用头缺失、重复 callId、无轮次、非法问题/结果及四种问答状态；`questionKeys` / `answerKeys` 是生成数量。
+- `display`：`unavailableAnchors` 表示原生落点不可用，`unassembled` 表示轮次尚未加载或装配，`assembled` / `visible` 分别是已装配和当前窗口内的问答键数。
+
+摘要按调用时的数据计算，只含状态计数，不含 callId、问题、选项或回答正文；不会自动上传。
+完整历史未加载时，摘要不能诊断尚未进入宿主存储的问答。轮次导航单独更新也会重新装配，
+不必等待下一条消息或滚动。现场报告仍需版本、显示模式及复现动作，计数本身不能证明所有会话缺失的根因相同。

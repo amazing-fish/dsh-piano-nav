@@ -1,0 +1,16 @@
+name: Retired one-time 1.3.5 recovery
+
+# Historical entry kept only to direct manual callers to the generic workflow.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  retired:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Use recover-release.yml with the original version, commit and publish run ID."
+          exit 1

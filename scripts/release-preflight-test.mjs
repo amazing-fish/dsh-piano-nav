@@ -19,3 +19,21 @@ for (const change of [{ sourceCommit: other }, { version: '1.3.4' }, { filename:
   assert.throws(() => validateArtifact({ ...packed, ...change }, bytes, manifest, sha))
 }
 console.log('Release guard: valid intent accepted; wrong ref/repository/version/commit, master drift, existing release and registry failures rejected')
+
+// Market-facing release notes cannot claim unverified or mismatched publication.
+const { githubReleaseNotes } = await import('./github-release-notes.mjs')
+const releaseManifest = { name: 'dsh-piano-nav', version: '1.3.4' }
+const verifiedRelease = { ...releaseManifest, latest: '1.3.4', sourceCommit: 'a'.repeat(40),
+  byteIdentical: true, sha256: 'b'.repeat(64), publishedAt: '2026-10-19T03:00:00.000Z' }
+const releaseLog = '# Changelog\n\n## 1.3.4 — release preparation\n\n- Stable groups.\n\n## 1.3.3 — earlier\n\n- Earlier change.\n'
+const notes = githubReleaseNotes(releaseManifest, verifiedRelease, releaseLog, 'a'.repeat(40))
+assert.match(notes, /Stable groups/)
+assert.doesNotMatch(notes, /Earlier change/)
+assert.match(notes, /dsh-piano-nav@1\.3\.4/)
+for (const invalid of [{ version: '1.3.3' }, { sourceCommit: 'c'.repeat(40) }, { byteIdentical: false }, { publishedAt: null }, { sha256: '' }]) {
+  assert.throws(() => githubReleaseNotes(releaseManifest, { ...verifiedRelease, ...invalid }, releaseLog, 'a'.repeat(40)))
+}
+assert.throws(() => githubReleaseNotes(releaseManifest, verifiedRelease, '## 1.3.3\nOld notes', 'a'.repeat(40)))
+assert.match(githubReleaseNotes(releaseManifest, { ...verifiedRelease, latest: '1.3.5' }, releaseLog, 'a'.repeat(40), { requireLatest: false }), /Stable groups/)
+assert.throws(() => githubReleaseNotes(releaseManifest, { ...verifiedRelease, latest: '1.3.5' }, releaseLog, 'a'.repeat(40)))
+console.log('GitHub Release notes: exact version/source/verified artifact required; only selected changelog included')

@@ -1,6 +1,8 @@
 /** Contract tests: no DOM, host process, model credentials, or network needed. */
 import assert from 'node:assert/strict'
 import { observeChatNodes } from '../src/client/chat-source.ts'
+import { buildNavigationNodes } from '../src/client/keys.ts'
+import { buildPianoItems, mergeNavigationTurns } from '../src/client/navigation-model.ts'
 
 function observable(value) {
   const listeners = new Set()
@@ -95,6 +97,40 @@ test('stable target plus keyed publication still reads only the dirty node', () 
   assert.equal(f.getCount, 1)
   assert.equal(f.publications.at(-1).at(-1).data.text, 'coalesced update')
   f.stop()
+})
+
+test('navigation-only publication recovers an already materialized question without rereading nodes', () => {
+  const root = { callId: 'ask', name: 'ask_user_question', argsRaw: JSON.stringify({ questions: [{ id: 'q', question: 'Choose?' }] }), subCalls: [] }
+  const node = { key: 'tool:ask', kind: 'tool-call', location: { turn: { turn: 1 } }, data: { root } }
+  const keyed = observable(node)
+  let reads = 0, navigation = [], currentItems = [], publications = []
+  const store = { get: () => { reads++; return keyed.getSnapshot() }, source: () => keyed }
+  const snapshot = { order: [node.key], nodes: store, navigation: { items: () => navigation } }
+  const target = observable(snapshot), tasks = []
+  const stop = observeChatNodes(target, (nodes, change) => {
+    publications.push(change)
+    currentItems = buildPianoItems(mergeNavigationTurns(navigation, []), buildNavigationNodes(nodes), String)
+  }, fn => tasks.push(fn))
+  const flush = () => { while (tasks.length) tasks.shift()() }
+  assert.deepEqual(currentItems, [])
+  reads = 0
+  navigation = [{ turn: 1, anchorKey: node.key, prompt: '', response: '' }]
+  target.emit({ ...snapshot }); flush()
+  assert.equal(reads, 0)
+  assert.deepEqual(publications, ['structure', 'navigation'])
+  assert.deepEqual(currentItems.map(item => item.kind), ['question'])
+
+  // Same-flush navigation + keyed answer changes must both reach the consumer.
+  navigation = [{ ...navigation[0], response: 'Completed' }]
+  keyed.emit({ ...node, data: { root: { kind: 'tool-result', callId: 'ask', call: root, isError: false,
+    content: [{ type: 'text', text: JSON.stringify({ answers: [{ id: 'q', selected: ['A'] }] }) }], subCalls: [] } } })
+  target.emit({ ...snapshot }); flush()
+  assert.deepEqual(publications.slice(-2), ['navigation', 'keyed'])
+  assert.deepEqual(currentItems.map(item => item.kind), ['question', 'answer'])
+  assert.equal(reads, 1)
+  target.emit({ ...snapshot }); flush()
+  assert.equal(publications.length, 4, 'unchanged navigation stays quiet')
+  stop()
 })
 
 test('coalesces multiple node and target notifications', () => {

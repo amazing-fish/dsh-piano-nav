@@ -1,11 +1,25 @@
 # Changelog
 
-## Unreleased
+## 1.3.5 — 2026-10-20
 
-- Prepare a manually triggered GitHub Actions OIDC publishing workflow. Guard
+- Recover question/answer navigation when the host publishes loaded Turn metadata
+  without changing Chat order or node-store identity. Keep keyed updates local.
+- Coalesce navigation-preview and keyed-node publications through the existing
+  streaming update interval, retaining the latest content without token-driven
+  global refresh bursts.
+- Add an on-demand, content-free question diagnostic summary to distinguish
+  source, projection, native-anchor, Turn assembly and visible-window gaps.
+
+## 1.3.4 — 2026-10-19
+
+- Keep completed process groups stable while scrolling or resizing; reading
+  position changes highlight/windowing only. Preserve explicit expansion,
+  same-group navigation, retirement and busy/pending/failure protection.
+
+- Add a manually triggered GitHub Actions OIDC publishing workflow. Guard
   the requested master commit/version and tested archive; verify the downloaded
-  registry package. The maintainer has created the npm trusted-publisher
-  binding; its first real OIDC publish remains pending. Account 2FA stays enabled.
+  registry package before creating a versioned GitHub Release for market update
+  notes. Account 2FA stays enabled; npm and GitHub publication are separate jobs.
 
 ## 1.3.3 — 2026-10-18
 

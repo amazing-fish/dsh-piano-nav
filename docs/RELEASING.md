@@ -81,15 +81,66 @@ npm dist-tag ls dsh-piano-nav --registry=https://registry.npmjs.org
 不验证连接。因此在工作流合入、下一次真实发布就绪时绑定，不为了测试绑定另造版本，
 不重复上传已发布的1.3.3。首次 OIDC 发布成功前，状态记为“待实发验证”。
 
-2026-10-18 约20:31（UTC+8）：账号本人通过 npm CLI 创建绑定成功，ID 为
-`3e0d4ed1-c9c6-42d1-9b1f-a98f2c528d78`，repository 为 `amazing-fish/dsh-piano-nav`，
-file 为 `publish.yml`，environment 未指定，权限为 `publish, stage publish`。
-依据为账号本人提供的官方 CLI 成功输出；本执行环境尚未独立复读 npm 配置。
-首次真实 OIDC 发布仍待完成，需在创建后2天内成功；精确截止按 npm 实际创建时间。
-CLI 网页验证的5分钟免重复验证窗口与绑定的2天首次发布验证期分开计算。
-本地发布防护和1.3.3制品检查不能代替OIDC认证成功，后续状态集中跟踪 #60。
+账号本人于2026-10-18创建绑定；1.3.4 已于2026-10-19完成首次真实OIDC发布、
+注册表下载及安装/加载核验，#60 已关闭。后续 1.3.5 npm 发布同样成功；其 GitHub
+Release 曾因元数据传播竞态中断，已于2026-10-20恢复，过程见 #65。
 
 官方参考：[publish](https://docs.npmjs.com/cli/v11/commands/npm-publish/)、
 [login](https://docs.npmjs.com/cli/v11/commands/npm-login/)、
 [2FA 设置](https://docs.npmjs.com/configuring-two-factor-authentication/)、
 [trusted publishing](https://docs.npmjs.com/trusted-publishers/)。
+
+## dsh-market 更新说明与安装来源
+
+npm 发布与 GitHub Release 是不同交付。`dsh-market` 的更新说明优先读取市场每日
+抓取的 GitHub Release；没有可用 Release 时退回提交列表。提交列表找不到用户所装
+提交的边界，会注明“最近提交（无法对应你当前安装的版本，仅供参考）”。
+Git 安装的更新范围显示提交 SHA；npm 安装显示语义版本。不要把 SHA 范围解释成
+npm 版本号错误，也不要仅修改 package.json 就宣称市场说明已更新。
+
+发布工作流在 npm 注册表、下载包字节及安装/加载核验全部成功后，由独立的
+`github-release` job 创建 `v<version>` 标签和对应 GitHub Release，指向实际发布源
+提交，附同一 tarball 与核验记录，说明摘自 CHANGELOG 的对应版本段。仅此 job
+获得 `contents: write`，npm 发布 job 继续只读仓库。首次执行已于 1.3.4 成功，见
+[发布工作流](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39196082947)。
+若 npm 已成功而 Release 创建失败，保留已发布版本，单独修复 Release；不要重发
+同一 npm 版本或为了补说明另造版本。市场目录和更新说明有每日刷新、客户端缓存，
+GitHub Release 创建成功也不等于用户市场页面已立即更新。
+
+依据：dsh-market 的 `src/changelog.ts` 与 `src/client/MarketSection.tsx`。
+
+## npm 已公开后的核验重试与 Release 恢复
+
+`verify-published.mjs` 分别重试精确元数据查询和 `npm pack` 下载，只接受 npm 的
+`E404` / `ETARGET` 传播错误。每步最多9次，间隔15秒；每次网络请求关闭 npm 内层
+重试，网络超时30秒，下载每次使用新缓存并要求在线校验。认证、网络、完整性和
+其他错误立即失败；超过次数也停止。重试不运行 `npm publish`。
+
+若 npm 已存在而 GitHub Release 缺失或停留在草稿，使用
+`.github/workflows/recover-release.yml` 的 `Recover verified GitHub Release`，
+从 `master` 手动启动：
+
+| 输入 | 含义 |
+| --- | --- |
+| `version` | 已公开的稳定版本，例如 `1.3.5` |
+| `commit` | 原发布源的完整40位 SHA，不填当前 master 来代替 |
+| `run_id` | 原 `publish.yml` 的运行 ID，需保有 `npm-release-evidence` 附件 |
+
+恢复会核对原运行的仓库、工作流、分支、源提交和版本；下载该次冻结包及清单，
+从注册表重新下载并对照字节，使用原版本的宿主依赖再次执行安装/加载契约。
+它不重新构建发布包，也不申请 npm OIDC 权限。过期或缺失的原CI附件需人工处理，
+不能用当前源码重新打包来代替已发布字节。
+
+核验通过后才补齐标签、草稿或缺失附件，并公开同一个 Release。已有标签必须指向
+原发布源，已有包摘要及核验记录必须匹配；不一致即停止，不覆盖附件。完整公开的
+Release 重跑时不再写入，上传中断的草稿保留已核验附件供下次接续。恢复旧版本时
+不要求 npm latest 仍指向它，也不改变 npm dist-tag 或将旧 Release 设为 GitHub Latest。
+
+恢复与正常发布共享同一并发组，避免两条流程同时写发布状态。一次性的
+`complete-1.3.5.yml` 已由此通用入口替代。场景回归覆盖合成 npm/GitHub 响应。2026-10-21，PR #67 合入后的
+[真实恢复运行39466178368](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39466178368)
+以1.3.5、原发布源 `ba7172d5adb3fa69b7b9f9725065e4b91e760a2c` 和原运行39379588893
+通过：取回冻结包、重新下载注册表字节、安装及host/client加载均成功，111193 bytes /12文件，
+SHA256 `1f9fd712236fbcd407986b0ab7a84f7c158e8cea514c354c83d2ba3a8ab66c95`。
+现有公开Release及两个附件ID和摘要保留，未重复上传npm或Release附件。该实跑验证了
+“完整公开版本再次恢复”的幂等路径；缺失草稿、上传中断及错误拒绝路径仍以场景回归为证据。

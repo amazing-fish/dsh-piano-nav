@@ -26,15 +26,16 @@ export function railSlotIndex(slots: readonly RailSlot[], itemIndex: number): nu
 
 export function projectRailSlots(
   items: readonly PianoItem[],
-  activeIndex: number,
+  _activeIndex: number,
   expanded: ReadonlySet<string>,
   protectedTurns: ReadonlySet<number>,
-  collapsed: ReadonlySet<string> = new Set(),
+  _collapsed: ReadonlySet<string> = new Set(),
 ): RailSlot[] {
+  // Reader position affects highlighting/windowing only. Keep the legacy
+  // positional arguments for callers; disclosure and protection own grouping.
   const idleOutput = (index: number): boolean => {
     const item = items[index]
     return item.kind === 'output' && item.role === 'assistant'
-      && (collapsed.has(item.key) || item.folded === true || activeIndex < 0 || Math.abs(index - activeIndex) > 2)
       && !expanded.has(item.key) && !protectedTurns.has(item.turn)
   }
   const slots: RailSlot[] = []
@@ -47,3 +48,4 @@ export function projectRailSlots(
   }
   return slots
 }
+
