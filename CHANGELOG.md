@@ -1,9 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.3.5 — release preparation
 
 - Recover question/answer navigation when the host publishes loaded Turn metadata
   without changing Chat order or node-store identity. Keep keyed updates local.
+- Coalesce navigation-preview and keyed-node publications through the existing
+  streaming update interval, retaining the latest content without token-driven
+  global refresh bursts.
 - Add an on-demand, content-free question diagnostic summary to distinguish
   source, projection, native-anchor, Turn assembly and visible-window gaps.
 
