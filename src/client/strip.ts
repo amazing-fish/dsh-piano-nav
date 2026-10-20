@@ -259,8 +259,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const collapsedCopy = (count: number): string => {
     const language = settings.getSnapshot().language
-    return language === 'en' ? `AI · Process output (${count} segments) · Click to expand`
-      : language === 'zh-TW' ? `AI · 過程輸出（${count} 段）· 點擊展開` : `AI · 过程输出（${count} 段）· 点击展开`
+    return language === 'en' ? `AI · Process output (${count} segments) · Click to expand and jump to first`
+      : language === 'zh-TW' ? `AI · 過程輸出（${count} 段）· 點擊展開並定位首條` : `AI · 过程输出（${count} 段）· 点击展开并定位首条`
   }
   const slotForKey = (key: string | null): RailSlot | undefined => {
     const index = key === null ? -1 : itemIndexByKey.get(key) ?? -1
@@ -904,13 +904,14 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
         collapsedKeys.delete(member); expandedKeys.add(member)
       }
       projectionDirty = true
-      selected = slot.end - slot.start > capacity ? items[slot.start].key : key
+      // A group is a navigation entry too: disclose and land on its first
+      // member in one action, using the same native reveal/landing path.
+      activate(items[slot.start])
       const nextSlots = projectSlots()
       const runStart = railSlotIndex(nextSlots, slot.start)
       const count = Math.min(capacity, slot.end - slot.start)
       const start = Math.max(0, Math.min(nextSlots.length - capacity, runStart - Math.floor((capacity - count) / 2)))
       browseStart = nextSlots[start]?.item.key ?? null
-      strip.focus({ preventScroll: true })
       schedule(DIRTY_VIEW)
       return
     }
@@ -929,7 +930,6 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (event.deltaY === 0 || items.length === 0) return
     event.preventDefault()
     clearPointer()
-    clearExpansion()
     const first = items[windowStart]?.key
     const nextSlots = projectSlots()
     const current = railSlotIndex(nextSlots, itemIndexByKey.get(first ?? '') ?? -1)

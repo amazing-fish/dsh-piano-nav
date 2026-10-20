@@ -237,6 +237,29 @@ try {
     await page.waitForSelector('.smcp-unified', { state: 'detached' }); await page.waitForTimeout(100)
     assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
   })
+  for (const mode of ['compact', 'normal']) await test(`${mode} folded group first click lands on its first row and wheel preserves expansion`, async () => {
+    if (mode === 'normal') await page.evaluate(() => window.semanticFixture.normal())
+    await activate(key('input', 1))
+    const group = page.locator('.smcp-bar[data-kind="output"][data-turn="2"][data-collapsed="true"]')
+    if (mode === 'compact') assert.equal(await page.locator('[data-chat-anchor-key="p2"]').getAttribute('hidden'), 'until-found')
+    await activate(group)
+    await page.waitForFunction(() => {
+      const row = document.querySelector('[data-chat-anchor-key="p2"]')
+      return !row.hasAttribute('hidden') && Math.abs(row.getBoundingClientRect().top - row.closest('[data-conversation-scroll]').getBoundingClientRect().top - 24) < 3
+    })
+    assert.equal(await key('output').count(), 3)
+    const rail = page.locator('.smcp-unified'), box = await rail.boundingBox()
+    const top = await page.locator('[data-conversation-scroll]').evaluate(el => el.scrollTop)
+    await page.mouse.move(box.x + 1, box.y + box.height / 2)
+    for (const delta of [100, -100]) {
+      await page.mouse.wheel(0, delta); await page.waitForTimeout(100)
+      assert.equal(await group.count(), 0)
+      assert.equal(await key('output').count(), 3)
+      assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el => el.scrollTop), top)
+    }
+    await page.screenshot({ path: `test-results/grey-first-landing-${mode}.png`, fullPage: true })
+    assert.equal((await page.evaluate(() => window.semanticFixture.summary())).submissionCalls, 0)
+  }, '?processCount=3&processOnly=1')
   for (const mode of ['compact', 'normal']) await test(`${mode} process group stays folded after the last purple key and subsequent navigation`, async () => {
     if (mode === 'normal') await page.evaluate(() => window.semanticFixture.normal())
     const group = page.locator('.smcp-bar[data-kind="output"][data-turn="2"][data-collapsed="true"]')

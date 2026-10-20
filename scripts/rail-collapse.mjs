@@ -152,35 +152,35 @@ await check('hover changes only feedback and wave, never expands or navigates', 
   const projections = globalThis.__smcpDebug.perf.railProjections
   const p = point(collapsed()); await pointer(p.x, p.y)
   assert.equal(bars().length, 4); assert.equal(collapsed().style.width, '48px')
-  assert.match(document.querySelector('.smcp-tooltip').textContent, /AI · Process output \(7 segments\) · Click to expand/)
+  assert.match(document.querySelector('.smcp-tooltip').textContent, /AI · Process output \(7 segments\) · Click to expand and jump to first/)
   const history = bars().find(b => b.dataset.key === 'turn:2')
   assert.ok(Math.abs(Number.parseFloat(history.style.width) - (10 + 38 * Math.exp(-1 / (2 * 1.35 ** 2)))) < 0.00001, 'wave follows adjacent displayed keys')
   assert.deepEqual(clicks, [])
   assert.equal(globalThis.__smcpDebug.perf.railProjections, projections, 'hover reuses the full projection instead of scanning history again')
 })
-await check('first click expands compactly without scrolling; member click delegates once', async ({ rail, bars, collapsed, settle, clicks, compact, scroll }) => {
-  const top = scroll.scrollTop
+await check('first click expands and navigates to the first member; member click delegates once', async ({ rail, bars, collapsed, settle, clicks, compact, scroll }) => {
   collapsed().click(); await settle()
-  compact(10); assert.equal(scroll.scrollTop, top)
-  assert.equal(collapsed(), null); assert.equal(bars().length, 10); assert.deepEqual(clicks, [])
+  compact(10); assert.equal(scroll.scrollTop, -24)
+  assert.equal(collapsed(), null); assert.equal(bars().length, 10); assert.deepEqual(clicks, [1])
+  assert.equal(bars().find(b => b.id === rail().getAttribute('aria-activedescendant')).dataset.key, 'turn:1')
   assert.ok(bars().every(b => b.style.height === '2px'))
   assert.equal(rail().ownerDocument.activeElement, rail())
   bars().find(b => b.dataset.key === 'turn:1').click()
-  assert.deepEqual(clicks, [1])
+  assert.deepEqual(clicks, [1, 1])
 })
 await check('pointer leave and blur preserve explicit expansion and only retire hover', async ({ rail, bars, collapsed, window, settle, scroll, compact }) => {
-  const top = scroll.scrollTop
   collapsed().click(); await settle()
+  const top = scroll.scrollTop
   rail().dispatchEvent(new window.Event('pointerleave')); await settle()
   assert.equal(rail().ownerDocument.activeElement, rail()); compact(10)
   rail().blur(); await settle(); compact(10); assert.equal(scroll.scrollTop, top)
 })
-await check('focus and keyboard browsing do not expand; Enter is explicit disclosure', async ({ rail, bars, collapsed, press, document, clicks }) => {
+await check('focus and keyboard browsing do not expand; Enter expands and navigates to the first member', async ({ rail, bars, collapsed, press, document, clicks }) => {
   rail().focus(); await press('Home')
   assert.equal(bars().length, 4)
   assert.equal(document.getElementById(rail().getAttribute('aria-activedescendant')), collapsed())
-  await press('Enter'); assert.equal(bars().length, 10); assert.deepEqual(clicks, [])
-  await press('Enter'); assert.deepEqual(clicks, [1])
+  await press('Enter'); assert.equal(bars().length, 10); assert.deepEqual(clicks, [1])
+  await press('Enter'); assert.deepEqual(clicks, [1, 1])
 })
 await check('blank right margin and hidden pitch slots are inert', async ({ rail, bars, collapsed, point, pointer, mockWidth, window, settle, clicks }) => {
   const p = point(collapsed())
@@ -205,12 +205,12 @@ await check('keyboard can reach the last member after explicit disclosure', asyn
   rail().focus(); await press('Home'); await press('Enter')
   for (let i = 0; i < 6; i++) await press('ArrowDown')
   assert.equal(bars().length, 10)
-  await press('Enter'); assert.deepEqual(clicks, [1]); assert.equal(scroll.scrollTop, 12 * 40 - 24)
+  await press('Enter'); assert.deepEqual(clicks, [1, 1]); assert.equal(scroll.scrollTop, 12 * 40 - 24)
 })
 await check('keyboard selection and two activations in one frame do not use stale slots', ({ rail, bars, window, clicks }) => {
   rail().focus()
   for (const key of ['Home', 'Enter', 'Enter']) rail().dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
-  assert.equal(bars().length, 10); assert.deepEqual(clicks, [1])
+  assert.equal(bars().length, 10); assert.deepEqual(clicks, [1, 1])
 })
 await check('bar motion is width-only and reduced-motion remains instantaneous', ({ document }) => {
   const css = document.getElementById('smcp-panel-styles').textContent
@@ -226,7 +226,7 @@ await check('mixed history entry stays independent and loads directly', ({ bars,
   compact(4); bars().find(b => b.dataset.key === 'turn:2').click(); assert.deepEqual(clicks, [2])
 })
 await check('all three languages name the process group correctly', async ({ collapsed, settings, settle }) => {
-  for (const [language, copy] of [['en', 'AI · Process output (7 segments) · Click to expand'], ['zh', 'AI · 过程输出（7 段）· 点击展开'], ['zh-TW', 'AI · 過程輸出（7 段）· 點擊展開']]) {
+  for (const [language, copy] of [['en', 'AI · Process output (7 segments) · Click to expand and jump to first'], ['zh', 'AI · 过程输出（7 段）· 点击展开并定位首条'], ['zh-TW', 'AI · 過程輸出（7 段）· 點擊展開並定位首條']]) {
     settings.set({ ...settings.getSnapshot(), language }); await settle(); assert.equal(collapsed().getAttribute('aria-label'), copy)
   }
 })
@@ -252,7 +252,7 @@ await check('folded history projects a complete 12-output group at the window ed
   assert.equal(bars().filter(b => b.dataset.role === 'turn').length, 12, 'history turns keep separate entries')
   collapsed().click(); await settle()
   assert.equal(bars().filter(b => b.dataset.kind === 'output').length, 12)
-  assert.equal(collapsed(), null); compact(15); assert.deepEqual(clicks, [])
+  assert.equal(collapsed(), null); compact(15); assert.deepEqual(clicks, [12])
   await press('Escape'); assert.equal(collapsed().dataset.count, '12')
 }, false, { processCount: 12, hidden: true, leadingHistory: 11 })
 
@@ -276,21 +276,42 @@ await check('hidden output navigation reveals its native process wrapper before 
   collapsed().click(); await settle()
   const member = bars().find(b => b.dataset.key.includes('p11::output'))
   assert.ok(member); member.click()
-  await until(() => clicks.length === 1); await settle()
+  await until(() => clicks.length === 2); await settle()
   assert.equal(flow.querySelector('[data-chat-anchor-key="p11"]').hasAttribute('hidden'), false)
-  assert.deepEqual(clicks, [1]); assert.equal(scroll.scrollTop, 22 * 40 - 24)
+  assert.deepEqual(clicks, [1, 1]); assert.equal(scroll.scrollTop, 22 * 40 - 24)
 }, false, { processCount: 12, hidden: true })
 
-await check('longer-than-capacity groups retain every member for keyboard browsing and wheel explicitly retires expansion', async ({ rail, bars, collapsed, settings, settle, press, window, clicks, document }) => {
+await check('longer-than-capacity groups retain every member through keyboard and bidirectional wheel browsing', async ({ rail, bars, collapsed, settings, settle, press, window, clicks, document, scroll, flow }) => {
   settings.set({ ...settings.getSnapshot(), maxVisible: 5 }); await settle()
   assert.equal(collapsed().dataset.count, '12')
   collapsed().click(); await settle(); assert.equal(bars().length, 5)
-  assert.ok(document.getElementById(rail().getAttribute('aria-activedescendant')), 'oversized expansion selects a visible member')
+  assert.ok(document.getElementById(rail().getAttribute('aria-activedescendant')).dataset.key === 'turn:1', 'oversized expansion selects its first member')
+  assert.equal(flow.querySelector('[data-chat-anchor-key="p0"]').hasAttribute('hidden'), false)
+  assert.deepEqual(clicks, [1])
   await press('Home')
   for (let i = 0; i < 11; i++) await press('ArrowDown')
   assert.ok(document.getElementById(rail().getAttribute('aria-activedescendant')).dataset.key.includes('p11::output'))
-  rail().dispatchEvent(new window.WheelEvent('wheel', { deltaY: -100, cancelable: true })); await settle()
-  assert.equal(collapsed().dataset.count, '12'); assert.deepEqual(clicks, [])
+  const top = scroll.scrollTop, seen = new Set()
+  const signature = () => bars().map(b => b.dataset.key)
+  const wheel = async deltaY => {
+    const event = new window.WheelEvent('wheel', { deltaY, cancelable: true })
+    rail().dispatchEvent(event); await settle()
+    assert.equal(event.defaultPrevented, true)
+    assert.equal(collapsed(), null, 'wheel must preserve explicit expansion')
+    assert.equal(bars().length, 5)
+    for (const bar of bars()) if (bar.dataset.kind === 'output') seen.add(bar.dataset.key)
+  }
+  const before = signature()
+  await wheel(-100); assert.notDeepEqual(signature(), before)
+  await wheel(100); assert.deepEqual(signature(), before)
+  for (let i = 0; i < 5; i++) await wheel(-100)
+  for (let i = 0; i < 5; i++) await wheel(100)
+  assert.equal(seen.size, 12, 'all process members stay reachable')
+  const after = signature()
+  rail().dispatchEvent(new window.WheelEvent('wheel', { deltaX: 100, cancelable: true })); await settle()
+  assert.deepEqual(signature(), after)
+  assert.deepEqual(clicks, [1], 'browsing never navigates the transcript')
+  assert.equal(scroll.scrollTop, top)
 }, false, { processCount: 12, hidden: true })
 console.log(`${passed} total rail interaction tests passed`)
 
@@ -343,7 +364,7 @@ await check('final navigation retires visible prose even when the reading line s
     assert.equal(collapsed().dataset.count, '3')
     assert.equal(collapsed().getAttribute('aria-current'), 'true')
   }
-  folded(); assert.deepEqual(clicks, [3])
+  folded(); assert.deepEqual(clicks, [1, 3])
   bars().find(b => b.dataset.kind === 'input').click(); await settle(); folded()
   await read('p2'); folded()
   collapsed().click(); await settle()
@@ -362,7 +383,7 @@ await check('opening another group retires the old one even when reading moves i
   await read('p1'); assert.equal(outputs(1).length, 1); assert.equal(outputs(2).length, 3)
   outputs(1)[0].click(); await settle()
   assert.equal(outputs(1).length, 3); assert.equal(outputs(2).length, 1)
-  assert.deepEqual(clicks, [], 'group replacement never navigates')
+  assert.deepEqual(clicks, [1, 2, 1], 'each replacement navigates to the newly opened group')
 }, false, { processCount: 3, processGroups: 2 })
 
 await check('disabled history geometry click and keyboard retire expansion without attempting navigation', async ({ bars, collapsed, settle, native, rail, point, mockWidth, window, clicks, press }) => {
@@ -372,10 +393,10 @@ await check('disabled history geometry click and keyboard retire expansion witho
   collapsed().click(); await settle()
   mockWidth(); const p = point(blocked())
   rail().dispatchEvent(new window.MouseEvent('click', { clientX: p.x, clientY: p.y, bubbles: true })); await settle()
-  assert.equal(collapsed().dataset.count, '3'); assert.deepEqual(clicks, [])
+  assert.equal(collapsed().dataset.count, '3'); assert.deepEqual(clicks, [1])
   collapsed().click(); await settle()
   await press('End'); await press('ArrowUp'); await press('ArrowUp'); await press('Enter')
-  assert.equal(collapsed().dataset.count, '3'); assert.deepEqual(clicks, [])
+  assert.equal(collapsed().dataset.count, '3'); assert.deepEqual(clicks, [1, 1])
 }, false, { processCount: 3 })
 console.log(`${passed} total rail interaction tests passed including navigation retirement`)
 
