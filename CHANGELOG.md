@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.3.6 — release preparation
 
+- Run full verification on master pushes and automatically publish stable version
+  increases after the exact source passes CI. Keep OIDC, manual fallback, registry
+  byte verification and Release recovery for both publishing entry points.
 - Expand folded process groups and navigate to their first member in one click
   or keyboard activation, revealing native hidden process contents before landing.
 - Preserve explicit process expansion while browsing the rail with the mouse

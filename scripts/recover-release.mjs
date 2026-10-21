@@ -19,7 +19,7 @@ export function validateRecovery(env, run, head, manifest) {
   assert.match(env.RELEASE_RUN_ID ?? '', /^[1-9]\d*$/)
   assert.equal(String(run.id), env.RELEASE_RUN_ID)
   assert.equal(run.path, '.github/workflows/publish.yml')
-  assert.equal(run.event, 'workflow_dispatch')
+  assert.ok(['workflow_dispatch', 'workflow_run'].includes(run.event), 'original run is a supported publishing entry')
   assert.equal(run.status, 'completed', 'original publishing run must have stopped')
   assert.equal(run.repository.full_name, repository)
   assert.equal(run.head_repository.full_name, repository)

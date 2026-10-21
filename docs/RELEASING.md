@@ -53,10 +53,26 @@ npm dist-tag ls dsh-piano-nav --registry=https://registry.npmjs.org
 核对远端 integrity 和本地清单一致，下载后再做安装/加载验证，记录源提交和实际日期。
 成功后才将 CHANGELOG 的 release preparation 改为真实发布日期。
 
-## 免逐次网页验证：GitHub Actions OIDC
+## 合入后自动构建与发布：GitHub Actions OIDC
 
-仓库提供 `.github/workflows/publish.yml`，手动启动发布指定的稳定版本和完整 master
-提交 SHA。工作流检查仓库、分支、提交、版本和注册表状态；构建并安装验证 tarball，
+`verify.yml` 在 PR、`master` push 和手动启动时执行完整验证。`master` 的四项检查
+全部成功后，`publish.yml` 收到 `workflow_run` 完成事件，使用该次 CI 的源 SHA 与
+`release-intent` 附件核对原 push 的 `before/after` 和 package.json：
+
+- 稳定版本号提升才进入发布；版本不变时跳过，不给发布 job 申请 OIDC 权限。降级、
+  预发布、强推、初建分支、来源错配和未通过的 CI 均不授权自动发布。
+- 比较整个原 push 的版本变化，覆盖一次推送里先升版本、再追加文档的情况。后续
+  工作流不使用可能已经推进的默认分支 SHA 代替验证源；仍要求发布源为当前 master
+  HEAD。若验证期间主线推进，停止旧版本意图，检查当前主线后使用手动入口。
+- 全部入口与 `recover-release.yml` 共享发布并发组。失败或非 push 的 CI 完成事件
+  使用独立并发组，不替换已排队的发布。
+
+正常发版只需在 PR 中提升 package.json 稳定版本，准备同版本 CHANGELOG，并通过
+审核后合入。首次启用的本 PR 准备 1.3.6；PR 合入前和注册表核验成功前均不表示
+该版本已公开。合入后的实际自动触发和 OIDC 发布需以 Actions 与 npm 结果验收。
+
+保留 `.github/workflows/publish.yml` 的手动入口，可指定稳定版本和完整 master
+提交 SHA。两种入口均检查仓库、分支、提交、版本和注册表状态；构建并安装验证 tarball，
 核对字节未变后才上传该文件，随后用全新缓存下载并执行同一安装/加载检查。
 已有版本和网络/服务端错误均停止，不自动覆盖或重发。`pnpm test:package` 也接受
 `PIANO_PACKAGE_TARBALL` 指向下载包，避免核验时重新打一个不同的包。
@@ -73,7 +89,7 @@ npm dist-tag ls dsh-piano-nav --registry=https://registry.npmjs.org
 | Allowed actions | 允许直接 `npm publish`，仅允许 `npm stage publish` 不足以运行本流程 |
 
 发布在 GitHub-hosted runner 上使用 `id-token: write`；Node24，npm至少11.5.1。
-不需要长期 npm 写 token，也不用关闭账号2FA。每次后续授权发布时，在 GitHub Actions
+不需要长期 npm 写 token，也不用关闭账号2FA。正常版本变更合入后自动发布，无需再次填写输入；需要手动补发未公开版本时，在 GitHub Actions
 选择 `Publish verified npm package`，从 `master` 启动并填写预期版本与40位提交 SHA。
 默认分支变更或版本已存在会在上传前失败，需重新核对本次发布意图。
 
@@ -126,7 +142,8 @@ GitHub Release 创建成功也不等于用户市场页面已立即更新。
 | `commit` | 原发布源的完整40位 SHA，不填当前 master 来代替 |
 | `run_id` | 原 `publish.yml` 的运行 ID，需保有 `npm-release-evidence` 附件 |
 
-恢复会核对原运行的仓库、工作流、分支、源提交和版本；下载该次冻结包及清单，
+恢复接受 `publish.yml` 的手动 `workflow_dispatch` 或自动 `workflow_run` 原发布记录，
+核对原运行的仓库、工作流、分支、源提交和版本；下载该次冻结包及清单，
 从注册表重新下载并对照字节，使用原版本的宿主依赖再次执行安装/加载契约。
 它不重新构建发布包，也不申请 npm OIDC 权限。过期或缺失的原CI附件需人工处理，
 不能用当前源码重新打包来代替已发布字节。
