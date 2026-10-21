@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Expand folded process groups and navigate to their first member in one click
+  or keyboard activation, revealing native hidden process contents before landing.
+- Preserve explicit process expansion while browsing the rail with the mouse
+  wheel, including groups longer than the visible window.
+
 ## 1.3.5 — 2026-10-20
 
 - Recover question/answer navigation when the host publishes loaded Turn metadata

@@ -43,6 +43,14 @@ try {
         }, { fixture, theme })
         await page.addScriptTag({ content: bundle })
         await page.clock.pauseAt(new Date('2026-01-01T00:00:10Z')); await page.clock.runFor(160)
+        // ResizeObserver delivery follows native rendering, outside the mocked
+        // rAF clock. Finish that initial lifecycle before measuring pointer-only
+        // work, then flush the render scheduled by the strip's observer.
+        await page.evaluate(() => new Promise(resolve => {
+          const observer = new ResizeObserver(() => { observer.disconnect(); resolve() })
+          observer.observe(document.querySelector('[data-chat-flow]'))
+        }))
+        await page.clock.runFor(32)
         const geometry = await page.evaluate(() => {
           const rail = document.querySelector('.smcp-unified'), parent = rail.offsetParent.getBoundingClientRect()
           // Positioning contract uses the containing block's cached outer origin.

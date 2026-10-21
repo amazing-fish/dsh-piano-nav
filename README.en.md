@@ -50,7 +50,7 @@ Ordinary tool logs, edits, reads, and reasoning do not become separate keys. Str
 ## Independently developed capabilities
 
 - **One full-history rail:** combines the outline and loaded segments. Successful takeover shows Piano; unsupported conditions restore native navigation.
-- **On-demand process expansion:** activate a group to show its members, then a member to navigate. Revealable native process wrappers and question cards open before landing. Passive scrolling and streaming preserve explicit expansion.
+- **On-demand process expansion:** activate a group to show its members and navigate to its first member. Revealable native process wrappers and question cards open before landing. Rail wheel browsing, transcript scrolling and streaming preserve explicit expansion.
 - **Continuous pointer wave:** movement within a key updates the wave too. Pointer frames update visible keys and the necessary preview; no persistent loop remains when the pointer stops.
 - **Fixed display window:** 20 keys by default, with stable spacing and wheel/keyboard access to available entries throughout the conversation.
 - **Everyday interaction:** plain-text previews, reader highlighting, stable node reuse, themes, keyboard access, and reduced-motion support.
@@ -62,9 +62,9 @@ Ordinary tool logs, edits, reads, and reasoning do not become separate keys. Str
 | --- | --- |
 | Move along the rail | Continuous wave and the nearest key's preview |
 | Click / `Enter` / `Space` | Navigate or delegate loading to the native owner |
-| First activation of a folded group | Expand it and retire the previous group |
+| First activation of a folded group | Expand it, navigate to its first member and retire the previous group |
 | Activate members in the same process group | Navigate while retaining expansion; other key kinds retire it |
-| Wheel over the rail | Browse without scrolling the transcript; retire expansion |
+| Wheel over the rail | Browse without scrolling the transcript; retain expansion |
 | `↑` / `↓`, `PageUp` / `PageDown` | Move selection and adjust the window |
 | `Home` / `End` | Select the first/last entry in the conversation list |
 | `Escape` | Close preview, retire expansion, and cancel navigation intent |
