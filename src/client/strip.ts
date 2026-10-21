@@ -1022,7 +1022,10 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   const syncNativeSurfaceObserver = (): void => {
     const next = [...nativeScope.querySelectorAll<HTMLElement>('nav,[role="navigation"]')]
       .find(element => !flow.contains(element) && element.getAttribute('aria-label') === nativeT('chat.turnNavigation.label')) ?? null
-    const nextParent = next?.parentElement ?? null
+    // Keep the connected slot observed while its navigator is absent. Otherwise
+    // a later insertion below the scrollport has no observer to wake Piano.
+    const nextParent = next?.parentElement ?? (nativeSurfaceParent !== null
+      && nativeScope.contains(nativeSurfaceParent) ? nativeSurfaceParent : null)
     // The same nav can be re-slotted under a new wrapper; its parent must be
     // observed too, or a later in-slot replacement goes unseen.
     if (next === nativeSurface && nextParent === nativeSurfaceParent) return
@@ -1031,8 +1034,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     nativeSurfaceParent = nextParent
     if (nativeSurface !== null) {
       nativeStructureDom.observe(nativeSurface, { childList: true, subtree: true })
-      if (nextParent !== null && nextParent !== nativeScope) nativeStructureDom.observe(nextParent, { childList: true })
     }
+    if (nextParent !== null && nextParent !== nativeScope) nativeStructureDom.observe(nextParent, { childList: true })
   }
   const structureDom = new MutationObserver(records => {
     if (!records.some(childListChangesNavigation)) return
@@ -1044,6 +1047,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   // Markdown/token childList mutation inside a message body.
   structureDom.observe(flow, { childList: true })
   structureDom.observe(nativeScope, { childList: true })
+  // Official ChatView places TurnNavigator beside the flow in this nested
+  // container. Watch it even before the first nav or after the old one unmounts.
+  structureDom.observe(local, { childList: true })
   syncNativeSurfaceObserver()
   const attributeDom = new MutationObserver(records => {
     let flags = 0
