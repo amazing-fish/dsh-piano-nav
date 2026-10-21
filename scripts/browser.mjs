@@ -92,6 +92,28 @@ try {
     assert.ok((await page.evaluate(() => window.fixture.state())).saved)
     await page.screenshot({ path: 'test-results/single-piano-history.png', fullPage: true })
   })
+  await test('A to B to A restores Piano on each loaded conversation without composer input', async () => {
+    for (const id of ['s2', 's1', 's2', 's1']) {
+      await page.evaluate(() => window.fixture.switchSession())
+      await page.waitForFunction(id => window.__smcpDebug?.sessionId === id && window.__smcpDebug?.mode === 'piano', id)
+      assert.equal(await rail().count(), 1)
+      assert.equal(await page.locator('nav[aria-label="Turn navigation"]').getAttribute('aria-hidden'), 'true')
+    }
+  })
+  await test('a returning native navigator under the real ChatView container wakes Piano without input', async () => {
+    await page.evaluate(() => {
+      window.heldNative = document.querySelector('nav[aria-label="Turn navigation"]')
+      window.heldNativeParent = window.heldNative.parentElement
+      window.heldNative.remove()
+    })
+    await page.waitForFunction(() => window.__smcpDebug?.mode === 'native-fallback')
+    assert.equal(await rail().getAttribute('hidden'), '')
+    await page.evaluate(() => window.heldNativeParent.prepend(window.heldNative))
+    await page.waitForFunction(() => window.__smcpDebug?.mode === 'piano')
+    assert.equal(await rail().count(), 1)
+    assert.equal(await page.locator('nav[aria-label="Turn navigation"]').getAttribute('aria-hidden'), 'true')
+    await page.screenshot({ path: 'test-results/session-return-piano.png', fullPage: true })
+  })
   await test('latest target wins when multiple history jumps finish together', async () => {
     await selectTurn(2); await selectTurn(3)
     await page.evaluate(() => window.fixture.settle()); await idle(); await page.waitForTimeout(650)

@@ -1,6 +1,13 @@
 # Changelog
 
-## 1.3.6 — release preparation
+## 1.3.7 — release preparation
+
+- Recover Piano without composer input when the native navigator returns beneath
+  the ChatView container after conversation switching. Keep observing a connected
+  empty navigation slot until its surface reappears; preserve native fallback
+  while unavailable and release the observers on unmount.
+
+## 1.3.6 — 2026-10-21
 
 - Run full verification on master pushes and automatically publish stable version
   increases after the exact source passes CI. Keep OIDC, manual fallback, registry

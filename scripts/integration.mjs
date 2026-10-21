@@ -207,6 +207,35 @@ await check('native navigation replacement is detected and re-owned without doub
   assert.equal(native.getAttribute('aria-hidden'), 'true')
 })
 
+await check('a native navigator returning under the ChatView local boundary recovers without input', async () => {
+  // 0.1.7 ChatView puts TurnNavigator beside the flow, below the scrollport.
+  // The nav can be absent for a commit while cached conversation data settles.
+  native.remove()
+  await frame()
+  assert.equal(piano().hidden, true)
+  assert.equal(native.style.visibility, '')
+  local.prepend(native)
+  await frame()
+  assert.equal(piano().hidden, false, 'reattachment alone must recover Piano; no input/resize/source event')
+  assert.equal(native.getAttribute('aria-hidden'), 'true')
+  assert.equal(document.querySelectorAll('.smcp-unified').length, 1)
+})
+
+await check('an empty nested native slot stays observed until its navigator returns', async () => {
+  const slot = document.createElement('div')
+  native.replaceWith(slot); slot.append(native)
+  await frame()
+  native.remove()
+  await frame()
+  assert.equal(piano().hidden, true)
+  slot.append(native)
+  await frame()
+  assert.equal(piano().hidden, false, 'empty slots must retain their structural observer')
+  assert.equal(native.getAttribute('aria-hidden'), 'true')
+  slot.replaceWith(native)
+  await frame()
+})
+
 await check('native button replacement is reindexed without observing transcript subtrees', async () => {
   const original = nativeButton(4)
   const replacement = original.cloneNode(true)
@@ -493,6 +522,21 @@ await check('same-ID binding replacement rebinds exactly once', async () => {
   binding = { session }; listState.emit(); await frame()
   assert.equal(chat.listeners.size, 1)
   assert.equal(outline.listeners.size, 1)
+})
+await check('hiding and revealing a loaded ChatView remounts one Piano without input', async () => {
+  const oldPiano = piano()
+  local.hidden = true
+  await frame()
+  assert.equal(piano(), null)
+  assert.equal(chat.listeners.size, 0)
+  assert.equal(native.style.visibility, '')
+  local.hidden = false
+  await frame()
+  assert.equal(piano().hidden, false)
+  assert.notEqual(piano(), oldPiano)
+  assert.equal(document.querySelectorAll('.smcp-unified').length, 1)
+  assert.equal(chat.listeners.size, 1)
+  assert.equal(native.getAttribute('aria-hidden'), 'true')
 })
 await check('session disappearance cannot publish stale content', async () => {
   probeStop(); chat.emit(); await frame()

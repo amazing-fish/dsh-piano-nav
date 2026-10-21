@@ -95,7 +95,7 @@ const dispose = attachKeyStrip(ctx, (() => 'Piano conversation navigation') as a
   enable(value: boolean) { settings.set({ ...settings.getSnapshot(), enabled: value }) },
   remount() { version++; render() },
   switchSession() {
-    id = 's2'; binding = { session: { ...session, sessionId: id } }; saved = null
+    id = id === 's1' ? 's2' : 's1'; binding = { session: { ...session, sessionId: id } }; saved = null
     selection.set({ ...selection.getSnapshot(), current: id }); render()
     activeSession.set(id)
   },
