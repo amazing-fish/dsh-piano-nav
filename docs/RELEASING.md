@@ -68,8 +68,8 @@ npm dist-tag ls dsh-piano-nav --registry=https://registry.npmjs.org
   使用独立并发组，不替换已排队的发布。
 
 正常发版只需在 PR 中提升 package.json 稳定版本，准备同版本 CHANGELOG，并通过
-审核后合入。首次启用的本 PR 准备 1.3.6；PR 合入前和注册表核验成功前均不表示
-该版本已公开。合入后的实际自动触发和 OIDC 发布需以 Actions 与 npm 结果验收。
+审核后合入。该链路已在 1.3.6 真实自动发布中完成 CI、OIDC、下载包与 Release 核验；
+后续版本仍须逐次检查 Actions 与 npm 结果，PR 准备或合入不等于注册表已经公开。
 
 保留 `.github/workflows/publish.yml` 的手动入口，可指定稳定版本和完整 master
 提交 SHA。两种入口均检查仓库、分支、提交、版本和注册表状态；构建并安装验证 tarball，
