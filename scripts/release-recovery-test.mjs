@@ -76,6 +76,10 @@ const env = { GITHUB_REPOSITORY: 'amazing-fish/dsh-piano-nav', GITHUB_REF: 'refs
 const run = { id: 123, path: '.github/workflows/publish.yml', event: 'workflow_dispatch', status: 'completed',
   repository: { full_name: env.GITHUB_REPOSITORY }, head_repository: { full_name: env.GITHUB_REPOSITORY }, head_branch: 'master', head_sha: source }
 const manifest = { name: expected.name, version: expected.version, repository: { url: `git+https://github.com/${env.GITHUB_REPOSITORY}.git` } }
+assert.doesNotThrow(() => validateRecovery(env, { ...run, event: 'workflow_run' }, source, manifest))
+for (const event of ['push', 'pull_request', 'pull_request_target']) {
+  assert.throws(() => validateRecovery(env, { ...run, event }, source, manifest))
+}
 validateRecovery(env, run, source, manifest)
 for (const change of [{ RELEASE_RUN_ID: '124' }, { RELEASE_COMMIT: 'master' }, { RELEASE_VERSION: '1.3.6' }, { GITHUB_REF: 'refs/heads/test' }]) {
   assert.throws(() => validateRecovery({ ...env, ...change }, run, source, manifest))

@@ -1,6 +1,10 @@
 name: Publish verified npm package
 
 on:
+  workflow_run:
+    workflows: [Navigator compatibility]
+    branches: [master]
+    types: [completed]
   workflow_dispatch:
     inputs:
       version:
@@ -16,22 +20,58 @@ permissions:
   contents: read
 
 concurrency:
-  group: npm-publish
+  # Ignore unrelated/failed completions without replacing a queued release.
+  group: ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository) && 'npm-publish' || format('ignored-publish-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
+  resolve:
+    if: >-
+      github.repository == 'amazing-fish/dsh-piano-nav' && github.ref == 'refs/heads/master' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      publish: ${{ steps.release.outputs.publish }}
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.commit }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        if: github.event_name == 'workflow_run'
+        with:
+          name: release-intent
+          path: artifacts
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - id: release
+        run: node scripts/release-trigger.mjs resolve
+
   publish:
-    if: github.repository == 'amazing-fish/dsh-piano-nav' && github.ref == 'refs/heads/master'
+    needs: resolve
+    if: needs.resolve.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
     env:
-      RELEASE_VERSION: ${{ inputs.version }}
-      RELEASE_COMMIT: ${{ inputs.commit }}
+      RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+      RELEASE_COMMIT: ${{ needs.resolve.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -60,17 +100,17 @@ jobs:
             artifacts/*.tgz
 
   github-release:
-    needs: publish
+    needs: [resolve, publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
-      RELEASE_VERSION: ${{ inputs.version }}
-      RELEASE_COMMIT: ${{ inputs.commit }}
+      RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+      RELEASE_COMMIT: ${{ needs.resolve.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.commit }}
+          ref: ${{ needs.resolve.outputs.commit }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

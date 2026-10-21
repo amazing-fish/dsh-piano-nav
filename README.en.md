@@ -47,6 +47,8 @@ For migration, remove the old scoped package or local link's loading entry befor
 
 Ordinary tool logs, edits, reads, and reasoning do not become separate keys. Structured questions are an explicit exception. Unloaded turns remain real outline entries until actual segments become available.
 
+Merges to master run full verification. A stable version increase publishes to npm after CI passes, verifies the downloaded package and creates a GitHub Release. Other commits only run verification. See the [release guide](docs/RELEASING.md).
+
 ## Independently developed capabilities
 
 - **One full-history rail:** combines the outline and loaded segments. Successful takeover shows Piano; unsupported conditions restore native navigation.

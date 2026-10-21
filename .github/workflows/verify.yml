@@ -1,6 +1,8 @@
 name: Navigator compatibility
 
 on:
+  push:
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
@@ -12,17 +14,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Isolated contracts
         run: |
+          node scripts/release-trigger-test.mjs
           node scripts/release-preflight-test.mjs
           node scripts/release-recovery-test.mjs
           node --experimental-strip-types scripts/chat-source.mjs
           node --experimental-strip-types scripts/navigation-contract.mjs
           node --experimental-strip-types scripts/full-history-contract.mjs
           node --experimental-strip-types scripts/semantic-contract.mjs
+      - name: Record the original master push release intent
+        if: github.event_name == 'push'
+        run: node scripts/release-trigger.mjs prepare
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: release-intent
+          path: artifacts/release-intent.json
+          if-no-files-found: error
 
   build-and-integration:
     strategy:

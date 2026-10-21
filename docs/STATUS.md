@@ -1,6 +1,6 @@
 # 当前交付状态
 
-核验日期：2026-10-21（UTC+8）。仓库 amazing-fish/dsh-piano-nav；npm 1.3.5 已于2026-10-20公开，发布源 ba7172d5adb3fa69b7b9f9725065e4b91e760a2c；GitHub v1.3.5 已由 PR #66 的恢复流程公开。PR #67 已合入，通用恢复于2026-10-21通过真实 runner 验收，#65 已完成；当前待验收的产品问题为 #57 真实长会话问答。
+核验日期：2026-10-21（UTC+8）。仓库 amazing-fish/dsh-piano-nav；npm 1.3.5 已于2026-10-20公开，发布源 ba7172d5adb3fa69b7b9f9725065e4b91e760a2c；GitHub v1.3.5 已由 PR #66 的恢复流程公开。PR #67 已合入，通用恢复于2026-10-21通过真实 runner 验收，#65 已完成；PR #69 已合入为 5a85ff9，灰键首条定位与滚轮展开保留已交付源码，尚未进入公开 npm 包。#70 正在补齐合入后自动 CI/版本发布并准备 1.3.6；当前 npm latest 仍为 1.3.5，#57 真实长会话问答继续待验收。
 
 | Issue | 状态与证据 |
 | --- | --- |
@@ -21,6 +21,8 @@
 | #57 | PR #63 已合入并发布 npm 1.3.5；修复独立轮次发布被忽略的问答恢复路径，补充计数诊断并保留流式节流。CI、Codex 和合成会话回归通过；真实长会话验收继续开放。 |
 | #58 | PR #61 已合入并包含于 npm 1.3.4；用户确认市场可更新且未发现问题，已关闭。 |
 | #60 | 已关闭；1.3.4 首次真实 OIDC 发布、下载包核验和 GitHub Release 全部成功，账号 2FA 保留。 |
+| #68 | PR #69 已合入，树与已评审版本一致；首击定位、滚轮保留、Windows/Linux CI 与浏览器回归通过，准备纳入 1.3.6；用户安装后体验待复验。 |
+| #70 | 补齐 master push CI、验证成功后的稳定版本自动发布与恢复兼容，准备 1.3.6。尚待当前 PR 审核、合入及真实自动发布核验。 |
 | #65 | 已关闭；PR #67 合入为 117cefd。元数据/下载传播重试与通用恢复已交付；[真实恢复运行39466178368](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39466178368)成功验证原CI包、注册表字节及安装/加载，保留既有Release和附件。草稿/中断恢复及错误拒绝保留离线回归证据，未重发npm。 |
 
 仓库已改名，原 Issue/PR 历史保留。原 Awesome DSH Plugin
@@ -29,7 +31,7 @@
 [db0a7f4](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/commit/db0a7f4f3b1ab376c8d67739fa537fbf68599376)。
 这是上游源码条目已接受的证据；公开站点部署尚未核验。
 
-1.3.5 的公开产物与注册表核验见 [GitHub Release](https://github.com/amazing-fish/dsh-piano-nav/releases/tag/v1.3.5)及其 `registry-verification.json` 附件；恢复运行见 [39385448813](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39385448813)。PR #54 已同步当前主线，补齐 [1.3.2 历史归档](releases/1.3.2.md)；历史日期、源提交和制品摘要保持原记录。PR 本身的是否合入以 GitHub 为准。
+1.3.5 的公开产物与注册表核验见 [GitHub Release](https://github.com/amazing-fish/dsh-piano-nav/releases/tag/v1.3.5)及其 `registry-verification.json` 附件；恢复运行见 [39385448813](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39385448813)。PR #54 已合入，补齐 [1.3.2 历史归档](releases/1.3.2.md)；历史日期、源提交和制品摘要保持原记录。归档内容已核对合入树。
 
 历史1.3.3发布源、注册表时间、产物摘要与下载/安装检查见
 [1.3.3 发布记录](releases/1.3.3.md)及[机器可读记录](releases/1.3.3.json)。
