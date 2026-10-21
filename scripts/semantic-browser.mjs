@@ -245,7 +245,8 @@ try {
     await activate(group)
     await page.waitForFunction(() => {
       const row = document.querySelector('[data-chat-anchor-key="p2"]')
-      return !row.hasAttribute('hidden') && Math.abs(row.getBoundingClientRect().top - row.closest('[data-conversation-scroll]').getBoundingClientRect().top - 24) < 3
+      return document.querySelectorAll('.smcp-bar[data-kind="output"][data-turn="2"]').length === 3
+        && !row.hasAttribute('hidden') && Math.abs(row.getBoundingClientRect().top - row.closest('[data-conversation-scroll]').getBoundingClientRect().top - 24) < 3
     })
     assert.equal(await key('output').count(), 3)
     const rail = page.locator('.smcp-unified'), box = await rail.boundingBox()
