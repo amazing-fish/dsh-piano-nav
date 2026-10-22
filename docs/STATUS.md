@@ -1,6 +1,6 @@
 # 当前交付状态
 
-核验日期：2026-10-21（UTC+8）。仓库 amazing-fish/dsh-piano-nav；npm 1.3.6 已于2026-10-21公开，发布源 313510b66aa158551a56a4b0a37d715abaf1c348；[自动发布39529048603](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39529048603)完成 OIDC、注册表下载/安装核验及 [v1.3.6 Release](https://github.com/amazing-fish/dsh-piano-nav/releases/tag/v1.3.6)。当前 #72 / PR #73 修复切回已加载对话后 Piano 不恢复，准备 1.3.7；尚未合入、未发布。#57 真实长会话问答、#68 灰键现场体验仍待设备复验。
+核验日期：2026-10-22（UTC+8）。仓库 amazing-fish/dsh-piano-nav；npm latest 仍为 1.3.7，注册表实际发布时间为 2026-10-21 15:32:46（UTC+8），发布源 f195be3c399e57618e443711da4d2836394ce3d0；[自动发布39562517097](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39562517097)完成核验并创建 [v1.3.7 Release](https://github.com/amazing-fish/dsh-piano-nav/releases/tag/v1.3.7)。PR #75 的插件内三键图标已合入，但版本未变，[该次运行39728379398](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39728379398)跳过发布。本分支按 #76 准备 1.4.0，尚未合入或发布；合入后的新版本仍须逐次核验 npm 和 Release。#57 真实长会话问答、#68 灰键现场体验仍待设备复验。
 
 | Issue | 状态与证据 |
 | --- | --- |
@@ -22,8 +22,10 @@
 | #58 | PR #61 已合入并包含于 npm 1.3.4；用户确认市场可更新且未发现问题，已关闭。 |
 | #60 | 已关闭；1.3.4 首次真实 OIDC 发布、下载包核验和 GitHub Release 全部成功，账号 2FA 保留。 |
 | #68 | PR #69 已合入并进入公开 npm 1.3.6；首击定位、滚轮保留、Windows/Linux CI 与浏览器回归通过；用户安装后体验待复验。 |
-| #70 | PR #71 已合入；master push CI、稳定版本自动发布、注册表下载/安装与 GitHub Release 已真实运行成功，npm latest=1.3.6（2026-10-21 核验）。市场说明受上游快照和缓存刷新影响，单独验收。 |
-| #72 | PR #73：补齐 ChatView 内层容器与空导航 slot 观察，恢复无需输入的 Piano 接管；新增旧失败/新通过回归和原生 ChatView 浏览器检查，准备 1.3.7，尚待审查与合入。 |
+| #70 | PR #71 已合入；master push CI、稳定版本自动发布、注册表下载/安装与 GitHub Release 已在 1.3.6、1.3.7 运行成功；当前公开版本见首部。市场说明受上游快照和缓存刷新影响，单独验收。 |
+| #72 | PR #73 已合入并随 npm 1.3.7 公开：补齐 ChatView 内层容器与空导航 slot 观察，恢复无需输入的 Piano 接管；有旧失败/新通过回归和原生 ChatView 浏览器证据，用户现场验收单独记录。 |
+| #74 | PR #75 已合入：插件设置页和中英 README 使用三键图标，SVG/PNG、来源记录与客户端产物已同步；此前未升版本，npm 1.3.7 不包含该图标，随 #76 的 1.4.0 发布准备交付。 |
+| #76 | 按用户要求准备稳定版本 1.4.0，同步版本说明和客户端版本身份；当前未合入、未发布，不能视为市场已收录或更新说明已刷新。 |
 | #65 | 已关闭；PR #67 合入为 117cefd。元数据/下载传播重试与通用恢复已交付；[真实恢复运行39466178368](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39466178368)成功验证原CI包、注册表字节及安装/加载，保留既有Release和附件。草稿/中断恢复及错误拒绝保留离线回归证据，未重发npm。 |
 
 仓库已改名，原 Issue/PR 历史保留。原 Awesome DSH Plugin

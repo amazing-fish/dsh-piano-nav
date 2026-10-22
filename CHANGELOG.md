@@ -1,6 +1,14 @@
 # Changelog
 
-## 1.3.7 — release preparation
+## 1.4.0 — release preparation
+
+- Adopt the original three-key Piano mark in the plugin settings page, with
+  staggered dark keys and a blue accent. The PNG is embedded in the client
+  bundle, so the installed plugin needs no separate image download.
+- Share the same mark in the Chinese and English README, with an editable SVG
+  source and a reproducible `pnpm build:icon` command.
+
+## 1.3.7 — 2026-10-21
 
 - Recover Piano without composer input when the native navigator returns beneath
   the ChatView container after conversation switching. Keep observing a connected
