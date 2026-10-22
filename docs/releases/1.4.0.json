@@ -1,0 +1,42 @@
+{
+  "name": "dsh-piano-nav",
+  "version": "1.4.0",
+  "latest": "1.4.0",
+  "sourceCommit": "729f803261fcfbc86b48d45961c8d726cf66f9cb",
+  "publishedAt": "2026-10-22T06:26:28.442Z",
+  "sha256": "e12106dd7d44c350304b3117a679d478eeb43ded0e072a1dee779ed18d34e550",
+  "integrity": "sha512-3x8Nxt+/yd8DN8LexVdxXz0Z7PN/YFxEfY5F2tql3G1nAyfQIwBP53TOt1uFx3hLgJuW6XB4/icEFRQGG+HmCQ==",
+  "size": 61844,
+  "files": 12,
+  "byteIdenticalToLocal": true,
+  "payloadFilesIdenticalToLocal": true,
+  "tarball": "https://registry.npmjs.org/dsh-piano-nav/-/dsh-piano-nav-1.4.0.tgz",
+  "verifiedAt": "2026-10-22T06:34:23.450387+00:00",
+  "byteIdentical": true,
+  "sourceTree": "994ffcca519938998475cc541fe81280f123f10b",
+  "reviewedHead": "1109d1d9631234d1838002eb1d60916b593c4311",
+  "productMerge": "729f803261fcfbc86b48d45961c8d726cf66f9cb",
+  "shasum": "47768c4d8ad57210c33f8cb0a332a94d7cfc2045",
+  "repository": "git+https://github.com/amazing-fish/dsh-piano-nav.git",
+  "publishRun": "https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39733569120",
+  "recoveryRun": "https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39734552639",
+  "release": "https://github.com/amazing-fish/dsh-piano-nav/releases/tag/v1.4.0",
+  "checks": [
+    "registry identity/latest",
+    "sha512 integrity and sha1",
+    "registry download byte-identical to locally tested archive",
+    "downloaded tarball offline install",
+    "host import",
+    "client loader",
+    "settings identity v1.4.0",
+    "embedded new icon",
+    "version-specific release notes"
+  ],
+  "environment": {
+    "node": "24.19.0",
+    "npm": "11.9.0",
+    "pnpm": "10.17.1",
+    "peers": "provided by validated development environment",
+    "host": "synthetic settings transport, not a user DSH session"
+  }
+}
