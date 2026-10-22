@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.4.0 — release preparation
+## 1.4.0 — 2026-10-22
 
 - Adopt the original three-key Piano mark in the plugin settings page, with
   staggered dark keys and a blue accent. The PNG is embedded in the client

@@ -1,6 +1,6 @@
 # 当前交付状态
 
-核验日期：2026-10-22（UTC+8）。仓库 amazing-fish/dsh-piano-nav；npm latest 仍为 1.3.7，注册表实际发布时间为 2026-10-21 15:32:46（UTC+8），发布源 f195be3c399e57618e443711da4d2836394ce3d0；[自动发布39562517097](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39562517097)完成核验并创建 [v1.3.7 Release](https://github.com/amazing-fish/dsh-piano-nav/releases/tag/v1.3.7)。PR #75 的插件内三键图标已合入，但版本未变，[该次运行39728379398](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39728379398)跳过发布。本分支按 #76 准备 1.4.0，尚未合入或发布；合入后的新版本仍须逐次核验 npm 和 Release。#57 真实长会话问答、#68 灰键现场体验仍待设备复验。
+核验日期：2026-10-22（UTC+8）。npm latest=1.4.0，实际发布时间为 2026-10-22 14:26:28（UTC+8）。PR #77 已合入为 `729f803261fcfbc86b48d45961c8d726cf66f9cb`，发布源树与受测树一致。原自动发布的上传成功，但注册表短期核验超时；待公开后，[恢复运行39734552639](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39734552639)核验原制品和下载包，并公开 [v1.4.0 Release](https://github.com/amazing-fish/dsh-piano-nav/releases/tag/v1.4.0)。本轮下载包也完成字节、安装/加载、版本身份和内嵌新图标检查。完整事实见 [1.4.0 发布记录](releases/1.4.0.md)。市场说明刷新与 #57 / #68 的现场验收仍单独核对。
 
 | Issue | 状态与证据 |
 | --- | --- |
@@ -24,8 +24,8 @@
 | #68 | PR #69 已合入并进入公开 npm 1.3.6；首击定位、滚轮保留、Windows/Linux CI 与浏览器回归通过；用户安装后体验待复验。 |
 | #70 | PR #71 已合入；master push CI、稳定版本自动发布、注册表下载/安装与 GitHub Release 已在 1.3.6、1.3.7 运行成功；当前公开版本见首部。市场说明受上游快照和缓存刷新影响，单独验收。 |
 | #72 | PR #73 已合入并随 npm 1.3.7 公开：补齐 ChatView 内层容器与空导航 slot 观察，恢复无需输入的 Piano 接管；有旧失败/新通过回归和原生 ChatView 浏览器证据，用户现场验收单独记录。 |
-| #74 | PR #75 已合入：插件设置页和中英 README 使用三键图标，SVG/PNG、来源记录与客户端产物已同步；此前未升版本，npm 1.3.7 不包含该图标，随 #76 的 1.4.0 发布准备交付。 |
-| #76 | 按用户要求准备稳定版本 1.4.0，同步版本说明和客户端版本身份；当前未合入、未发布，不能视为市场已收录或更新说明已刷新。 |
+| #74 | PR #75 已合入：插件设置页和中英 README 使用三键图标，SVG/PNG、来源记录与客户端产物已同步；此前 npm 1.3.7 不包含该图标，现已随 #76 的 1.4.0 公开并通过下载包核验。 |
+| #76 | PR #77 已合入并发布稳定版本 1.4.0；npm latest、下载字节、安装/加载和 GitHub Release 已核验。原上传与传播超时、Release 恢复分别留有记录；市场界面刷新单独验收。 |
 | #65 | 已关闭；PR #67 合入为 117cefd。元数据/下载传播重试与通用恢复已交付；[真实恢复运行39466178368](https://github.com/amazing-fish/dsh-piano-nav/actions/runs/39466178368)成功验证原CI包、注册表字节及安装/加载，保留既有Release和附件。草稿/中断恢复及错误拒绝保留离线回归证据，未重发npm。 |
 
 仓库已改名，原 Issue/PR 历史保留。原 Awesome DSH Plugin
