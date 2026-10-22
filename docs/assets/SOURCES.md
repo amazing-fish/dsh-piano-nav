@@ -1,5 +1,17 @@
 # README media
 
+- `../../assets/icon.svg` and `../../assets/icon.png`: original three-key mark
+  created for this project at the user's request on 2026-10-22. It adapts the
+  three staggered vertical keys and blue accent from the release-map HTML's
+  CSS mark, replacing the inherited black-and-white icon. The pale tile keeps
+  the dark keys legible on both light and dark host surfaces. SVG is the
+  editable source; `node scripts/build-icon.mjs` regenerates the 512×512 PNG
+  with built-in Node.js APIs. The settings page keeps its existing PNG import
+  and data-URL bundling path. Existing upstream license notices remain intact.
+- `piano-icon-comparison.png`: a 1200×800 browser-rendered asset comparison
+  for Issue #74. It shows the inherited icon from `f195be3` beside the new
+  three-key icon, including 16/24/48/96px light and dark surface samples.
+  The surrounding layout is a presentation fixture, not a client screenshot.
 - `semantic-steps.gif`: actual plugin/native-component states captured in
   Chromium from the source tree at `7c2cf798b0a8270a5aa39d8166481bcc3feabb76`.
   It cycles through input, folded process, expanded process, question, answer,
@@ -21,8 +33,8 @@
   `7c2cf798b0a8270a5aa39d8166481bcc3feabb76`. The screenshot shows the current
   public package identity; it does not establish npm publication status.
 
-These are browser captures of product code with synthetic data, not generated
-mockups or user conversation captures. Original icon attribution remains in
+The feature demonstrations are browser captures of product code with synthetic
+data, not user conversation captures. Original icon attribution remains in
 [NOTICE](../../NOTICE.md).
 
 ## 1.3.1 settings captures
