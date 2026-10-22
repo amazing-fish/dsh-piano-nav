@@ -1,5 +1,7 @@
 # DSH Piano Navigator
 
+<img src="./assets/icon.svg" alt="DSH Piano Navigator three-key mark" width="64" height="64">
+
 **A semantic rail for previewing and navigating long agent conversations.**
 
 [中文](https://github.com/amazing-fish/dsh-piano-nav/blob/master/README.md) · [Usage](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/USAGE.md) · [Documentation](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/README.md) · [Issues](https://github.com/amazing-fish/dsh-piano-nav/issues)

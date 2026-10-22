@@ -1,5 +1,7 @@
 # DSH Piano Navigator
 
+<img src="./assets/icon.svg" alt="DSH Piano Navigator 三键标志" width="64" height="64">
+
 **把长 Agent 会话变成一条可预览、可定位的语义导航轨道。**
 
 [English](https://github.com/amazing-fish/dsh-piano-nav/blob/master/README.en.md) · [使用指南](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/USAGE.md) · [文档](https://github.com/amazing-fish/dsh-piano-nav/blob/master/docs/README.md) · [反馈](https://github.com/amazing-fish/dsh-piano-nav/issues)

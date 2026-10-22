@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">DSH Piano Navigator — three piano keys</title>
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="#f3f6ff"/>
+  <rect x="12" y="12" width="10" height="40" rx="2.5" fill="#182538"/>
+  <rect x="27" y="12" width="10" height="28" rx="2.5" fill="#182538"/>
+  <rect x="42" y="12" width="10" height="34" rx="2.5" fill="#315ee9"/>
+</svg>
