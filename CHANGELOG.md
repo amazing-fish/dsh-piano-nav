@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Recover idle conversations when the native navigator first appears inside an
+  existing nested slot. Observe descendant structure only while the surface is
+  absent; resume the existing narrow observers after discovery, without polling
+  or requiring composer input.
+
 ## 1.4.0 — 2026-10-22
 
 - Adopt the original three-key Piano mark in the plugin settings page, with

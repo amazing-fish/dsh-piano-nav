@@ -101,6 +101,12 @@ function refresh() {
   chat.set({ order, nodes: nodeStore, navigation: { items: () => navigation } })
 }
 refresh()
+// #79: the TurnNavigator's nested slot already exists when Piano mounts,
+// but the idle conversation has not published a native surface yet.
+const initialSlot = document.createElement('div')
+const initialInner = document.createElement('div')
+native.replaceWith(initialSlot)
+initialSlot.append(initialInner)
 const session = Object.assign({}, sessionState, { sessionId: 's1', projections: { faceOf: key => { assert.equal(key, 'turnOutline'); return outline } },
   loadThrough() { throw new Error('Piano must delegate to the native button, not start a second pager') } })
 let binding = { session }
@@ -161,12 +167,63 @@ const until = async (ready, what, timeout = 2000) => {
     await new Promise(r => setTimeout(r, 10))
   }
 }
-await until(() => document.querySelector('.smcp-unified')?.hidden === false, 'the initial Piano mount')
 let passed = 0
 async function check(name, run) { await run(); passed++; console.log(`ok ${passed} - ${name}`) }
 const piano = () => document.querySelector('.smcp-unified')
 const key = id => [...document.querySelectorAll('.smcp-bar')].find(b => b.dataset.key === id)
 const press = async k => { piano().dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true })); await frame() }
+
+await check('first idle mount recovers a native navigator published 2.1s late inside a pre-existing slot', async () => {
+  await until(() => globalThis.__smcpDebug?.hiddenReason === 'contract', 'initial native fallback')
+  const before = { ...globalThis.__smcpDebug.perf }
+  const body = flow.querySelector('[data-chat-anchor-key]')
+  for (let index = 0; index < 100; index++) body.append(document.createElement('span'))
+  await new Promise(resolve => setTimeout(resolve, 2100))
+  assert.equal(piano().hidden, true)
+  assert.equal(globalThis.__smcpDebug.perf.domReconciles, before.domReconciles, 'waiting must not poll the DOM')
+  assert.equal(globalThis.__smcpDebug.perf.renders, before.renders, 'transcript child-list churn must not wake discovery')
+  body.replaceChildren()
+  initialInner.append(native)
+  await until(() => piano()?.hidden === false, 'late first native takeover')
+  assert.equal(native.getAttribute('aria-hidden'), 'true')
+  assert.equal(globalThis.__smcpDebug.hiddenReason, null)
+  initialSlot.replaceWith(native)
+  await frame()
+})
+
+await check('a first empty native surface refills after 2.1s without input or polling', async () => {
+  await set('enabled', false)
+  const buttons = [...native.childNodes]
+  native.replaceChildren()
+  await set('enabled', true)
+  await until(() => globalThis.__smcpDebug?.hiddenReason === 'contract', 'first empty surface fallback')
+  const before = { ...globalThis.__smcpDebug.perf }
+  await new Promise(resolve => setTimeout(resolve, 2100))
+  assert.equal(globalThis.__smcpDebug.perf.domReconciles, before.domReconciles)
+  native.append(...buttons)
+  await until(() => piano()?.hidden === false, 'first empty surface refill')
+  assert.equal(native.getAttribute('aria-hidden'), 'true')
+})
+
+await check('first entry and cached ChatView remount recover a 179ms-late nested nav without input', async () => {
+  for (const path of ['first sidebar entry', 'cached A -> B -> A']) {
+    local.hidden = true
+    await frame()
+    assert.equal(piano(), null)
+    const slot = document.createElement('div')
+    const inner = document.createElement('div')
+    native.replaceWith(slot); slot.append(inner)
+    local.hidden = false
+    await until(() => globalThis.__smcpDebug?.hiddenReason === 'contract', `${path} fallback`)
+    await new Promise(resolve => setTimeout(resolve, 179))
+    inner.append(native)
+    await until(() => piano()?.hidden === false, `${path} late native recovery`)
+    assert.equal(document.querySelectorAll('.smcp-unified').length, 1)
+    assert.equal(native.getAttribute('aria-hidden'), 'true')
+    slot.replaceWith(native)
+    await frame()
+  }
+})
 
 await check('exactly one visible and accessible rail; native component stays mounted', () => {
   assert.equal(piano().hidden, false)

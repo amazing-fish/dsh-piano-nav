@@ -1022,6 +1022,12 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   const syncNativeSurfaceObserver = (): void => {
     const next = [...nativeScope.querySelectorAll<HTMLElement>('nav,[role="navigation"]')]
       .find(element => !flow.contains(element) && element.getAttribute('aria-label') === nativeT('chat.turnNavigation.label')) ?? null
+    // Before the first surface (or after its slot disappears), the navigator
+    // may arrive below an already-mounted wrapper. Direct-child observation
+    // cannot see that publication. Discover it at any depth while absent;
+    // childListChangesNavigation filters transcript churn without rendering.
+    // Once found, return to the shallow boundary plus the known native slot.
+    structureDom.observe(nativeScope, { childList: true, subtree: next === null })
     // Keep the connected slot observed while its navigator is absent. Otherwise
     // a later insertion below the scrollport has no observer to wake Piano.
     const nextParent = next?.parentElement ?? (nativeSurfaceParent !== null
