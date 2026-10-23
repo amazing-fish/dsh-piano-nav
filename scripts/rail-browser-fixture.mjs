@@ -83,6 +83,7 @@ export async function buildRailFixture({ settingsPage = false, sourceRef } = {})
     window.settingsFixture = { controller, writes, writeTimings, persisted: () => value, refresh: () => { for (const fn of listeners) fn('sm-context-piano') } }
     ` : ''}
     const stylesStop = installStyles()
+    window.beforeRailMount?.({ nav, flow })
     const stop = attachKeyStrip(ctx, () => 'Piano', selection, settings)
     window.railFixture = { clicks, settings, selection, target, sources, nodeMap, flow, scroll, dispose: () => { stop(); stylesStop() } }
   `, loader: 'ts' }, bundle: true, write: false, format: 'iife', platform: 'browser',

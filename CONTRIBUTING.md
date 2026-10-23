@@ -25,6 +25,7 @@ dsh plugin --profile web add link:C:/projects/dsh-sm-context-piano
 npm install --prefix .browser-tools --no-save --ignore-scripts playwright@1.55.1 esbuild@0.28.2 zustand@4.4.7 immer@10.1.1 react@18.3.1
 node .browser-tools/node_modules/playwright/cli.js install chromium
 node scripts/rail-browser.mjs
+node scripts/late-native-browser.mjs
 node scripts/pointer-browser.mjs
 node scripts/settings-browser.mjs
 node scripts/settings-layout-browser.mjs
