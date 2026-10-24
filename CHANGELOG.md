@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.1 — 2026-10-24
 
 - Recover idle conversations when the native navigator first appears inside an
   existing nested slot. Observe descendant structure only while the surface is
