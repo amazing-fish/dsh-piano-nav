@@ -19,13 +19,11 @@ export interface KeyDescriptor {
 
 const PREVIEW_LIMIT = 520
 const TITLE_LIMIT = 140
-// `user`/`steering` are the historical names; DSH 0.2.2 also emits the same
-// user-authored turn input as `turn-trigger` (and `command-input` for a goal
-// command). Treat them alike, otherwise the blue key silently disappears.
-const USER_KINDS = new Set(['user', 'steering', 'turn-trigger', 'command-input'])
-/** Exposed for diagnostics so an unhandled user-ish kind is visible, not silent. */
-export const USER_KIND_NAMES: ReadonlySet<string> = USER_KINDS
-export const contentTextOf = contentText
+// `user`/`steering` are the names for input the user actually typed. DSH 0.2.2
+// also emits `turn-trigger` for the automatic goal-continuation that resumes a
+// finished goal, and `command-input` for the goal command itself — both are
+// host-generated, so they must NOT become user keys.
+const USER_KINDS = new Set(['user', 'steering'])
 const ASSISTANT_KINDS = new Set(['assistant', 'assistant-step'])
 const record = (value: unknown): Record<string, unknown> => typeof value === 'object' && value !== null
   ? value as Record<string, unknown> : {}

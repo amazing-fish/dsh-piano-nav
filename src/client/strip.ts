@@ -6,7 +6,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import { observeChatNodes } from './chat-source.ts'
-import { buildNavigationNodesWithQuestions, turnOf, USER_KIND_NAMES, contentTextOf } from './keys.ts'
+import { buildNavigationNodesWithQuestions, turnOf } from './keys.ts'
 import type { KeyDescriptor } from './keys.ts'
 import { buildQuestionKeys, createQuestionDiagnostics } from './question-keys.ts'
 import { buildPianoItems, buildPianoItemsForTurn, mergeNavigationTurns } from './navigation-model.ts'
@@ -219,7 +219,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   const buttons = new Map<string, HTMLButtonElement>()
   const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, railProjections: 0, pointerFrames: 0, hitTests: 0, barWrites: 0 }
   const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0, root: 'root' as string }, perf,
-    questions: () => questionSummary(), inputs: () => inputSummary() }
+    questions: () => questionSummary() }
   const writeData = (button: HTMLButtonElement, name: string, value: string): void => {
     if (button.dataset[name] === value) return
     button.dataset[name] = value
@@ -353,33 +353,6 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     return [segment.kind === 'output' ? { ...segment, folded: !visible } : segment]
   }
   // Explicit debug read only; no transcript scan on streaming or pointer frames.
-  // Diagnostic for the input-key pipeline: reports, per user-ish node, which
-  // stage dropped it, so an unknown or hidden shape is visible instead of
-  // silently producing no blue key.
-  const inputSummary = () => {
-    const seen = new Map<string, { key: string; kind: string; visibility: string; turn: string | number | null; stage: string }>()
-    for (const node of nodes) {
-      const kind = String(node.kind)
-      const data = (node.data ?? {}) as Record<string, unknown>
-      const hasContent = Array.isArray(data.content) && contentTextOf(data.content).trim() !== ''
-      const userish = USER_KIND_NAMES.has(kind) || kind.includes('input') || kind.includes('trigger')
-      if (!userish) continue
-      let stage = 'kept'
-      if (node.visibility === 'hidden') stage = 'dropped:hidden'
-      else if (!USER_KIND_NAMES.has(kind)) stage = `dropped:unknown-kind(${kind})`
-      else if (!hasContent) stage = 'dropped:empty-content'
-      else if (turnOf(node) === null) stage = 'dropped:no-turn'
-      seen.set(node.key, { key: node.key, kind, visibility: String(node.visibility ?? 'visible'), turn: turnOf(node), stage })
-    }
-    const stages = new Map<string, number>()
-    for (const entry of seen.values()) stages.set(entry.stage, (stages.get(entry.stage) ?? 0) + 1)
-    return {
-      total: seen.size,
-      stages: Object.fromEntries(stages),
-      inputKeys: segments.filter(segment => segment.kind === 'input').length,
-      samples: [...seen.values()].slice(-12),
-    }
-  }
   const questionSummary = () => {
     const snapshot = binding === undefined ? undefined : ctx.uiConversation.binding(binding).target('chat').getSnapshot()
     const order = new Set(snapshot?.order ?? [])
