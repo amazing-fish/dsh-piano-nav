@@ -588,11 +588,14 @@ await check('display:contents root falls back to the painted ancestor width', as
   assert.equal(piano().hidden, false)
   assert.ok(debug.layout.width >= 520, `measured ${debug.layout.width}`)
   assert.match(debug.layout.root, /^ancestor:/, 'measured an ancestor that owns a box')
+  // Placement must stay in the containing block's frame, not the ancestor's.
+  assert.equal(debug.layout.flowLeft, 300, 'flow offset is relative to root')
   // Restore the plain host for the remaining checks.
   root.style.display = ''
   Object.defineProperty(root, 'clientWidth', { value: 1280, configurable: true })
   document.body.replaceChildren(root); await triggerResize(root)
   assert.equal(globalThis.__smcpDebug.layout.root, 'root')
+  assert.equal(globalThis.__smcpDebug.layout.flowLeft, 300)
 })
 await check('disable restores native visibility and releases all subscriptions', async () => {
   await set('enabled', false)

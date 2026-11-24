@@ -197,6 +197,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let stripViewportTop = 0
   let stripViewportLeft = 0
   let readingLineY = 0
+  let areaHeight = 0
   let hitTestXs: number[] = []
   let railSlots: RailSlot[] = []
   let visiblePositions: number[] = []
@@ -512,10 +513,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   // `root` is adopted before the host paints, so it is not guaranteed to own a
   // box: a host layer using `display: contents` reports clientWidth 0 and an
-  // all-zero rect while an ancestor carries the real geometry. The strip is
-  // absolutely positioned against `root`, whose origin stays authoritative for
-  // placement, but the width/overlap gates must judge the painted conversation
-  // area rather than a collapsed wrapper.
+  // all-zero rect while an ancestor carries the real geometry. Width/overlap
+  // gates must judge that painted area, but placement stays in `root`'s
+  // coordinates because `root` is the strip's containing block.
   const measureRoot = (): HTMLElement => {
     let node: HTMLElement | null = root
     while (node !== null && node !== document.body) {
@@ -528,23 +528,22 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   const measureLayout = (): void => {
     const anchor = measureRoot()
     const rootRect = root.getBoundingClientRect()
-    const anchorRect = anchor === root ? rootRect : anchor.getBoundingClientRect()
     const flowRect = flow.getBoundingClientRect()
     const scrollRect = scrollport.getBoundingClientRect()
-    // Keep the positioning origin paired with the box that supplies the width,
-    // so a collapsed root cannot silently offset the rail by the sidebar width.
-    const originLeft = rootRect.width > 0 ? rootRect.left : anchorRect.left
-    const originTop = rootRect.height > 0 ? rootRect.top : anchorRect.top
-    flowLeft = flowRect.left - originLeft
-    width = anchor.clientWidth || anchorRect.width || window.innerWidth
+    width = anchor.clientWidth || anchor.getBoundingClientRect().width || window.innerWidth
+    // `left`/`top` are CSS offsets inside the containing block, so they are
+    // always expressed against `root`; a collapsed root is at the origin of its
+    // painted ancestor, which keeps the two frames aligned.
+    flowLeft = flowRect.left - rootRect.left
+    areaHeight = root.clientHeight || anchor.clientHeight || window.innerHeight
     left = Math.max(16, flowLeft - 108)
     const config = settings.getSnapshot()
     const available = Math.max(0, scrollport.clientHeight - (composerSeat?.offsetHeight ?? 0))
     height = Math.min(railHeight(config), Math.max(config.keyHeight, available - 48))
     capacity = Math.min(config.maxVisible, Math.max(1, Math.floor((height - config.keyHeight) / config.keyGap) + 1))
-    top = Math.max(8, (scrollRect.top - originTop) + (available - height) / 2)
-    stripViewportTop = originTop + top
-    stripViewportLeft = originLeft + left
+    top = Math.max(8, (scrollRect.top - rootRect.top) + (available - height) / 2)
+    stripViewportTop = rootRect.top + top
+    stripViewportLeft = rootRect.left + left
     readingLineY = scrollRect.top + Math.min(120, scrollport.clientHeight * .18)
     hitTestXs = flowRect.width > 0
       ? [flowRect.left + flowRect.width / 2, Math.min(flowRect.right - 1, flowRect.left + 18)]
@@ -573,7 +572,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
         tooltipPosition = nextTooltipPosition
         const previewWidth = tooltip.offsetWidth || 400
         const previewHeight = tooltip.offsetHeight || 150
-        const rootHeight = root.clientHeight
+        const rootHeight = areaHeight
         tooltip.style.left = `${Math.max(8, Math.min(left + 64, width - previewWidth - 8))}px`
         tooltip.style.top = `${Math.max(8, Math.min(top + visiblePositions[focusIndex] - 48, rootHeight - previewHeight - 8))}px`
       }
