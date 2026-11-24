@@ -59,7 +59,11 @@ jobs:
       - run: git diff --exit-code -- pnpm-lock.yaml
 
   original-chatview-browser:
-    runs-on: ubuntu-latest
+    # `ubuntu-latest` has rolled to 26.04, which Playwright 1.55.1 does not
+    # support ("Playwright does not support chromium on ubuntu26.04-x64"), so the
+    # browser install failed before any test ran. Pin the last image the pinned
+    # Playwright understands; bump together with the playwright version.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
