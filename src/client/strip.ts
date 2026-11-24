@@ -512,10 +512,12 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     else debug.total = items.length
   }
   // `root` is adopted before the host paints, so it is not guaranteed to own a
-  // box: a host layer using `display: contents` reports clientWidth 0 and an
-  // all-zero rect while an ancestor carries the real geometry. Width/overlap
-  // gates must judge that painted area, but placement stays in `root`'s
-  // coordinates because `root` is the strip's containing block.
+  // box: a host layer using `display: contents` reports clientWidth 0, an
+  // all-zero rect, and — because it generates no box — it is not the containing
+  // block either, even though a `position: relative` is set on it. The strip
+  // then positions against the nearest ancestor that does generate one, so
+  // placement must be expressed in that ancestor's frame, not the collapsed
+  // root's all-zero frame.
   const measureRoot = (): HTMLElement => {
     let node: HTMLElement | null = root
     while (node !== null && node !== document.body) {
@@ -531,19 +533,22 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const flowRect = flow.getBoundingClientRect()
     const scrollRect = scrollport.getBoundingClientRect()
     width = anchor.clientWidth || anchor.getBoundingClientRect().width || window.innerWidth
-    // `left`/`top` are CSS offsets inside the containing block, so they are
-    // always expressed against `root`; a collapsed root is at the origin of its
-    // painted ancestor, which keeps the two frames aligned.
-    flowLeft = flowRect.left - rootRect.left
+    // Coordinates follow the box that actually contains the strip. When the
+    // root owns a box those are the root's own numbers, so hosts without a
+    // collapsed layer are unaffected.
+    const origin = anchor === root ? rootRect : anchor.getBoundingClientRect()
+    const originLeft = rootRect.width > 0 ? rootRect.left : origin.left
+    const originTop = rootRect.height > 0 ? rootRect.top : origin.top
+    flowLeft = flowRect.left - originLeft
     areaHeight = root.clientHeight || anchor.clientHeight || window.innerHeight
     left = Math.max(16, flowLeft - 108)
     const config = settings.getSnapshot()
     const available = Math.max(0, scrollport.clientHeight - (composerSeat?.offsetHeight ?? 0))
     height = Math.min(railHeight(config), Math.max(config.keyHeight, available - 48))
     capacity = Math.min(config.maxVisible, Math.max(1, Math.floor((height - config.keyHeight) / config.keyGap) + 1))
-    top = Math.max(8, (scrollRect.top - rootRect.top) + (available - height) / 2)
-    stripViewportTop = rootRect.top + top
-    stripViewportLeft = rootRect.left + left
+    top = Math.max(8, (scrollRect.top - originTop) + (available - height) / 2)
+    stripViewportTop = originTop + top
+    stripViewportLeft = originLeft + left
     readingLineY = scrollRect.top + Math.min(120, scrollport.clientHeight * .18)
     hitTestXs = flowRect.width > 0
       ? [flowRect.left + flowRect.width / 2, Math.min(flowRect.right - 1, flowRect.left + 18)]
