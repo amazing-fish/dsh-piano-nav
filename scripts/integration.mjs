@@ -566,6 +566,34 @@ await check('narrow-container fallback restores native ownership', async () => {
   Object.defineProperty(root, 'clientWidth', { value: 1280, configurable: true })
   await triggerResize(root)
 })
+// A host layer that uses `display: contents` collapses the adopted root to a
+// zero-size box while the real geometry lives on an ancestor. Measuring the
+// wrapper instead of the painted area made the rail permanently `narrow`.
+await check('display:contents root falls back to the painted ancestor width', async () => {
+  const body = document.createElement('section')
+  body.style.display = 'flex'
+  Object.defineProperties(body, { clientWidth: { value: 1000, configurable: true }, getBoundingClientRect: { value: () => rect(280, 0, 1000, 900) } })
+  const layer = document.createElement('div')
+  layer.style.display = 'contents'
+  Object.defineProperties(layer, { clientWidth: { value: 0, configurable: true }, getBoundingClientRect: { value: () => rect(0, 0, 0, 0) } })
+  // Repaint root as the collapsed wrapper a host `display: contents` layer
+  // produces, then restore it for the remaining checks.
+  root.style.display = 'contents'
+  Object.defineProperty(root, 'clientWidth', { value: 0, configurable: true })
+  body.append(layer); layer.append(root); document.body.replaceChildren(body)
+  await triggerResize(root)
+  const debug = globalThis.__smcpDebug
+  // A zero-width root used to fall through to `width < 520` → permanent `narrow`.
+  assert.equal(debug.hiddenReason, null)
+  assert.equal(piano().hidden, false)
+  assert.ok(debug.layout.width >= 520, `measured ${debug.layout.width}`)
+  assert.match(debug.layout.root, /^ancestor:/, 'measured an ancestor that owns a box')
+  // Restore the plain host for the remaining checks.
+  root.style.display = ''
+  Object.defineProperty(root, 'clientWidth', { value: 1280, configurable: true })
+  document.body.replaceChildren(root); await triggerResize(root)
+  assert.equal(globalThis.__smcpDebug.layout.root, 'root')
+})
 await check('disable restores native visibility and releases all subscriptions', async () => {
   await set('enabled', false)
   assert.equal(piano(), null)

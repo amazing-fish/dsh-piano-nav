@@ -217,7 +217,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let tooltipPosition: string | null = null
   const buttons = new Map<string, HTMLButtonElement>()
   const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, railProjections: 0, pointerFrames: 0, hitTests: 0, barWrites: 0 }
-  const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0 }, perf,
+  const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0, root: 'root' as string }, perf,
     questions: () => questionSummary() }
   const writeData = (button: HTMLButtonElement, name: string, value: string): void => {
     if (button.dataset[name] === value) return
@@ -510,25 +510,47 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (rebuildAllItems) rebuildItemsFromSegments()
     else debug.total = items.length
   }
+  // `root` is adopted before the host paints, so it is not guaranteed to own a
+  // box: a host layer using `display: contents` reports clientWidth 0 and an
+  // all-zero rect while an ancestor carries the real geometry. The strip is
+  // absolutely positioned against `root`, whose origin stays authoritative for
+  // placement, but the width/overlap gates must judge the painted conversation
+  // area rather than a collapsed wrapper.
+  const measureRoot = (): HTMLElement => {
+    let node: HTMLElement | null = root
+    while (node !== null && node !== document.body) {
+      const cs = window.getComputedStyle(node)
+      if (cs.display !== 'contents' && cs.display !== 'none' && node.clientWidth > 0) return node
+      node = node.parentElement
+    }
+    return root
+  }
   const measureLayout = (): void => {
+    const anchor = measureRoot()
     const rootRect = root.getBoundingClientRect()
+    const anchorRect = anchor === root ? rootRect : anchor.getBoundingClientRect()
     const flowRect = flow.getBoundingClientRect()
     const scrollRect = scrollport.getBoundingClientRect()
-    flowLeft = flowRect.left - rootRect.left
-    width = root.clientWidth || rootRect.width
+    // Keep the positioning origin paired with the box that supplies the width,
+    // so a collapsed root cannot silently offset the rail by the sidebar width.
+    const originLeft = rootRect.width > 0 ? rootRect.left : anchorRect.left
+    const originTop = rootRect.height > 0 ? rootRect.top : anchorRect.top
+    flowLeft = flowRect.left - originLeft
+    width = anchor.clientWidth || anchorRect.width || window.innerWidth
     left = Math.max(16, flowLeft - 108)
     const config = settings.getSnapshot()
     const available = Math.max(0, scrollport.clientHeight - (composerSeat?.offsetHeight ?? 0))
     height = Math.min(railHeight(config), Math.max(config.keyHeight, available - 48))
     capacity = Math.min(config.maxVisible, Math.max(1, Math.floor((height - config.keyHeight) / config.keyGap) + 1))
-    top = Math.max(8, (scrollRect.top - rootRect.top) + (available - height) / 2)
-    stripViewportTop = rootRect.top + top
-    stripViewportLeft = rootRect.left + left
+    top = Math.max(8, (scrollRect.top - originTop) + (available - height) / 2)
+    stripViewportTop = originTop + top
+    stripViewportLeft = originLeft + left
     readingLineY = scrollRect.top + Math.min(120, scrollport.clientHeight * .18)
     hitTestXs = flowRect.width > 0
       ? [flowRect.left + flowRect.width / 2, Math.min(flowRect.right - 1, flowRect.left + 18)]
       : []
     debug.layout.left = left; debug.layout.flowLeft = flowLeft; debug.layout.width = width; debug.layout.top = top
+    debug.layout.root = anchor === root ? 'root' : `ancestor:${anchor.className}`
   }
   const renderFeedback = (pending: number): void => {
     const config = settings.getSnapshot()
