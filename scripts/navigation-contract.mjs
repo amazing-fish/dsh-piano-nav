@@ -77,4 +77,30 @@ test('preview and title remain bounded', () => {
   assert.ok(key.preview.length <= 521)
   assert.ok(key.title.length <= 141)
 })
+
+// DSH 0.2.2 emits the user's own turn input as `turn-trigger` (and a goal
+// command as `command-input`) while older builds used `user`/`steering`.
+// Accepting only the legacy names dropped the blue key without any error.
+test('every host name for user-authored input still produces an input key', () => {
+  const userNode = (key, kind, turn) => ({
+    key, kind, visibility: 'visible', location: { kind: 'step', turn },
+    data: { content: [{ type: 'text', text: `asked from ${kind}` }] },
+  })
+  for (const kind of ['user', 'steering', 'turn-trigger', 'command-input']) {
+    const keys = buildNavigationNodes([userNode(`k-${kind}`, kind, 7)])
+    assert.equal(keys.length, 1, `${kind} produced no key`)
+    assert.equal(keys[0].kind, 'input', `${kind} did not map to an input key`)
+    assert.equal(keys[0].role, 'user')
+  }
+})
+
+test('a non-user kind still yields no input key', () => {
+  for (const kind of ['assistant-step', 'tool-call', 'turn-process', 'context', 'turn-tail']) {
+    const keys = buildNavigationNodes([{
+      key: `k-${kind}`, kind, visibility: 'visible', location: { kind: 'step', turn: 3 },
+      data: { content: [{ type: 'text', text: 'not user authored' }] },
+    }])
+    assert.equal(keys.filter(key => key.kind === 'input').length, 0, `${kind} became an input key`)
+  }
+})
 console.log(`${passed} navigation contract tests passed`)
