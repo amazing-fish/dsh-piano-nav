@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "DSH 琴键导航",
+    "description": "在长会话左侧提供完整历史轮次、过程步骤折叠、结构化问答与鼠标连续跟随的语义琴键导航轨道。",
+    "detail": "docs/DETAIL.zh.md"
+  }
+}

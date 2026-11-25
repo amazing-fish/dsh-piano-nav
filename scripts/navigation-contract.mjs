@@ -99,7 +99,12 @@ test('host-generated goal turns never become user keys', () => {
     key, kind, visibility: 'visible', location: { kind: 'step', turn },
     data: { content: [{ type: 'text', text: '继续执行目标' }] },
   })
-  for (const kind of ['turn-trigger', 'command-input', 'assistant-step', 'tool-call', 'turn-process', 'context', 'turn-tail']) {
+  for (const kind of [
+    'turn-trigger', 'command-input', 'command', 'system-prompt',
+    'manual-compaction', 'compaction', 'inherited-history', 'model-retry',
+    'turn-error', 'turn-max-tokens', 'assistant-step', 'tool-call',
+    'turn-process', 'context', 'turn-tail', 'unknown',
+  ]) {
     const keys = buildNavigationNodes([node(`k-${kind}`, kind, 3)])
     assert.equal(keys.filter(key => key.kind === 'input').length, 0, `${kind} became a user key`)
   }

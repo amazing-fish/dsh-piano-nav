@@ -45,7 +45,7 @@ const rect = (left, top, width, height) => ({ left, top, width, height, right: l
 // The collapsed-root check repaints `root` as a zero-box wrapper, so its rect
 // is a switchable value rather than a fixed stub.
 let rootRectValue = rect(0, 0, 1280, 900)
-Object.defineProperties(root, { clientWidth: { value: 1280, configurable: true }, clientHeight: { value: 900 }, getBoundingClientRect: { value: () => rootRectValue, configurable: true } })
+Object.defineProperties(root, { clientWidth: { value: 1280, configurable: true }, clientHeight: { value: 900, configurable: true }, getBoundingClientRect: { value: () => rootRectValue, configurable: true } })
 Object.defineProperties(scroll, { clientHeight: { value: 800 }, getBoundingClientRect: { value: () => rect(0, 0, 1280, 800) } })
 flow.getBoundingClientRect = () => rect(300, -scroll.scrollTop, 748, 3000)
 const loaded = new Set([8, 9, 10])
@@ -575,14 +575,19 @@ await check('narrow-container fallback restores native ownership', async () => {
 await check('display:contents root falls back to the painted ancestor width', async () => {
   const body = document.createElement('section')
   body.style.display = 'flex'
-  Object.defineProperties(body, { clientWidth: { value: 1000, configurable: true }, getBoundingClientRect: { value: () => rect(180, 0, 1000, 900) } })
+  Object.defineProperties(body, {
+    clientWidth: { value: 1000, configurable: true },
+    clientHeight: { value: 900, configurable: true },
+    getBoundingClientRect: { value: () => rect(180, 0, 1000, 900) },
+  })
   const layer = document.createElement('div')
   layer.style.display = 'contents'
-  Object.defineProperties(layer, { clientWidth: { value: 0, configurable: true }, getBoundingClientRect: { value: () => rect(0, 0, 0, 0) } })
+  Object.defineProperties(layer, { clientWidth: { value: 0, configurable: true }, clientHeight: { value: 0, configurable: true }, getBoundingClientRect: { value: () => rect(0, 0, 0, 0) } })
   // Repaint root as the collapsed wrapper a host `display: contents` layer
   // produces — zero client box *and* a zero rect — then restore it.
   root.style.display = 'contents'
   Object.defineProperty(root, 'clientWidth', { value: 0, configurable: true })
+  Object.defineProperty(root, 'clientHeight', { value: 0, configurable: true })
   rootRectValue = rect(0, 0, 0, 0)
   body.append(layer); layer.append(root); document.body.replaceChildren(body)
   await triggerResize(root)
@@ -598,9 +603,18 @@ await check('display:contents root falls back to the painted ancestor width', as
   // which put the keys in the middle of the transcript.
   assert.equal(debug.layout.flowLeft, 300 - 180, 'flow offset follows the containing block')
   assert.equal(debug.layout.left, Math.max(16, (300 - 180) - 108), 'rail sits left of the flow')
+  // Tooltip vertical bounds must also follow the painted ancestor height;
+  // clamping against collapsed `root.clientHeight === 0` pinned every preview to 8px.
+  piano().dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }))
+  await frame()
+  const tooltipTop = Number.parseFloat(document.querySelector('.smcp-tooltip').style.top)
+  assert.ok(tooltipTop > 8, `expected tooltip top > 8px under painted ancestor height, got ${tooltipTop}px`)
+  piano().dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+  await frame()
   // Restore the plain host for the remaining checks.
   root.style.display = ''
   Object.defineProperty(root, 'clientWidth', { value: 1280, configurable: true })
+  Object.defineProperty(root, 'clientHeight', { value: 900, configurable: true })
   rootRectValue = rect(0, 0, 1280, 900)
   document.body.replaceChildren(root); await triggerResize(root)
   assert.equal(globalThis.__smcpDebug.layout.root, 'root')

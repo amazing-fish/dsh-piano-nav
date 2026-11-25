@@ -7,11 +7,12 @@
 | 层次 | 声明或证据 |
 | --- | --- |
 | Node.js | `^22.19.0 || >=24.0.0`；CI 使用 Node 24 |
-| DSH 引擎声明 | `>=0.1.7-rc.1 || >=0.2.0-rc.1`，以 package.json 为准 |
+| DSH 引擎声明 | `>=0.1.7-rc.1 || >=0.2.0-rc.1`，以 package.json 为准（含 0.2.2+ 与预发布范围） |
+| 插件展示元信息 | 声明 `dsh.manifestVersion: 1`、`icon: "./assets/icon.svg"`、`./locale/*.json`、`./cordis.patch.yml` 与 `docs/DETAIL*.md` |
 | 构建与类型基线 | 直接 DSH 开发依赖固定为 `0.2.0-rc.2` |
 | 原生组件浏览器回归 | 固定官方源码 `c291e7961a515f6d7af9304e7fd1d257929aef26` 的 ChatView/TurnNavigator 与语义组件，Session/消息叶子为夹具 |
-| DOM 与设置契约 | 契约、jsdom、浏览器夹具覆盖导航层级变化、虚拟按钮、问答、折叠和卸载 |
-| 系统 | Windows / Ubuntu 构建与集成 CI；Chromium 浏览器 CI 在 Ubuntu 运行 |
+| DOM 与设置契约 | 契约、jsdom、浏览器夹具覆盖 `display: contents` 外层、导航层级变化、虚拟按钮、问答、折叠和卸载 |
+| 系统 | Windows / Ubuntu 构建与集成 CI；Chromium 浏览器 CI 在 Ubuntu 24.04 运行 |
 
 引擎范围是安装声明，不表示所有后续 DSH 版本都经过端到端验收。固定原生源码、当前
 发布包类型与用户现场是不同层次的证据。
@@ -26,7 +27,9 @@
 原生组件保持挂载；接管时隐藏原生导航，失配、关闭和卸载时恢复保存的属性。
 
 依赖 `[data-chat-flow]`、`[data-chat-anchor-key]`、`[data-conversation-scroll]`
-及受约束的 `hidden="until-found"` / `beforematch` 过程揭示入口。
+及受约束的 `hidden="until-found"` / `beforematch` 过程揭示入口。当宿主在会话容器外层
+包裹 `display: contents`（如 DSH 0.2.2+）时，轨道自动回退到最近拥有盒模型的祖先计算
+宽度、坐标原点与预览卡片高度上限。
 
 ## 明确边界
 

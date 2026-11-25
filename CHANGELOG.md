@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.5.0 — 2026-11-25
+
+- Recover rail visibility, containing-block placement, and preview tooltip clamping
+  when a DSH 0.2.2+ host wraps the conversation container in a `display: contents`
+  layer (#82, #84). Measure the nearest ancestor that owns a box and align placement
+  and viewport hit-testing with that frame while leaving hosts with a boxed root unchanged.
+- Pin authored user input (`user` / `steering`) against host-generated goal and
+  system flow kinds (`turn-trigger`, `command-input`, `command`, compaction, retry,
+  error, and process rows) so automatic goal continuations never masquerade as user
+  keys (#85).
+- Adopt the latest DSH plugin packaging and display metadata specification:
+  declare package `icon` (`assets/icon.svg`), export `./locale/*.json` and
+  `./cordis.patch.yml`, add localized `locale/en.json`, `locale/zh.json`, and
+  `locale/zh-tw.json` display metadata with subdirectory `meta.detail` documents
+  (`docs/DETAIL*.md`), set `dsh.manifestVersion: 1`, and verify the installed
+  tarball metadata contract across npm 11 and npm 12 pack output formats.
+
 ## 1.4.1 — 2026-10-24
 
 - Recover idle conversations when the native navigator first appears inside an
