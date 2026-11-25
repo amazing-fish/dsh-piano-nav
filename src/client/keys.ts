@@ -19,6 +19,10 @@ export interface KeyDescriptor {
 
 const PREVIEW_LIMIT = 520
 const TITLE_LIMIT = 140
+// `user`/`steering` are the names for input the user actually typed. DSH 0.2.2
+// also emits `turn-trigger` for the automatic goal-continuation that resumes a
+// finished goal, and `command-input` for the goal command itself — both are
+// host-generated, so they must NOT become user keys.
 const USER_KINDS = new Set(['user', 'steering'])
 const ASSISTANT_KINDS = new Set(['assistant', 'assistant-step'])
 const record = (value: unknown): Record<string, unknown> => typeof value === 'object' && value !== null

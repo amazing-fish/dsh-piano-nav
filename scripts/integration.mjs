@@ -42,7 +42,10 @@ let composerHeight = 0
 Object.defineProperty(composer, 'offsetHeight', { get: () => composerHeight })
 local.append(native, flow); scroll.append(local, composer); root.append(scroll); document.body.append(root)
 const rect = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height })
-Object.defineProperties(root, { clientWidth: { value: 1280, configurable: true }, clientHeight: { value: 900 }, getBoundingClientRect: { value: () => rect(0, 0, 1280, 900) } })
+// The collapsed-root check repaints `root` as a zero-box wrapper, so its rect
+// is a switchable value rather than a fixed stub.
+let rootRectValue = rect(0, 0, 1280, 900)
+Object.defineProperties(root, { clientWidth: { value: 1280, configurable: true }, clientHeight: { value: 900 }, getBoundingClientRect: { value: () => rootRectValue, configurable: true } })
 Object.defineProperties(scroll, { clientHeight: { value: 800 }, getBoundingClientRect: { value: () => rect(0, 0, 1280, 800) } })
 flow.getBoundingClientRect = () => rect(300, -scroll.scrollTop, 748, 3000)
 const loaded = new Set([8, 9, 10])
@@ -565,6 +568,43 @@ await check('narrow-container fallback restores native ownership', async () => {
   assert.equal(native.style.visibility, '')
   Object.defineProperty(root, 'clientWidth', { value: 1280, configurable: true })
   await triggerResize(root)
+})
+// A host layer that uses `display: contents` collapses the adopted root to a
+// zero-size box while the real geometry lives on an ancestor. Measuring the
+// wrapper instead of the painted area made the rail permanently `narrow`.
+await check('display:contents root falls back to the painted ancestor width', async () => {
+  const body = document.createElement('section')
+  body.style.display = 'flex'
+  Object.defineProperties(body, { clientWidth: { value: 1000, configurable: true }, getBoundingClientRect: { value: () => rect(180, 0, 1000, 900) } })
+  const layer = document.createElement('div')
+  layer.style.display = 'contents'
+  Object.defineProperties(layer, { clientWidth: { value: 0, configurable: true }, getBoundingClientRect: { value: () => rect(0, 0, 0, 0) } })
+  // Repaint root as the collapsed wrapper a host `display: contents` layer
+  // produces — zero client box *and* a zero rect — then restore it.
+  root.style.display = 'contents'
+  Object.defineProperty(root, 'clientWidth', { value: 0, configurable: true })
+  rootRectValue = rect(0, 0, 0, 0)
+  body.append(layer); layer.append(root); document.body.replaceChildren(body)
+  await triggerResize(root)
+  const debug = globalThis.__smcpDebug
+  // A zero-width root used to fall through to `width < 520` → permanent `narrow`.
+  assert.equal(debug.hiddenReason, null)
+  assert.equal(piano().hidden, false)
+  assert.ok(debug.layout.width >= 520, `measured ${debug.layout.width}`)
+  assert.match(debug.layout.root, /^ancestor:/, 'measured an ancestor that owns a box')
+  // A `display: contents` root generates no box, so it is not the containing
+  // block: the strip positions against the painted ancestor and placement must
+  // use that frame. Root-relative maths left the rail offset by the sidebar,
+  // which put the keys in the middle of the transcript.
+  assert.equal(debug.layout.flowLeft, 300 - 180, 'flow offset follows the containing block')
+  assert.equal(debug.layout.left, Math.max(16, (300 - 180) - 108), 'rail sits left of the flow')
+  // Restore the plain host for the remaining checks.
+  root.style.display = ''
+  Object.defineProperty(root, 'clientWidth', { value: 1280, configurable: true })
+  rootRectValue = rect(0, 0, 1280, 900)
+  document.body.replaceChildren(root); await triggerResize(root)
+  assert.equal(globalThis.__smcpDebug.layout.root, 'root')
+  assert.equal(globalThis.__smcpDebug.layout.flowLeft, 300)
 })
 await check('disable restores native visibility and releases all subscriptions', async () => {
   await set('enabled', false)

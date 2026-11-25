@@ -59,7 +59,11 @@ jobs:
       - run: git diff --exit-code -- pnpm-lock.yaml
 
   original-chatview-browser:
-    runs-on: ubuntu-latest
+    # `ubuntu-latest` has rolled to 26.04, which Playwright 1.55.1 does not
+    # support ("Playwright does not support chromium on ubuntu26.04-x64"), so the
+    # browser install failed before any test ran. Pin the last image the pinned
+    # Playwright understands; bump together with the playwright version.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -73,7 +77,10 @@ jobs:
       # DSH's published store bundle expects these host-provided libraries.
       # Match the pinned source baseline without changing plugin dependencies.
       - run: npm install --prefix .browser-tools --no-save --ignore-scripts playwright@1.55.1 esbuild@0.28.2 zustand@4.4.7 immer@10.1.1 react@18.3.1
-      - run: node .browser-tools/node_modules/playwright/cli.js install --with-deps chromium
+      # `--with-deps` runs an apt install for Chromium's system libraries, which
+      # fails on this runner long before any test executes (every browser step is
+      # then skipped). The ubuntu-latest image already ships those libraries.
+      - run: node .browser-tools/node_modules/playwright/cli.js install chromium
       - run: node scripts/rail-browser.mjs
       - run: node scripts/late-native-browser.mjs
       - run: node scripts/pointer-browser.mjs

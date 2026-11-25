@@ -77,4 +77,31 @@ test('preview and title remain bounded', () => {
   assert.ok(key.preview.length <= 521)
   assert.ok(key.title.length <= 141)
 })
+
+// `turn-trigger` is the host's automatic goal continuation and `command-input`
+// is the goal command — neither is input the user typed, so neither may become
+// a blue user key. Only `user`/`steering` carry authored input.
+test('only authored user input produces an input key', () => {
+  const node = (key, kind, turn) => ({
+    key, kind, visibility: 'visible', location: { kind: 'step', turn },
+    data: { content: [{ type: 'text', text: `text from ${kind}` }] },
+  })
+  for (const kind of ['user', 'steering']) {
+    const keys = buildNavigationNodes([node(`k-${kind}`, kind, 7)])
+    assert.equal(keys.length, 1, `${kind} produced no key`)
+    assert.equal(keys[0].kind, 'input', `${kind} did not map to an input key`)
+    assert.equal(keys[0].role, 'user')
+  }
+})
+
+test('host-generated goal turns never become user keys', () => {
+  const node = (key, kind, turn) => ({
+    key, kind, visibility: 'visible', location: { kind: 'step', turn },
+    data: { content: [{ type: 'text', text: '继续执行目标' }] },
+  })
+  for (const kind of ['turn-trigger', 'command-input', 'assistant-step', 'tool-call', 'turn-process', 'context', 'turn-tail']) {
+    const keys = buildNavigationNodes([node(`k-${kind}`, kind, 3)])
+    assert.equal(keys.filter(key => key.kind === 'input').length, 0, `${kind} became a user key`)
+  }
+})
 console.log(`${passed} navigation contract tests passed`)
