@@ -24,11 +24,12 @@ export async function verifyPublished({ root = process.cwd(), requireLatest = tr
   if (requireLatest) assert.equal(metadata['dist-tags'].latest, expected.version)
   assert.equal(metadata.dist.integrity, expected.integrity)
   const download = await mkdtemp(join(tmpdir(), 'piano-registry-'))
-  const [packed] = await retry(async () => {
+  const packOutput = await retry(async () => {
     // A fresh cache on every attempt avoids retaining a stale packument miss.
     const cache = await mkdtemp(join(tmpdir(), 'piano-npm-cache-'))
     return JSON.parse(npm(['pack', spec, '--ignore-scripts', '--json', '--cache', cache, '--pack-destination', download, ...online]))
   })
+  const packed = Array.isArray(packOutput) ? packOutput[0] : (packOutput[expected.name] ?? Object.values(packOutput)[0])
   assert.equal(packed.filename, expected.filename)
   const tarball = resolve(download, packed.filename), bytes = await readFile(tarball)
   assert.deepEqual(bytes, await readFile(resolve(root, 'artifacts', expected.filename)), 'download matches tested artifact byte for byte')
