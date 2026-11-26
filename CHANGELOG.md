@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.1 — 2026-11-26
+
+- Eliminate lag and stutter on long expanded conversations (#88):
+  - Narrow DOM mutation observers so transcript `aria-label`/`disabled` churn inside
+    expanded messages never triggers renders, and ignore vertical-only `flow`
+    `ResizeObserver` height growth while keeping horizontal width changes responsive.
+  - Skip full-session item rebuilds, anchor re-indexing, and rail-slot re-projection
+    when virtualized native navigation buttons churn, while scrolling across segments,
+    or during non-question tool-call streaming/appends.
+  - Reuse per-turn segments across structural rebuilds and update rail slots in-place
+    for text-only streaming without re-projecting the whole conversation, while
+    preserving fallback invalidation, coalesced pointer/view frames, and duplicate
+    tool `callId` census accuracy.
+  - Replace full transcript DOM scans during scrolling with O(log N) binary search
+    over mapped anchor rows and reuse a single hit-test when the center sample hits
+    an unkeyed row.
+- Extend npm registry propagation verification retry window to 4 minutes in CI (#87).
+
 ## 1.5.0 — 2026-11-25
 
 - Recover rail visibility, containing-block placement, and preview tooltip clamping
