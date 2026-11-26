@@ -40,33 +40,111 @@ function resultObject(call: Record<string, unknown>): Record<string, unknown> | 
   return parse(raw)
 }
 interface OwnedCall { node: ChatConversationViewNode; call: Record<string, unknown> }
+interface NodeCallSummary {
+  calls: readonly { id: string; call: Record<string, unknown> }[]
+  hasAsk: boolean
+  scanLimited: boolean
+}
+function extractNodeCalls(node: ChatConversationViewNode): NodeCallSummary {
+  const root = object(object(node.data)?.root)
+  if (root === null) return { calls: [], hasAsk: false, scanLimited: false }
+  // Fast path for the common single-call leaf (no subCalls): avoids Set/array allocations.
+  if (!Array.isArray(root.subCalls) || root.subCalls.length === 0) {
+    const id = text(root.callId)
+    if (id === '') return { calls: [], hasAsk: false, scanLimited: false }
+    const head = root.kind === 'tool-result' ? object(root.call) : root
+    return { calls: [{ id, call: root }], hasAsk: head?.name === 'ask_user_question', scanLimited: false }
+  }
+  const visited = new Set<object>()
+  const stack = [root]
+  const calls: { id: string; call: Record<string, unknown> }[] = []
+  let hasAsk = false
+  let scanLimited = false
+  while (stack.length > 0) {
+    if (visited.size >= MAX_CALLS) { scanLimited = true; break }
+    const call = stack.pop()!
+    if (visited.has(call)) continue
+    visited.add(call)
+    const id = text(call.callId)
+    if (id !== '') {
+      calls.push({ id, call })
+      const head = call.kind === 'tool-result' ? object(call.call) : call
+      if (head?.name === 'ask_user_question') hasAsk = true
+    }
+    if (Array.isArray(call.subCalls)) {
+      if (call.subCalls.length > MAX_CALLS) { scanLimited = true; break }
+      for (let i = call.subCalls.length - 1; i >= 0; i--) {
+        const child = object(call.subCalls[i]); if (child !== null) stack.push(child)
+      }
+    }
+  }
+  return scanLimited ? { calls: [], hasAsk: false, scanLimited: true } : { calls, hasAsk, scanLimited: false }
+}
+
+/** Fast check for whether an updated tool-call node cannot affect question keys or duplicate-call census. */
+export function canSkipToolCallUpdate(
+  previous: ChatConversationViewNode | undefined,
+  next: ChatConversationViewNode | undefined,
+): boolean {
+  if (previous === undefined || next === undefined || previous.kind !== 'tool-call' || next.kind !== 'tool-call') return false
+  const prevSummary = extractNodeCalls(previous)
+  if (prevSummary.hasAsk || prevSummary.scanLimited) return false
+  const nextSummary = extractNodeCalls(next)
+  if (nextSummary.hasAsk || nextSummary.scanLimited) return false
+  if (prevSummary.calls.length !== nextSummary.calls.length) return false
+  for (let i = 0; i < prevSummary.calls.length; i++) {
+    if (prevSummary.calls[i].id !== nextSummary.calls[i].id) return false
+  }
+  return true
+}
+
 /** Census precedes emission: no first-wins answers from duplicate call identities. */
 function uniqueCalls(nodes: readonly ChatConversationViewNode[], diagnostic?: QuestionDiagnostics): Map<string, OwnedCall> {
+  if (diagnostic === undefined) {
+    let anyAsk = false
+    const summaries: { node: ChatConversationViewNode; calls: readonly { id: string; call: Record<string, unknown> }[] }[] = []
+    for (const node of nodes) {
+      if (node.kind !== 'tool-call') continue
+      const summary = extractNodeCalls(node)
+      if (summary.scanLimited) return new Map()
+      if (summary.hasAsk) anyAsk = true
+      if (summary.calls.length > 0) summaries.push({ node, calls: summary.calls })
+    }
+    if (!anyAsk) return new Map()
+    const calls = new Map<string, OwnedCall>()
+    const duplicates = new Set<string>()
+    for (const { node, calls: nodeCalls } of summaries) {
+      for (const { id, call } of nodeCalls) {
+        if (duplicates.has(id)) continue
+        if (calls.has(id)) { calls.delete(id); duplicates.add(id) }
+        else calls.set(id, { node, call })
+      }
+    }
+    return calls
+  }
   const calls = new Map<string, OwnedCall>()
   const duplicates = new Set<string>()
   for (const node of nodes) {
     if (node.kind !== 'tool-call') continue
-    if (diagnostic) diagnostic.toolNodes++
+    diagnostic.toolNodes++
     const root = object(object(node.data)?.root)
     if (root === null) continue
     const visited = new Set<object>()
     const stack = [root]
     while (stack.length > 0) {
-      if (visited.size >= MAX_CALLS) { if (diagnostic) diagnostic.scanLimited++; return new Map() }
+      if (visited.size >= MAX_CALLS) { diagnostic.scanLimited++; return new Map() }
       const call = stack.pop()!
       if (visited.has(call)) continue
       visited.add(call)
-      if (diagnostic) {
-        diagnostic.calls++
-        if (call.kind === 'tool-result' && object(call.call) === null) diagnostic.missingCallHead++
-      }
+      diagnostic.calls++
+      if (call.kind === 'tool-result' && object(call.call) === null) diagnostic.missingCallHead++
       const id = text(call.callId)
       if (id !== '' && !duplicates.has(id)) {
-        if (calls.has(id)) { calls.delete(id); duplicates.add(id); if (diagnostic) diagnostic.duplicateCallIds++ }
+        if (calls.has(id)) { calls.delete(id); duplicates.add(id); diagnostic.duplicateCallIds++ }
         else calls.set(id, { node, call })
       }
       if (Array.isArray(call.subCalls)) {
-        if (call.subCalls.length > MAX_CALLS) { if (diagnostic) diagnostic.scanLimited++; return new Map() }
+        if (call.subCalls.length > MAX_CALLS) { diagnostic.scanLimited++; return new Map() }
         for (let i = call.subCalls.length - 1; i >= 0; i--) {
           const child = object(call.subCalls[i]); if (child !== null) stack.push(child)
         }

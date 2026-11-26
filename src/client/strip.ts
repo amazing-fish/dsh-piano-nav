@@ -8,12 +8,12 @@ import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import { observeChatNodes } from './chat-source.ts'
 import { buildNavigationNodesWithQuestions, turnOf } from './keys.ts'
 import type { KeyDescriptor } from './keys.ts'
-import { buildQuestionKeys, createQuestionDiagnostics } from './question-keys.ts'
+import { buildQuestionKeys, canSkipToolCallUpdate, createQuestionDiagnostics } from './question-keys.ts'
 import { buildPianoItems, buildPianoItemsForTurn, mergeNavigationTurns } from './navigation-model.ts'
 import type { NavigationTurn, PianoItem } from './navigation-model.ts'
 import { projectRailSlots, railSlotIndex } from './rail-slots.ts'
 import type { RailSlot } from './rail-slots.ts'
-import { createNativeNavigation } from './native-navigation.ts'
+import { createNativeNavigation, findNavSurfaces } from './native-navigation.ts'
 import { createSemanticLanding } from './semantic-landing.ts'
 import { SEMANTIC_CSS, semanticLabel, landingFailure } from './semantic-style.ts'
 import type { SmContextPianoKey } from './locales.ts'
@@ -38,14 +38,16 @@ let instanceCount = 0
 
 const DIRTY_NODES = 1 << 0
 const DIRTY_TURNS = 1 << 1
-const DIRTY_DOM = 1 << 2
-const DIRTY_LAYOUT = 1 << 3
-const DIRTY_NATIVE_STATE = 1 << 4
-const DIRTY_VIEW = 1 << 5
-const DIRTY_KEYED_NODES = 1 << 6
-const DIRTY_READER = 1 << 7
-const DIRTY_POINTER = 1 << 8
-const DIRTY_ALL = DIRTY_NODES | DIRTY_TURNS | DIRTY_DOM | DIRTY_LAYOUT | DIRTY_NATIVE_STATE | DIRTY_VIEW
+const DIRTY_NAV = 1 << 2
+const DIRTY_ROWS = 1 << 3
+const DIRTY_LAYOUT = 1 << 4
+const DIRTY_NATIVE_STATE = 1 << 5
+const DIRTY_VIEW = 1 << 6
+const DIRTY_KEYED_NODES = 1 << 7
+const DIRTY_READER = 1 << 8
+const DIRTY_POINTER = 1 << 9
+const DIRTY_ITEMS = 1 << 10
+const DIRTY_ALL = DIRTY_NODES | DIRTY_TURNS | DIRTY_NAV | DIRTY_ROWS | DIRTY_LAYOUT | DIRTY_NATIVE_STATE | DIRTY_VIEW | DIRTY_ITEMS
 const STREAM_SEMANTIC_MIN_INTERVAL_MS = 120
 
 /** Attach to the visible ChatView, never to a background/hidden conversation. */
@@ -108,7 +110,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   })
   // The empty-window hold drives its own rechecks; when one surrenders or
   // recovers outside our render flow, our cached nativeReady/mode is stale.
-  owner.onExternalReconcile = () => { schedule(DIRTY_DOM | DIRTY_NATIVE_STATE | DIRTY_VIEW) }
+  owner.onExternalReconcile = () => { schedule(DIRTY_NAV | DIRTY_NATIVE_STATE | DIRTY_VIEW) }
   const landing = createSemanticLanding(flow, owner)
   const prefix = `smcp-${++instanceCount}-`
   const strip = document.createElement('div')
@@ -158,6 +160,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let nodeByKey = new Map<string, ChatConversationViewNode>()
   let nodeIndexByKey = new Map<string, number>()
   let turnKeys = new Map<number, string[]>()
+  let turnNodesByTurn = new Map<number, ChatConversationViewNode[]>()
   let segmentsByTurn = new Map<number, KeyDescriptor[]>()
   let turnByNumber = new Map<number, NavigationTurn>()
   let turnItemRanges = new Map<number, { start: number; count: number }>()
@@ -198,6 +201,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   let stripViewportLeft = 0
   let readingLineY = 0
   let areaHeight = 0
+  let lastObservedFlowWidth: number | null = null
   let hitTestXs: number[] = []
   let railSlots: RailSlot[] = []
   let visiblePositions: number[] = []
@@ -207,7 +211,6 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   // line inside the old process (notably at the scroll-clamped final answer).
   const collapsedKeys = new Set<string>()
   let projectionDirty = true
-  let projectedActive: string | null = null
   let projectedProtection = ''
   const clearExpansion = (): void => {
     if (expandedKeys.size === 0) return
@@ -216,6 +219,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   let tooltipKey: string | null = null
   let tooltipPosition: string | null = null
+  let cachedTooltipWidth = 400
+  let cachedTooltipHeight = 150
   const buttons = new Map<string, HTMLButtonElement>()
   const perf = { renders: 0, readerSkips: 0, nodeRebuilds: 0, keyedSemanticUpdates: 0, itemRebuilds: 0, turnRebuilds: 0, domReconciles: 0, mappedAnchorRebuilds: 0, railProjections: 0, pointerFrames: 0, hitTests: 0, barWrites: 0 }
   const debug = { mounted: true, bars: 0, total: 0, windowStart: 0, sessionId: undefined as string | undefined, hiddenReason: null as string | null, mode: 'native-fallback', nativeReject: null as string | null, nativeSkip: null as string | null, gateMisses: 0, layout: { left: 0, flowLeft: 0, width: 0, top: 0, root: 'root' as string }, perf,
@@ -305,7 +310,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     lastStreamSemanticAt = window.performance.now()
     if (pending !== 0) schedule(pending)
   }
-  const scheduleKeyedSemantic = (keys: readonly string[], flags = DIRTY_KEYED_NODES | DIRTY_VIEW): void => {
+  const scheduleKeyedSemantic = (keys: readonly string[], flags = DIRTY_KEYED_NODES): void => {
     for (const key of keys) keyedDirtyKeys.add(key)
     streamDirtyFlags |= flags
     const now = window.performance.now()
@@ -327,14 +332,26 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const hitTest = document.elementsFromPoint?.bind(document)
     if (typeof hitTest === 'function') {
       for (const x of hitTestXs) {
+        let lastRow: HTMLElement | null = null
+        let hitAnchoredRow = false
         for (const element of hitTest(x, readingLineY)) {
+          if (element === flow) break
           const row = (element as HTMLElement).closest<HTMLElement>('[data-chat-anchor-key]')
-          if (row === null || !flow.contains(row) || row.closest('[hidden]') !== null) continue
+          if (row === null || row === lastRow) continue
+          lastRow = row
           const anchor = row.dataset.chatAnchorKey
           if (anchor === undefined) continue
           const key = firstItemByAnchor.get(anchor)
-          if (key !== undefined) return key
+          if (key === undefined) {
+            if (flow.contains(row)) hitAnchoredRow = true
+            continue
+          }
+          if (!flow.contains(row) || row.closest('[hidden]') !== null) continue
+          return key
         }
+        // Center sample already hit an unkeyed transcript row (e.g., tool call);
+        // skip the second full hit-test and go straight to binary-search fallback.
+        if (hitAnchoredRow) break
       }
     }
     const preceding = owner.anchorAtOrBefore(readingLineY)
@@ -345,9 +362,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     return nativeActiveTurn === null ? null : itemByKey.has(`turn:${nativeActiveTurn}`) ? `turn:${nativeActiveTurn}` : null
   }
   const availableSegment = (segment: KeyDescriptor): KeyDescriptor[] => {
-    const visible = owner.rowFor(segment.anchorKey) !== null
+    const visible = owner.hasVisibleRow(segment.anchorKey)
     if (!visible && !((segment.kind === 'question' || segment.kind === 'answer' || segment.kind === 'output' || segment.kind === 'final')
-      && landing.canReveal(segment.anchorKey))) return []
+      && owner.canRevealRow(segment.anchorKey))) return []
     // Native process disclosure may change only the DOM, leaving the source
     // node's visibility untouched. The mounted row is the display authority.
     return [segment.kind === 'output' ? { ...segment, folded: !visible } : segment]
@@ -374,10 +391,11 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   }
   const projectSlots = (): RailSlot[] => {
     const protection = `${busyTurn}:${requestedTurn}:${failedTurn}`
-    if (projectionDirty || projectedActive !== active || projectedProtection !== protection) {
-      railSlots = projectRailSlots(items, itemIndexByKey.get(active ?? '') ?? -1, expandedKeys,
+    // Reader position affects highlighting/windowing only, never process grouping.
+    if (projectionDirty || projectedProtection !== protection) {
+      railSlots = projectRailSlots(items, -1, expandedKeys,
         new Set([busyTurn, requestedTurn, failedTurn].filter((turn): turn is number => turn !== null)), collapsedKeys)
-      projectionDirty = false; projectedActive = active; projectedProtection = protection
+      projectionDirty = false; projectedProtection = protection
       perf.railProjections++
     }
     return railSlots
@@ -400,33 +418,89 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     for (const key of collapsedKeys) if (!itemByKey.has(key)) collapsedKeys.delete(key)
     perf.mappedAnchorRebuilds++
   }
-  const rebuildSemanticState = (): void => {
-    keyedDirtyKeys.clear()
-    questionKeys = buildQuestionKeys(nodes, turnOf)
-    segments = buildNavigationNodesWithQuestions(nodes, questionKeys)
-    nodeByKey = new Map()
-    nodeIndexByKey = new Map()
-    turnKeys = new Map()
-    nodes.forEach((node, index) => {
-      nodeByKey.set(node.key, node)
-      nodeIndexByKey.set(node.key, index)
-      const turn = turnOf(node)
-      if (turn === null) return
-      const keys = turnKeys.get(turn) ?? []
-      keys.push(node.key)
-      turnKeys.set(turn, keys)
-    })
-    segmentsByTurn = new Map()
-    for (const segment of segments) {
-      if (segment.turn === null) continue
-      const list = segmentsByTurn.get(segment.turn) ?? []
-      list.push(segment)
-      segmentsByTurn.set(segment.turn, list)
+  const segmentsEqual = (a: readonly KeyDescriptor[] | undefined, b: readonly KeyDescriptor[]): boolean => {
+    if (a === undefined || a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      const x = a[i], y = b[i]
+      if (x.key !== y.key || x.anchorKey !== y.anchorKey || x.role !== y.role || x.kind !== y.kind
+        || x.turn !== y.turn || x.folded !== y.folded || x.interactionState !== y.interactionState
+        || x.title !== y.title || x.preview !== y.preview) return false
     }
-    perf.nodeRebuilds++
+    return true
+  }
+  const sameNodes = (a: readonly ChatConversationViewNode[] | undefined, b: readonly ChatConversationViewNode[]): boolean => {
+    if (a === undefined || a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+    return true
+  }
+  const rebuildSemanticState = (): boolean => {
+    keyedDirtyKeys.clear()
+    const prevQuestionKeys = questionKeys
+    const nextQuestionKeys = buildQuestionKeys(nodes, turnOf)
+    const nextNodeByKey = new Map<string, ChatConversationViewNode>()
+    const nextNodeIndexByKey = new Map<string, number>()
+    const nextTurnKeys = new Map<number, string[]>()
+    const nextTurnNodes = new Map<number, ChatConversationViewNode[]>()
+    for (let index = 0; index < nodes.length; index++) {
+      const node = nodes[index]
+      nextNodeByKey.set(node.key, node)
+      nextNodeIndexByKey.set(node.key, index)
+      const turn = turnOf(node)
+      if (turn === null) continue
+      let keys = nextTurnKeys.get(turn)
+      let list = nextTurnNodes.get(turn)
+      if (keys === undefined || list === undefined) {
+        keys = []; list = []
+        nextTurnKeys.set(turn, keys)
+        nextTurnNodes.set(turn, list)
+      }
+      keys.push(node.key)
+      list.push(node)
+    }
+    const nextSegmentsByTurn = new Map<number, KeyDescriptor[]>()
+    let changed = nextTurnNodes.size !== segmentsByTurn.size
+    for (const [turn, turnNodes] of nextTurnNodes) {
+      const prevNodes = turnNodesByTurn.get(turn)
+      const prevSegments = segmentsByTurn.get(turn)
+      let reuse = prevSegments !== undefined && sameNodes(prevNodes, turnNodes)
+      if (reuse) {
+        for (const node of turnNodes) {
+          if (node.kind !== 'tool-call') continue
+          const prevQ = prevQuestionKeys.get(node.key)
+          const nextQ = nextQuestionKeys.get(node.key)
+          if (prevQ !== nextQ && !(prevQ !== undefined && nextQ !== undefined && segmentsEqual(prevQ, nextQ))) {
+            reuse = false
+            break
+          }
+        }
+      }
+      if (reuse) {
+        nextSegmentsByTurn.set(turn, prevSegments!)
+        continue
+      }
+      const computed = buildNavigationNodesWithQuestions(turnNodes, nextQuestionKeys)
+      nextSegmentsByTurn.set(turn, computed)
+      if (!changed && !segmentsEqual(prevSegments, computed)) changed = true
+    }
+    questionKeys = nextQuestionKeys
+    nodeByKey = nextNodeByKey
+    nodeIndexByKey = nextNodeIndexByKey
+    turnKeys = nextTurnKeys
+    turnNodesByTurn = nextTurnNodes
+    segmentsByTurn = nextSegmentsByTurn
+    if (changed) {
+      segments = [...segmentsByTurn.values()].flat()
+      perf.nodeRebuilds++
+    }
+    return changed
   }
   const rebuildItemsFromSegments = (): void => {
     segments = [...segmentsByTurn.values()].flat()
+    // If a structural node update introduced an anchor not yet seen by the
+    // DOM row index, refresh rows once before filtering availability.
+    for (const segment of segments) {
+      if (!owner.hasAnchor(segment.anchorKey)) { owner.refreshRows(); break }
+    }
     const availableSegments = segments.flatMap(availableSegment)
     items = buildPianoItems(turns, availableSegments, turn => copy('turn', turn))
     rebuildItemIndex()
@@ -438,7 +512,11 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (range === undefined || range.count !== nextItems.length) return false
     const previous = items.slice(range.start, range.start + range.count)
     if (previous.some((item, index) => item.key !== nextItems[index]?.key)) return false
-    projectionDirty = true
+    const groupingStable = previous.every((item, index) => {
+      const next = nextItems[index]
+      return item.kind === next.kind && item.role === next.role && item.turn === next.turn && item.folded === next.folded
+    })
+    if (!groupingStable) projectionDirty = true
     const anchorsStable = previous.every((item, index) => item.anchorKey === nextItems[index]?.anchorKey)
     if (!anchorsStable) {
       const oldKeys = new Set(previous.map(item => item.key))
@@ -453,6 +531,18 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       itemIndexByKey.set(item.key, index)
       if (!anchorsStable && item.anchorKey !== null && !firstItemByAnchor.has(item.anchorKey)) firstItemByAnchor.set(item.anchorKey, item.key)
     })
+    // Keep existing rail slot representative items fresh without re-projecting
+    // the full conversation when streaming only changed text/preview.
+    if (groupingStable && !projectionDirty && railSlots.length > 0) {
+      const rangeEnd = range.start + range.count
+      const firstSlot = railSlotIndex(railSlots, range.start)
+      if (firstSlot >= 0) {
+        for (let i = firstSlot; i < railSlots.length && railSlots[i].start < rangeEnd; i++) {
+          const slot = railSlots[i]
+          slot.item = items[slot.sourceIndex]
+        }
+      }
+    }
     // Streaming text normally changes only preview/title. Avoid re-filtering every
     // transcript row when the stable Piano key -> DOM anchor mapping is unchanged.
     if (!anchorsStable) {
@@ -461,18 +551,35 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     }
     return true
   }
-  const refreshKeyedSemantic = (): void => {
+  const refreshKeyedSemantic = (): boolean => {
     const dirtyKeys = [...keyedDirtyKeys]
     keyedDirtyKeys.clear()
-    if (dirtyKeys.length === 0) return
+    if (dirtyKeys.length === 0) return false
     const dirtyTurns = new Set<number>()
     let requiresFullSemantic = false
     for (const key of dirtyKeys) {
       const index = nodeIndexByKey.get(key)
       const previous = nodeByKey.get(key)
       const next = index === undefined ? undefined : nodes[index]
-      if (previous === undefined || next === undefined || next.key !== key || previous.kind !== next.kind
-        || previous.kind === 'tool-call' || next.kind === 'tool-call') {
+      if (previous === undefined || next === undefined || next.key !== key || previous.kind !== next.kind) {
+        requiresFullSemantic = true
+        break
+      }
+      if (previous.kind === 'tool-call' || next.kind === 'tool-call') {
+        // Non-question tool calls (bash, file ops, search, subagents) with
+        // unchanged call IDs never affect Piano keys or duplicate-call census.
+        if (canSkipToolCallUpdate(previous, next)) {
+          nodeByKey.set(key, next)
+          const t = turnOf(next)
+          if (t !== null) {
+            const list = turnNodesByTurn.get(t)
+            if (list !== undefined) {
+              const pos = list.indexOf(previous)
+              if (pos >= 0) list[pos] = next
+            }
+          }
+          continue
+        }
         requiresFullSemantic = true
         break
       }
@@ -483,13 +590,24 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
         break
       }
       nodeByKey.set(key, next)
+      const list = turnNodesByTurn.get(nextTurn)
+      if (list !== undefined) {
+        const pos = list.indexOf(previous)
+        if (pos >= 0) list[pos] = next
+      }
       dirtyTurns.add(nextTurn)
     }
     if (requiresFullSemantic) {
-      rebuildSemanticState()
-      rebuildItemsFromSegments()
-      return
+      // Earlier keys in this batch may have updated `turnNodesByTurn` in-place;
+      // invalidate their cached segments so `rebuildSemanticState()` recomputes them.
+      for (const turn of dirtyTurns) segmentsByTurn.delete(turn)
+      if (rebuildSemanticState()) {
+        rebuildItemsFromSegments()
+        return true
+      }
+      return false
     }
+    if (dirtyTurns.size === 0) return false
     let rebuildAllItems = false
     for (const turn of dirtyTurns) {
       const keys = turnKeys.get(turn)
@@ -510,6 +628,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     }
     if (rebuildAllItems) rebuildItemsFromSegments()
     else debug.total = items.length
+    return true
   }
   // `root` is adopted before the host paints, so it is not guaranteed to own a
   // box: a host layer using `display: contents` reports clientWidth 0, an
@@ -553,6 +672,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     hitTestXs = flowRect.width > 0
       ? [flowRect.left + flowRect.width / 2, Math.min(flowRect.right - 1, flowRect.left + 18)]
       : []
+    if (flowRect.width > 0) lastObservedFlowWidth = flowRect.width
     debug.layout.left = left; debug.layout.flowLeft = flowLeft; debug.layout.width = width; debug.layout.top = top
     debug.layout.root = anchor === root ? 'root' : `ancestor:${anchor.className}`
   }
@@ -575,8 +695,12 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       const nextTooltipPosition = `${left}:${width}:${top}:${visiblePositions[focusIndex]}`
       if (contentChanged || (pending & DIRTY_LAYOUT) !== 0 || tooltipPosition !== nextTooltipPosition) {
         tooltipPosition = nextTooltipPosition
-        const previewWidth = tooltip.offsetWidth || 400
-        const previewHeight = tooltip.offsetHeight || 150
+        if (contentChanged || (pending & DIRTY_LAYOUT) !== 0) {
+          cachedTooltipWidth = tooltip.offsetWidth || 400
+          cachedTooltipHeight = tooltip.offsetHeight || 150
+        }
+        const previewWidth = cachedTooltipWidth
+        const previewHeight = cachedTooltipHeight
         const rootHeight = areaHeight
         tooltip.style.left = `${Math.max(8, Math.min(left + 64, width - previewWidth - 8))}px`
         tooltip.style.top = `${Math.max(8, Math.min(top + visiblePositions[focusIndex] - 48, rootHeight - previewHeight - 8))}px`
@@ -611,32 +735,65 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     })
     if (wave.moving && waveSlot !== undefined) schedule(DIRTY_POINTER)
   }
+  const turnsEqual = (a: readonly NavigationTurn[], b: readonly NavigationTurn[]): boolean => {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      const x = a[i], y = b[i]
+      if (x.turn !== y.turn || x.prompt !== y.prompt || x.response !== y.response || x.anchor.kind !== y.anchor.kind) return false
+      if (x.anchor.kind === 'loaded' ? x.anchor.key !== (y.anchor as { kind: 'loaded'; key: string }).key
+        : x.anchor.seq !== (y.anchor as { kind: 'unloaded'; seq: number }).seq) return false
+    }
+    return true
+  }
   const render = (pending: number): void => {
-    perf.renders++
     if (pending === DIRTY_POINTER) {
+      perf.renders++
       if (!nativeReady || strip.hidden) { pendingPointer = null; return }
       applyPointer()
       renderFeedback(pending)
       perf.pointerFrames++
       return
     }
+    let turnsChanged = false
     if ((pending & DIRTY_TURNS) !== 0) {
       const snapshot = binding === undefined ? undefined : ctx.uiConversation.binding(binding).target('chat').getSnapshot()
       const loaded = snapshot?.navigation.items() ?? []
       const outline = binding?.session.projections.faceOf('turnOutline').getSnapshot()
-      turns = mergeNavigationTurns(loaded, outline)
-      turnByNumber = new Map(turns.map(turn => [turn.turn, turn]))
-      perf.turnRebuilds++
+      const nextTurns = mergeNavigationTurns(loaded, outline)
+      if (!turnsEqual(turns, nextTurns)) {
+        turns = nextTurns
+        turnByNumber = new Map(turns.map(turn => [turn.turn, turn]))
+        turnsChanged = true
+        perf.turnRebuilds++
+      }
     }
-    if ((pending & DIRTY_NODES) !== 0) rebuildSemanticState()
-    else if ((pending & DIRTY_KEYED_NODES) !== 0) refreshKeyedSemantic()
-    if ((pending & (DIRTY_DOM | DIRTY_TURNS)) !== 0) {
-      nativeReady = owner.reconcile(turns)
-      if ((pending & DIRTY_DOM) !== 0) landing.refresh()
+    let nodesChanged = false
+    let keyedChanged = false
+    if ((pending & DIRTY_NODES) !== 0) nodesChanged = rebuildSemanticState()
+    else if ((pending & DIRTY_KEYED_NODES) !== 0) keyedChanged = refreshKeyedSemantic()
+    // Non-semantic updates (e.g., streaming bash/file tool calls) leave turns and
+    // Piano keys untouched; skip full rendering when nothing else is dirty, while
+    // preserving explicit pointer/view requests coalesced into the same frame.
+    if (!turnsChanged && !nodesChanged && !keyedChanged && debug.mode === 'piano'
+      && (pending & (DIRTY_NAV | DIRTY_ROWS | DIRTY_ITEMS | DIRTY_LAYOUT | DIRTY_NATIVE_STATE | DIRTY_READER | DIRTY_VIEW)) === 0
+      && (pending & (DIRTY_NODES | DIRTY_KEYED_NODES)) !== 0) {
+      if ((pending & DIRTY_POINTER) !== 0) {
+        perf.renders++
+        if (!nativeReady || strip.hidden) { pendingPointer = null; return }
+        applyPointer()
+        renderFeedback(DIRTY_POINTER)
+        perf.pointerFrames++
+      }
+      return
+    }
+    perf.renders++
+    if ((pending & DIRTY_ROWS) !== 0) owner.refreshRows()
+    if ((pending & (DIRTY_NAV | DIRTY_ROWS)) !== 0 || turnsChanged) {
+      nativeReady = owner.reconcileNav(turns)
       perf.domReconciles++
     }
-    if ((pending & (DIRTY_NODES | DIRTY_TURNS | DIRTY_DOM)) !== 0) rebuildItemsFromSegments()
-    if ((pending & (DIRTY_NATIVE_STATE | DIRTY_DOM | DIRTY_TURNS)) !== 0) {
+    if (nodesChanged || turnsChanged || (pending & (DIRTY_ROWS | DIRTY_ITEMS)) !== 0) rebuildItemsFromSegments()
+    if ((pending & (DIRTY_NATIVE_STATE | DIRTY_NAV | DIRTY_ROWS)) !== 0 || turnsChanged) {
       busyTurn = owner.busy()
       nativeActiveTurn = owner.active()
     }
@@ -678,7 +835,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const config = settings.getSnapshot()
     const loadedBusy = sessionLoadingOlder
     if (requestedTurn !== null && busyTurn === null && !loadedBusy) {
-      const destination = turns.find(turn => turn.turn === requestedTurn)
+      const destination = turnByNumber.get(requestedTurn)
       failedTurn = destination?.anchor.kind === 'unloaded' ? requestedTurn : null
       requestedTurn = null
     }
@@ -744,7 +901,8 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     renderFeedback(pending)
     status.textContent = localFailure ? landingFailure(config.language)
       : busyTurn !== null ? copy('loading', busyTurn) : failedTurn !== null ? copy('failed', failedTurn) : ''
-    strip.hidden = false; owner.claim()
+    if (strip.hidden) strip.hidden = false
+    owner.claim()
     debug.mode = 'piano'; debug.hiddenReason = null; debug.nativeReject = null; debug.nativeSkip = owner.lastSkip; debug.bars = visibleSlots.length; debug.windowStart = windowStart
   }
   const bind = (): void => {
@@ -768,7 +926,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     retry = undefined
     if (next === undefined) {
       turns = []; segments = []; items = []
-      questionKeys = new Map(); nodeByKey.clear(); nodeIndexByKey.clear(); turnKeys.clear(); segmentsByTurn.clear(); turnByNumber.clear(); turnItemRanges.clear()
+      questionKeys = new Map(); nodeByKey.clear(); nodeIndexByKey.clear(); turnKeys.clear(); turnNodesByTurn.clear(); segmentsByTurn.clear(); turnByNumber.clear(); turnItemRanges.clear()
       itemByKey.clear(); itemIndexByKey.clear(); firstItemByAnchor.clear()
       for (const button of buttons.values()) button.remove()
       buttons.clear()
@@ -790,9 +948,10 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
           scheduleKeyedSemantic(dirtyKeys ?? [])
           return
         }
+        const carry = streamDirtyFlags & ~DIRTY_KEYED_NODES
         clearStreamRefresh(true)
         lastStreamSemanticAt = window.performance.now()
-        schedule(DIRTY_NODES | DIRTY_TURNS | DIRTY_DOM | DIRTY_LAYOUT | DIRTY_NATIVE_STATE | DIRTY_VIEW)
+        schedule(DIRTY_NODES | DIRTY_TURNS | carry)
       }))
       stops.push(next.session.projections.faceOf('turnOutline').subscribe(() => schedule(DIRTY_TURNS | DIRTY_NATIVE_STATE | DIRTY_VIEW)))
       sessionLoadingOlder = next.session.getSnapshot().loadingOlder ?? false
@@ -1020,40 +1179,84 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (composerSeat !== null) resize?.observe(composerSeat)
     observeComposerParent()
   }
-  const childListChangesNavigation = (record: MutationRecord): boolean => {
+  const childListDirtyFlags = (record: MutationRecord): number => {
     const target = record.target instanceof window.Element ? record.target : record.target.parentElement
     const outsideFlow = target === null || !flow.contains(target)
-    if (outsideFlow && target?.closest('nav,[role="navigation"]') !== null) return true
-    if (outsideFlow) {
-      for (const node of record.addedNodes) if (touchesNavigation(node)) return true
-      for (const node of record.removedNodes) if (touchesNavigation(node)) return true
+    let flags = 0
+    if (outsideFlow && target?.closest('nav,[role="navigation"]') !== null) flags |= DIRTY_NAV
+    if (outsideFlow && flags === 0) {
+      for (const node of record.addedNodes) if (touchesNavigation(node)) { flags |= DIRTY_NAV; break }
+      if (flags === 0) for (const node of record.removedNodes) if (touchesNavigation(node)) { flags |= DIRTY_NAV; break }
     }
-    for (const node of record.addedNodes) if (touchesAnchor(node)) return true
-    for (const node of record.removedNodes) if (touchesAnchor(node)) return true
-    return false
+    if (!outsideFlow || target === flow) {
+      for (const node of record.addedNodes) if (touchesAnchor(node)) { flags |= DIRTY_ROWS; break }
+      if ((flags & DIRTY_ROWS) === 0) for (const node of record.removedNodes) if (touchesAnchor(node)) { flags |= DIRTY_ROWS; break }
+    } else {
+      for (const node of record.addedNodes) if (node !== flow && touchesAnchor(node)) { flags |= DIRTY_ROWS; break }
+      if ((flags & DIRTY_ROWS) === 0) for (const node of record.removedNodes) if (node !== flow && touchesAnchor(node)) { flags |= DIRTY_ROWS; break }
+    }
+    return flags
   }
   let nativeSurface: HTMLElement | null = null
   let nativeSurfaceParent: HTMLElement | null = null
+  let observedNavSurfaces: HTMLElement[] = []
   // Same scope contract as native-navigation reconcile: DSH 0.1.7 mounts the
   // TurnNavigator at the [data-conversation-scroll] level, outside
   // flow.parentElement. Surface discovery, structure and attribute observation
   // must cover that scope too, or a claimed navigator silently stops syncing.
   const nativeScope = scrollport ?? local
+  // Observe aria/disabled attributes ONLY on native nav surfaces, never on the
+  // large expanded transcript subtree inside `flow`.
+  const nativeAttributeDom = new MutationObserver(records => {
+    let flags = 0
+    for (const record of records) {
+      if (record.attributeName === 'hidden' || record.attributeName === 'aria-label' || record.attributeName === 'disabled') {
+        flags |= DIRTY_NAV | DIRTY_VIEW
+      } else if (record.attributeName === 'aria-current' || record.attributeName === 'aria-busy') {
+        flags |= DIRTY_NATIVE_STATE | DIRTY_VIEW
+      }
+    }
+    if (flags !== 0) schedule(flags)
+  })
+  // Inside `flow`, only `hidden` changes affect process/anchor disclosure.
+  // Watching `hidden` alone avoids every aria-label/disabled mutation inside
+  // expanded messages, code blocks, and tool cards.
+  const flowHiddenDom = new MutationObserver(records => {
+    for (const record of records) {
+      const target = record.target instanceof window.Element ? record.target as HTMLElement : null
+      if (target === null) continue
+      if (target.hasAttribute('data-chat-anchor-key') || target.dataset.turnProcessHidden === 'true') {
+        schedule(DIRTY_ROWS | DIRTY_VIEW)
+        return
+      }
+    }
+  })
+  flowHiddenDom.observe(flow, { subtree: true, attributes: true, attributeFilter: ['hidden'] })
   // Rebind first: when the observed slot swaps in a new nav, keep watching the
   // live surface instead of the detached one.
   const nativeStructureDom = new MutationObserver(() => {
     syncNativeSurfaceObserver()
-    schedule(DIRTY_DOM | DIRTY_VIEW)
+    schedule(DIRTY_NAV | DIRTY_VIEW)
   })
   const syncNativeSurfaceObserver = (): void => {
-    const next = [...nativeScope.querySelectorAll<HTMLElement>('nav,[role="navigation"]')]
-      .find(element => !flow.contains(element) && element.getAttribute('aria-label') === nativeT('chat.turnNavigation.label')) ?? null
+    const surfaces = findNavSurfaces(nativeScope, flow)
+    const next = surfaces.find(element => element.getAttribute('aria-label') === nativeT('chat.turnNavigation.label')) ?? null
     // Before the first surface (or after its slot disappears), the navigator
     // may arrive below an already-mounted wrapper. Direct-child observation
     // cannot see that publication. Discover it at any depth while absent;
-    // childListChangesNavigation filters transcript churn without rendering.
+    // childListDirtyFlags filters transcript churn without rendering.
     // Once found, return to the shallow boundary plus the known native slot.
     structureDom.observe(nativeScope, { childList: true, subtree: next === null })
+    // Rebind native attribute observer only when the set of nav landmarks changed.
+    const navListChanged = surfaces.length !== observedNavSurfaces.length
+      || surfaces.some((el, i) => el !== observedNavSurfaces[i])
+    if (navListChanged) {
+      nativeAttributeDom.disconnect()
+      observedNavSurfaces = surfaces
+      for (const surface of surfaces) {
+        nativeAttributeDom.observe(surface, { subtree: true, attributes: true, attributeFilter: ['hidden', 'aria-label', 'aria-current', 'aria-busy', 'disabled'] })
+      }
+    }
     // Keep the connected slot observed while its navigator is absent. Otherwise
     // a later insertion below the scrollport has no observer to wake Piano.
     const nextParent = next?.parentElement ?? (nativeSurfaceParent !== null
@@ -1070,9 +1273,11 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if (nextParent !== null && nextParent !== nativeScope) nativeStructureDom.observe(nextParent, { childList: true })
   }
   const structureDom = new MutationObserver(records => {
-    if (!records.some(childListChangesNavigation)) return
-    syncNativeSurfaceObserver()
-    schedule(DIRTY_DOM | DIRTY_VIEW)
+    let flags = 0
+    for (const record of records) flags |= childListDirtyFlags(record)
+    if (flags === 0) return
+    if ((flags & DIRTY_NAV) !== 0) syncNativeSurfaceObserver()
+    schedule(flags | DIRTY_VIEW)
   })
   // Official ChatView renders ChatNodeSeat wrappers as direct children of
   // [data-chat-flow]. Watching only that structural boundary avoids every
@@ -1083,30 +1288,26 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
   // container. Watch it even before the first nav or after the old one unmounts.
   structureDom.observe(local, { childList: true })
   syncNativeSurfaceObserver()
-  const attributeDom = new MutationObserver(records => {
-    let flags = 0
-    for (const record of records) {
-      const target = record.target instanceof window.Element ? record.target : null
-      if (record.attributeName === 'hidden') {
-        if (target === null || !flow.contains(target) || target.matches('[data-chat-anchor-key]')) flags |= DIRTY_DOM | DIRTY_VIEW
-        continue
-      }
-      // Native contract attributes live outside the transcript flow. Ignore
-      // matching aria attributes inside rich message content.
-      if (target !== null && flow.contains(target)) continue
-      if (record.attributeName === 'aria-label' || record.attributeName === 'disabled') flags |= DIRTY_DOM | DIRTY_VIEW
-      else if (record.attributeName === 'aria-current' || record.attributeName === 'aria-busy') flags |= DIRTY_NATIVE_STATE | DIRTY_VIEW
-    }
-    if (flags !== 0) schedule(flags)
-  })
-  attributeDom.observe(nativeScope, { subtree: true, attributes: true, attributeFilter: ['hidden', 'aria-label', 'aria-current', 'aria-busy', 'disabled'] })
   composerDom = new MutationObserver(records => {
     if (!records.some(record => [...record.addedNodes, ...record.removedNodes].some(touchesComposer))) return
     syncComposerSeat()
     schedule(DIRTY_LAYOUT | DIRTY_VIEW)
   })
   observeComposerParent()
-  resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => schedule(DIRTY_LAYOUT | DIRTY_VIEW))
+  resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(entries => {
+    // Expanding/streaming messages only grow `flow` vertically, which never
+    // changes rail geometry (`measureLayout` reads `flow`'s horizontal box only).
+    let needsLayout = entries.length === 0
+    for (const entry of entries) {
+      if (entry.target !== flow) { needsLayout = true; continue }
+      const nextWidth = entry.contentRect?.width
+      if (nextWidth === undefined || lastObservedFlowWidth === null || Math.abs(nextWidth - lastObservedFlowWidth) >= 0.5) {
+        if (nextWidth !== undefined) lastObservedFlowWidth = nextWidth
+        needsLayout = true
+      }
+    }
+    if (needsLayout) schedule(DIRTY_LAYOUT | DIRTY_VIEW)
+  })
   resize?.observe(root); resize?.observe(flow); resize?.observe(scrollport)
   if (composerSeat !== null) resize?.observe(composerSeat)
   strip.addEventListener('pointermove', pointerMove); strip.addEventListener('pointerleave', pointerLeave)
@@ -1125,7 +1326,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     const next = settings.getSnapshot()
     syncPalette(strip.style, next, appliedSettings)
     let flags = 0
-    if (next.language !== appliedSettings.language) flags |= DIRTY_NODES | DIRTY_TURNS | DIRTY_LAYOUT | DIRTY_VIEW
+    if (next.language !== appliedSettings.language) flags |= DIRTY_NODES | DIRTY_TURNS | DIRTY_ITEMS | DIRTY_LAYOUT | DIRTY_VIEW
     if (next.keyHeight !== appliedSettings.keyHeight || next.keyGap !== appliedSettings.keyGap || next.maxVisible !== appliedSettings.maxVisible) flags |= DIRTY_LAYOUT | DIRTY_VIEW
     appliedSettings = next
     if (flags !== 0) schedule(flags)
@@ -1136,7 +1337,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     clearPointer()
     motionPreference?.removeEventListener?.('change', motionChanged)
     if (binding?.session.sessionId === selection.getSnapshot()) owner.cancel()
-    owner.release(); sourceStop?.(); listStop(); selectedStop(); settingsStop(); structureDom.disconnect(); nativeStructureDom.disconnect(); attributeDom.disconnect(); composerDom?.disconnect(); resize?.disconnect()
+    owner.release(); sourceStop?.(); listStop(); selectedStop(); settingsStop(); structureDom.disconnect(); nativeStructureDom.disconnect(); nativeAttributeDom.disconnect(); flowHiddenDom.disconnect(); composerDom?.disconnect(); resize?.disconnect()
     if (retry !== undefined) clearTimeout(retry)
     clearStreamRefresh(true)
     if (frame !== 0) window.cancelAnimationFrame(frame)

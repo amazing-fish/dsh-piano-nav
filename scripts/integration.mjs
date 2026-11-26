@@ -620,6 +620,154 @@ await check('display:contents root falls back to the painted ancestor width', as
   assert.equal(globalThis.__smcpDebug.layout.root, 'root')
   assert.equal(globalThis.__smcpDebug.layout.flowLeft, 300)
 })
+await check('long expanded turns skip redundant rebuilds on nav churn, scrolling, flow height resize, and non-question tool calls', async () => {
+  // 1. Virtualized nav button churn must only reconcile <nav>, never rebuild items/railSlots.
+  let before = { ...globalThis.__smcpDebug.perf }
+  const btn = nativeButton(5)
+  const swap = btn.cloneNode(true)
+  btn.replaceWith(swap); await frame()
+  swap.replaceWith(btn); await frame()
+  let after = globalThis.__smcpDebug.perf
+  assert.equal(after.itemRebuilds, before.itemRebuilds, 'nav button swap must not rebuild items')
+  assert.equal(after.mappedAnchorRebuilds, before.mappedAnchorRebuilds, 'nav button swap must not refilter anchors')
+  assert.equal(after.railProjections, before.railProjections, 'nav button swap must not re-project rail slots')
+
+  // 2. Scrolling across segments must not re-project rail slots.
+  before = { ...globalThis.__smcpDebug.perf }
+  scroll.scrollTop = 1540; scroll.dispatchEvent(new window.Event('scroll')); await frame()
+  scroll.scrollTop = 1850; scroll.dispatchEvent(new window.Event('scroll')); await frame()
+  scroll.scrollTop = 0; scroll.dispatchEvent(new window.Event('scroll')); await frame()
+  after = globalThis.__smcpDebug.perf
+  assert.equal(after.railProjections, before.railProjections, 'active reading changes must not re-project rail slots')
+
+  // 3. Height-only flow ResizeObserver changes (expanding turns / streaming lines) must not re-render.
+  before = { ...globalThis.__smcpDebug.perf }
+  for (const obs of resizeObservers) {
+    if (obs.targets.has(flow)) obs.callback([{ target: flow, contentRect: { width: 748, height: 12000 } }], obs)
+  }
+  await frame()
+  after = globalThis.__smcpDebug.perf
+  assert.equal(after.renders, before.renders, 'flow height-only resize must not wake layout/render')
+
+  // 4. Structural append and keyed streaming of non-question tool calls must not rebuild Piano state.
+  const toolKey = 'bash-tool-10'
+  const toolNode = {
+    key: toolKey, kind: 'tool-call', target: 'chat', visibility: 'visible', location: { turn: 10 },
+    data: { root: { kind: 'tool-result', callId: 'bash-10', isError: false, call: { name: 'bash', argsRaw: '{"cmd":"ls"}' }, content: [{ type: 'text', text: 'out-1' }], subCalls: [] } },
+  }
+  const prevOrder = chat.getSnapshot().order
+  before = { ...globalThis.__smcpDebug.perf }
+  map.set(toolKey, toolNode)
+  chat.set({ ...chat.getSnapshot(), order: [...prevOrder, toolKey] })
+  await frame()
+  after = globalThis.__smcpDebug.perf
+  assert.equal(after.renders, before.renders, 'appending a non-question tool call must not re-render')
+  assert.equal(after.itemRebuilds, before.itemRebuilds)
+  assert.equal(after.railProjections, before.railProjections)
+
+  const updatedTool = { ...toolNode, data: { root: { ...toolNode.data.root, content: [{ type: 'text', text: 'out-2' }] } } }
+  map.set(toolKey, updatedTool)
+  sources.get(toolKey).set(updatedTool)
+  await frame()
+  after = globalThis.__smcpDebug.perf
+  assert.equal(after.renders, before.renders, 'streaming a non-question tool call must not re-render')
+  assert.equal(after.nodeRebuilds, before.nodeRebuilds)
+  assert.equal(after.itemRebuilds, before.itemRebuilds)
+
+  map.delete(toolKey)
+  chat.set({ ...chat.getSnapshot(), order: prevOrder })
+  await frame()
+})
+await check('keyed semantic fallback, coalesced pointer/view frames, and tool callId collisions stay consistent', async () => {
+  const bars = () => [...piano().querySelectorAll('.smcp-bar')]
+  const prevOrder = chat.getSnapshot().order
+  const prevA1 = map.get('a1')
+  const bashKey = 'bash-guard-10'
+  const askKey = 'ask-guard-10'
+  const askAnchor = document.createElement('div')
+  askAnchor.dataset.chatAnchorKey = 'call:q-collision'
+  askAnchor.getBoundingClientRect = () => rect(300, 1400, 748, 80)
+  flow.append(askAnchor)
+  const makeBash = (callId, text) => ({
+    key: bashKey, kind: 'tool-call', target: 'chat', visibility: 'visible', location: { turn: 10 },
+    data: { root: { kind: 'tool-result', callId, isError: false, call: { name: 'bash', argsRaw: '{}' }, content: [{ type: 'text', text }], subCalls: [] } },
+  })
+  const makeAsk = (callId) => ({
+    key: askKey, kind: 'tool-call', target: 'chat', visibility: 'visible', location: { turn: 10 },
+    data: { root: { kind: 'tool-call', callId, name: 'ask_user_question', argsRaw: JSON.stringify({ questions: [{ id: 'q1', question: 'Confirm collision check?' }] }), subCalls: [] } },
+  })
+  map.set(bashKey, makeBash('bash-other', 'v1'))
+  map.set(askKey, makeAsk('q-collision'))
+  chat.set({ ...chat.getSnapshot(), order: [...prevOrder, bashKey, askKey] })
+  await frame()
+  await press('End')
+  assert.ok(bars().some(el => el.dataset.key === 'segment:question:q-collision:q1'), 'question key renders before callId collision')
+
+  // 1. Mixed keyed batch: turn 1 text update followed by a key forcing full semantic rebuild
+  //    must still refresh turn 1's cached segments instead of reusing stale text.
+  await new Promise(resolve => setTimeout(resolve, 140))
+  const nextA1 = { ...prevA1, data: { ...prevA1.data, blocks: [{ kind: 'text', text: 'turn-1-refreshed-before-fallback' }] } }
+  const collidedBash = makeBash('q-collision', 'v2')
+  map.set('a1', nextA1)
+  map.set(bashKey, collidedBash)
+  sources.get('a1').set(nextA1)
+  sources.get(bashKey).set(collidedBash)
+  await frame(); await new Promise(resolve => setTimeout(resolve, 140)); await frame()
+  // 2. Ordinary tool-call changing callId to collide with a question triggers duplicate census.
+  await press('End')
+  assert.ok(!bars().some(el => el.dataset.key === 'segment:question:q-collision:q1'), 'duplicate callId removes question key')
+  await press('Home')
+  const a1Bar = bars().find(el => el.dataset.turn === '1' && el.dataset.role === 'assistant')
+  assert.ok(a1Bar, 'turn 1 assistant bar exists after fallback')
+  assert.match(a1Bar.getAttribute('aria-label'), /turn-1-refreshed-before-fallback/)
+  const restoredBash = makeBash('bash-other', 'v3')
+  map.set(bashKey, restoredBash)
+  sources.get(bashKey).set(restoredBash)
+  await frame(); await new Promise(resolve => setTimeout(resolve, 140)); await frame()
+  await press('End')
+  assert.ok(bars().some(el => el.dataset.key === 'segment:question:q-collision:q1'), 'resolving callId collision restores question key')
+
+  // 3. Explicit DIRTY_VIEW (End) in the same frame as a no-op tool-call update is not dropped.
+  await press('Home')
+  await new Promise(resolve => setTimeout(resolve, 140))
+  const noopBash1 = makeBash('bash-other', 'v4')
+  map.set(bashKey, noopBash1)
+  sources.get(bashKey).set(noopBash1)
+  piano().dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }))
+  await frame()
+  assert.equal(piano().querySelector('.smcp-bar-hover')?.dataset.key, bars().at(-1)?.dataset.key, 'End key view update survived no-op tool-call frame')
+
+  // 4. Explicit DIRTY_POINTER in the same frame as a no-op tool-call update is not dropped.
+  await press('Escape')
+  await new Promise(resolve => setTimeout(resolve, 140))
+  const firstBar = bars()[0]
+  const stripTop = Number.parseFloat(piano().style.top) || 0
+  const stripLeft = Number.parseFloat(piano().style.left) || 0
+  const firstTop = Number.parseFloat(firstBar.style.top) || 0
+  const firstHeight = Number.parseFloat(firstBar.style.height) || 2
+  const beforePointer = globalThis.__smcpDebug.perf.pointerFrames
+  const noopBash2 = makeBash('bash-other', 'v5')
+  map.set(bashKey, noopBash2)
+  sources.get(bashKey).set(noopBash2)
+  piano().dispatchEvent(new dom.window.MouseEvent('pointermove', {
+    clientX: stripLeft + 1,
+    clientY: stripTop + firstTop + firstHeight / 2,
+    bubbles: true,
+  }))
+  await frame()
+  assert.ok(globalThis.__smcpDebug.perf.pointerFrames > beforePointer, 'pointer frame survived no-op tool-call update')
+  assert.equal(piano().querySelector('.smcp-bar-hover')?.dataset.key, firstBar.dataset.key, 'pointer hover applied during no-op tool-call frame')
+  piano().dispatchEvent(new dom.window.MouseEvent('pointerleave', { bubbles: true }))
+  await frame()
+
+  // Restore clean state.
+  map.set('a1', prevA1)
+  map.delete(bashKey)
+  map.delete(askKey)
+  askAnchor.remove()
+  chat.set({ ...chat.getSnapshot(), order: prevOrder })
+  await frame()
+})
 await check('disable restores native visibility and releases all subscriptions', async () => {
   await set('enabled', false)
   assert.equal(piano(), null)
