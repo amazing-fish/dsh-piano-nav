@@ -8,7 +8,9 @@ export function createSemanticLanding(flow: HTMLElement, owner: Owner) {
   let generation = 0
   let abort: AbortController | undefined
   let anchors = new Map<string, HTMLElement>()
+  const shared = typeof owner.rawRow === 'function' && typeof owner.refreshRows === 'function' && typeof owner.canRevealRow === 'function'
   const refresh = (): void => {
+    if (shared) { owner.refreshRows(); return }
     anchors = new Map()
     for (const element of flow.querySelectorAll<HTMLElement>('[data-chat-anchor-key]')) {
       const key = element.dataset.chatAnchorKey
@@ -16,6 +18,7 @@ export function createSemanticLanding(flow: HTMLElement, owner: Owner) {
     }
   }
   const rawRow = (key: string): HTMLElement | null => {
+    if (shared) return owner.rawRow(key)
     const row = anchors.get(key)
     return row?.isConnected ? row : null
   }
@@ -49,6 +52,7 @@ export function createSemanticLanding(flow: HTMLElement, owner: Owner) {
     refresh,
     cancel,
     canReveal(key: string): boolean {
+      if (shared) return owner.canRevealRow(key)
       const row = rawRow(key)
       return row !== null && allowedHidden(row)
     },

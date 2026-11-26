@@ -14,6 +14,25 @@ export interface NativeLabels {
   jump(turn: number, unloaded: boolean): string
 }
 interface SavedSurface { nav: HTMLElement; visibility: string; priority: string; aria: string | null }
+
+/** Find nav landmarks under `container` without walking the large `skip` transcript subtree. */
+export function findNavSurfaces(container: HTMLElement | null, skip: HTMLElement): HTMLElement[] {
+  if (container === null) return []
+  const result: HTMLElement[] = []
+  const stack: HTMLElement[] = []
+  for (let child = container.lastElementChild; child !== null; child = child.previousElementSibling) {
+    if (child !== skip) stack.push(child as HTMLElement)
+  }
+  while (stack.length > 0) {
+    const element = stack.pop()!
+    if (element.tagName === 'NAV' || element.getAttribute('role') === 'navigation') result.push(element)
+    for (let child = element.lastElementChild; child !== null; child = child.previousElementSibling) {
+      if (child !== skip) stack.push(child as HTMLElement)
+    }
+  }
+  return result
+}
+
 export function createNativeNavigation(flow: HTMLElement, labels: NativeLabels) {
   const local = flow.parentElement
   const scrollport = flow.closest<HTMLElement>('[data-conversation-scroll]') ?? local
@@ -22,7 +41,9 @@ export function createNativeNavigation(flow: HTMLElement, labels: NativeLabels) 
   let emptyWindow = 0
   let buttons = new Map<number, HTMLButtonElement>()
   let turns: readonly NavigationTurn[] = []
+  let allRows = new Map<string, HTMLElement>()
   let rows = new Map<string, HTMLElement>()
+  let revealableKeys = new Set<string>()
   let orderedRows: HTMLElement[] = []
   let mappedAnchors = new Set<string>()
   let mappedRows: HTMLElement[] = []
@@ -35,12 +56,44 @@ export function createNativeNavigation(flow: HTMLElement, labels: NativeLabels) 
     api.cancel()
   }
   const refreshRows = (): void => {
+    allRows = new Map()
     rows = new Map()
+    revealableKeys = new Set()
     orderedRows = []
+    const flowHidden = flow.closest('[hidden]') !== null
+    // Memoize ancestor visibility states inside `flow` so rows sharing a parent
+    // container avoid redundant O(depth) closest('[hidden]') traversals.
+    // 0 = visible, 1 = revealable (hidden="until-found" process wrapper), 2 = hard-hidden.
+    const stateCache = new Map<HTMLElement, 0 | 1 | 2>()
+    const classify = (element: HTMLElement): 0 | 1 | 2 => {
+      const cached = stateCache.get(element)
+      if (cached !== undefined) return cached
+      let own: 0 | 1 | 2 = 0
+      if (element.hasAttribute('hidden')) {
+        own = element.getAttribute('hidden') === 'until-found' && element.dataset.turnProcessHidden === 'true' ? 1 : 2
+      }
+      if (own === 2 || element === flow) {
+        const result: 0 | 1 | 2 = flowHidden ? 2 : own
+        stateCache.set(element, result)
+        return result
+      }
+      const parent = element.parentElement
+      const inherited = parent === null ? (flowHidden ? 2 : 0) : classify(parent)
+      const combined: 0 | 1 | 2 = inherited === 2 ? 2 : own === 1 || inherited === 1 ? 1 : 0
+      stateCache.set(element, combined)
+      return combined
+    }
     for (const row of flow.querySelectorAll<HTMLElement>('[data-chat-anchor-key]')) {
-      if (row.dataset.chatAnchorKey === undefined || row.closest('[hidden]') !== null) continue
-      rows.set(row.dataset.chatAnchorKey, row)
-      orderedRows.push(row)
+      const key = row.dataset.chatAnchorKey
+      if (key === undefined) continue
+      allRows.set(key, row)
+      const state = classify(row)
+      if (state === 0) {
+        rows.set(key, row)
+        orderedRows.push(row)
+      } else if (state === 1) {
+        revealableKeys.add(key)
+      }
     }
     mappedRows = orderedRows.filter(row => mappedAnchors.has(row.dataset.chatAnchorKey ?? ''))
   }
@@ -67,7 +120,14 @@ export function createNativeNavigation(flow: HTMLElement, labels: NativeLabels) 
     const row = rows.get(key)
     return row?.isConnected && row.closest('[hidden]') === null ? row : null
   }
-  const anchorAtOrBefore = (clientY: number): string | null => {
+  const rawRow = (key: string): HTMLElement | null => {
+    const row = allRows.get(key)
+    return row?.isConnected ? row : null
+  }
+  const hasVisibleRow = (key: string): boolean => rows.has(key)
+  const canRevealRow = (key: string): boolean => revealableKeys.has(key)
+  const hasAnchor = (key: string): boolean => allRows.has(key)
+  const anchorAtOrBefore = (clientY: number, retried = false): string | null => {
     let low = 0
     let high = mappedRows.length - 1
     let chosen: HTMLElement | null = null
@@ -76,14 +136,20 @@ export function createNativeNavigation(flow: HTMLElement, labels: NativeLabels) 
     while (low <= high) {
       const middle = (low + high) >>> 1
       const row = mappedRows[middle]
-      if (!row.isConnected || row.closest('[hidden]') !== null) {
+      if (!row.isConnected || row.hidden) {
+        if (retried) return null
         refreshRows()
-        return anchorAtOrBefore(clientY)
+        return anchorAtOrBefore(clientY, true)
       }
       if (row.getBoundingClientRect().top <= clientY) {
         chosen = row
         low = middle + 1
       } else high = middle - 1
+    }
+    if (chosen !== null && chosen.closest('[hidden]') !== null) {
+      if (retried) return null
+      refreshRows()
+      return anchorAtOrBefore(clientY, true)
     }
     return chosen?.dataset.chatAnchorKey ?? null
   }
@@ -104,7 +170,7 @@ export function createNativeNavigation(flow: HTMLElement, labels: NativeLabels) 
   let emptySince: number | null = null
   let emptyRecheckScheduled = false
   const api = {
-    rowFor, setMappedAnchors, anchorAtOrBefore, release, busy,
+    refreshRows, rowFor, rawRow, hasVisibleRow, canRevealRow, hasAnchor, setMappedAnchors, anchorAtOrBefore, release, busy,
     /** Why the most recent reconcile refused takeover; null when it accepted. */
     lastReject: null as string | null,
     /** How many turns the most recent reconcile left unmapped (virtualized-out buttons); null when none. */
@@ -129,24 +195,22 @@ export function createNativeNavigation(flow: HTMLElement, labels: NativeLabels) 
           // Both outcomes leave the strip's cached nativeReady stale: a
           // surrender released the native surface it still thinks it owns,
           // a recovery refilled the mapping it thinks is empty.
-          api.reconcile(turns)
+          api.reconcileNav(turns)
           api.onExternalReconcile?.()
         }
       })
     },
-    /** One row scan per publication, never one scan per mark. */
-    reconcile(next: readonly NavigationTurn[]): boolean {
-      refreshRows()
+    /** Reconcile only the native TurnNavigator surface without rescanning transcript rows. */
+    reconcileNav(next: readonly NavigationTurn[]): boolean {
       turns = next
       // DSH 0.1.7 mounts the TurnNavigator slot at the [data-conversation-scroll]
       // level (a sticky overlay beside the flow), no longer inside
-      // flow.parentElement. Search the scrollport — it still contains the flow,
-      // excluded below — so 0.1.5 and 0.1.7 layouts both resolve.
+      // flow.parentElement. Search the scrollport while skipping the large
+      // transcript flow subtree, so 0.1.5 and 0.1.7 layouts both resolve fast.
       const scope = scrollport ?? local
       // Do not mistake an unmatched/ambiguous native landmark for the genuine
       // absence that the official single-Turn renderer normally produces.
-      const surfaces = [...scope?.querySelectorAll<HTMLElement>('nav,[role="navigation"]') ?? []]
-        .filter(element => !flow.contains(element))
+      const surfaces = findNavSurfaces(scope, flow)
       const candidates = surfaces.filter(element => element.getAttribute('aria-label') === labels.navigation())
       const candidate = surfaces.length === 1 && candidates.length === 1 ? candidates[0] : null
       if (surfaces.length !== 1) api.lastReject = `surfaces:${surfaces.length}`
@@ -256,6 +320,11 @@ export function createNativeNavigation(flow: HTMLElement, labels: NativeLabels) 
       issuedUnloaded = false
       api.lastReject = null
       return true
+    },
+    /** Refresh transcript rows and reconcile the native TurnNavigator surface. */
+    reconcile(next: readonly NavigationTurn[]): boolean {
+      refreshRows()
+      return api.reconcileNav(next)
     },
     claim(): void {
       if (nav === null || saved?.nav === nav) return

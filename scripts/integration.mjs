@@ -620,6 +620,64 @@ await check('display:contents root falls back to the painted ancestor width', as
   assert.equal(globalThis.__smcpDebug.layout.root, 'root')
   assert.equal(globalThis.__smcpDebug.layout.flowLeft, 300)
 })
+await check('long expanded turns skip redundant rebuilds on nav churn, scrolling, flow height resize, and non-question tool calls', async () => {
+  // 1. Virtualized nav button churn must only reconcile <nav>, never rebuild items/railSlots.
+  let before = { ...globalThis.__smcpDebug.perf }
+  const btn = nativeButton(5)
+  const swap = btn.cloneNode(true)
+  btn.replaceWith(swap); await frame()
+  swap.replaceWith(btn); await frame()
+  let after = globalThis.__smcpDebug.perf
+  assert.equal(after.itemRebuilds, before.itemRebuilds, 'nav button swap must not rebuild items')
+  assert.equal(after.mappedAnchorRebuilds, before.mappedAnchorRebuilds, 'nav button swap must not refilter anchors')
+  assert.equal(after.railProjections, before.railProjections, 'nav button swap must not re-project rail slots')
+
+  // 2. Scrolling across segments must not re-project rail slots.
+  before = { ...globalThis.__smcpDebug.perf }
+  scroll.scrollTop = 1540; scroll.dispatchEvent(new window.Event('scroll')); await frame()
+  scroll.scrollTop = 1850; scroll.dispatchEvent(new window.Event('scroll')); await frame()
+  scroll.scrollTop = 0; scroll.dispatchEvent(new window.Event('scroll')); await frame()
+  after = globalThis.__smcpDebug.perf
+  assert.equal(after.railProjections, before.railProjections, 'active reading changes must not re-project rail slots')
+
+  // 3. Height-only flow ResizeObserver changes (expanding turns / streaming lines) must not re-render.
+  before = { ...globalThis.__smcpDebug.perf }
+  for (const obs of resizeObservers) {
+    if (obs.targets.has(flow)) obs.callback([{ target: flow, contentRect: { width: 748, height: 12000 } }], obs)
+  }
+  await frame()
+  after = globalThis.__smcpDebug.perf
+  assert.equal(after.renders, before.renders, 'flow height-only resize must not wake layout/render')
+
+  // 4. Structural append and keyed streaming of non-question tool calls must not rebuild Piano state.
+  const toolKey = 'bash-tool-10'
+  const toolNode = {
+    key: toolKey, kind: 'tool-call', target: 'chat', visibility: 'visible', location: { turn: 10 },
+    data: { root: { kind: 'tool-result', callId: 'bash-10', isError: false, call: { name: 'bash', argsRaw: '{"cmd":"ls"}' }, content: [{ type: 'text', text: 'out-1' }], subCalls: [] } },
+  }
+  const prevOrder = chat.getSnapshot().order
+  before = { ...globalThis.__smcpDebug.perf }
+  map.set(toolKey, toolNode)
+  chat.set({ ...chat.getSnapshot(), order: [...prevOrder, toolKey] })
+  await frame()
+  after = globalThis.__smcpDebug.perf
+  assert.equal(after.renders, before.renders, 'appending a non-question tool call must not re-render')
+  assert.equal(after.itemRebuilds, before.itemRebuilds)
+  assert.equal(after.railProjections, before.railProjections)
+
+  const updatedTool = { ...toolNode, data: { root: { ...toolNode.data.root, content: [{ type: 'text', text: 'out-2' }] } } }
+  map.set(toolKey, updatedTool)
+  sources.get(toolKey).set(updatedTool)
+  await frame()
+  after = globalThis.__smcpDebug.perf
+  assert.equal(after.renders, before.renders, 'streaming a non-question tool call must not re-render')
+  assert.equal(after.nodeRebuilds, before.nodeRebuilds)
+  assert.equal(after.itemRebuilds, before.itemRebuilds)
+
+  map.delete(toolKey)
+  chat.set({ ...chat.getSnapshot(), order: prevOrder })
+  await frame()
+})
 await check('disable restores native visibility and releases all subscriptions', async () => {
   await set('enabled', false)
   assert.equal(piano(), null)

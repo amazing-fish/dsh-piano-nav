@@ -30,11 +30,24 @@ const record = (value: unknown): Record<string, unknown> => typeof value === 'ob
 const integer = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 
 function truncate(text: string, limit: number): string {
-  const normalized = text.replace(/\r\n?/g, '\n').trim()
-  return normalized.length <= limit ? normalized : `${normalized.slice(0, limit).trimEnd()}…`
+  let start = 0
+  let end = text.length
+  while (start < end && /\s/.test(text[start])) start++
+  while (end > start && /\s/.test(text[end - 1])) end--
+  if (start === end) return ''
+  // Every `\r\n` shrinks length by at most 1, so `limit * 2 + 2` raw chars from
+  // the first non-whitespace char always covers at least `limit + 1` normalized
+  // chars without copying/regex-scanning 100KB+ message bodies.
+  const windowLimit = limit * 2 + 2
+  const bounded = end - start > windowLimit ? text.slice(start, start + windowLimit) : text.slice(start, end)
+  const normalized = bounded.includes('\r') ? bounded.replace(/\r\n?/g, '\n') : bounded
+  return normalized.length <= limit && end - start <= windowLimit
+    ? normalized
+    : `${normalized.slice(0, limit).trimEnd()}…`
 }
 function titleOf(text: string): string {
-  const first = text.split('\n').find(line => line.trim() !== '') ?? '…'
+  const nl = text.indexOf('\n')
+  const first = nl < 0 ? text : (text.slice(0, nl).trim() !== '' ? text.slice(0, nl) : (text.split('\n').find(line => line.trim() !== '') ?? '…'))
   return truncate(first.replace(/^\s*(?:#{1,6}|>|[-*+] |\d+[.)]\s*)\s*/, ''), TITLE_LIMIT)
 }
 function contentText(blocks: readonly unknown[]): string {
