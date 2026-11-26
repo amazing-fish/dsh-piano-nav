@@ -8,7 +8,7 @@ import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import { observeChatNodes } from './chat-source.ts'
 import { buildNavigationNodesWithQuestions, turnOf } from './keys.ts'
 import type { KeyDescriptor } from './keys.ts'
-import { buildQuestionKeys, createQuestionDiagnostics, nodeContainsAskQuestion } from './question-keys.ts'
+import { buildQuestionKeys, canSkipToolCallUpdate, createQuestionDiagnostics } from './question-keys.ts'
 import { buildPianoItems, buildPianoItemsForTurn, mergeNavigationTurns } from './navigation-model.ts'
 import type { NavigationTurn, PianoItem } from './navigation-model.ts'
 import { projectRailSlots, railSlotIndex } from './rail-slots.ts'
@@ -310,7 +310,7 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     lastStreamSemanticAt = window.performance.now()
     if (pending !== 0) schedule(pending)
   }
-  const scheduleKeyedSemantic = (keys: readonly string[], flags = DIRTY_KEYED_NODES | DIRTY_VIEW): void => {
+  const scheduleKeyedSemantic = (keys: readonly string[], flags = DIRTY_KEYED_NODES): void => {
     for (const key of keys) keyedDirtyKeys.add(key)
     streamDirtyFlags |= flags
     const now = window.performance.now()
@@ -566,9 +566,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
         break
       }
       if (previous.kind === 'tool-call' || next.kind === 'tool-call') {
-        // Non-question tool calls (bash, file ops, search, subagents) never produce
-        // Piano keys; skip them in O(1) instead of rebuilding the whole session.
-        if (!nodeContainsAskQuestion(previous) && !nodeContainsAskQuestion(next)) {
+        // Non-question tool calls (bash, file ops, search, subagents) with
+        // unchanged call IDs never affect Piano keys or duplicate-call census.
+        if (canSkipToolCallUpdate(previous, next)) {
           nodeByKey.set(key, next)
           const t = turnOf(next)
           if (t !== null) {
@@ -598,6 +598,9 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
       dirtyTurns.add(nextTurn)
     }
     if (requiresFullSemantic) {
+      // Earlier keys in this batch may have updated `turnNodesByTurn` in-place;
+      // invalidate their cached segments so `rebuildSemanticState()` recomputes them.
+      for (const turn of dirtyTurns) segmentsByTurn.delete(turn)
       if (rebuildSemanticState()) {
         rebuildItemsFromSegments()
         return true
@@ -769,10 +772,18 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
     if ((pending & DIRTY_NODES) !== 0) nodesChanged = rebuildSemanticState()
     else if ((pending & DIRTY_KEYED_NODES) !== 0) keyedChanged = refreshKeyedSemantic()
     // Non-semantic updates (e.g., streaming bash/file tool calls) leave turns and
-    // Piano keys untouched; skip rendering work when nothing else is dirty.
+    // Piano keys untouched; skip full rendering when nothing else is dirty, while
+    // preserving explicit pointer/view requests coalesced into the same frame.
     if (!turnsChanged && !nodesChanged && !keyedChanged && debug.mode === 'piano'
-      && (pending & (DIRTY_NAV | DIRTY_ROWS | DIRTY_ITEMS | DIRTY_LAYOUT | DIRTY_NATIVE_STATE | DIRTY_READER)) === 0
+      && (pending & (DIRTY_NAV | DIRTY_ROWS | DIRTY_ITEMS | DIRTY_LAYOUT | DIRTY_NATIVE_STATE | DIRTY_READER | DIRTY_VIEW)) === 0
       && (pending & (DIRTY_NODES | DIRTY_KEYED_NODES)) !== 0) {
+      if ((pending & DIRTY_POINTER) !== 0) {
+        perf.renders++
+        if (!nativeReady || strip.hidden) { pendingPointer = null; return }
+        applyPointer()
+        renderFeedback(DIRTY_POINTER)
+        perf.pointerFrames++
+      }
       return
     }
     perf.renders++
@@ -937,9 +948,10 @@ function mount(ctx: ClientContext, flow: HTMLElement, t: Translate<SmContextPian
           scheduleKeyedSemantic(dirtyKeys ?? [])
           return
         }
+        const carry = streamDirtyFlags & ~DIRTY_KEYED_NODES
         clearStreamRefresh(true)
         lastStreamSemanticAt = window.performance.now()
-        schedule(DIRTY_NODES | DIRTY_TURNS | DIRTY_VIEW)
+        schedule(DIRTY_NODES | DIRTY_TURNS | carry)
       }))
       stops.push(next.session.projections.faceOf('turnOutline').subscribe(() => schedule(DIRTY_TURNS | DIRTY_NATIVE_STATE | DIRTY_VIEW)))
       sessionLoadingOlder = next.session.getSnapshot().loadingOlder ?? false

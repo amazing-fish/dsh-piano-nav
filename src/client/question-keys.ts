@@ -81,11 +81,21 @@ function extractNodeCalls(node: ChatConversationViewNode): NodeCallSummary {
   return scanLimited ? { calls: [], hasAsk: false, scanLimited: true } : { calls, hasAsk, scanLimited: false }
 }
 
-/** Fast check for whether a tool-call node contains any ask_user_question call. */
-export function nodeContainsAskQuestion(node: ChatConversationViewNode | undefined): boolean {
-  if (node === undefined || node.kind !== 'tool-call') return false
-  const summary = extractNodeCalls(node)
-  return summary.hasAsk || summary.scanLimited
+/** Fast check for whether an updated tool-call node cannot affect question keys or duplicate-call census. */
+export function canSkipToolCallUpdate(
+  previous: ChatConversationViewNode | undefined,
+  next: ChatConversationViewNode | undefined,
+): boolean {
+  if (previous === undefined || next === undefined || previous.kind !== 'tool-call' || next.kind !== 'tool-call') return false
+  const prevSummary = extractNodeCalls(previous)
+  if (prevSummary.hasAsk || prevSummary.scanLimited) return false
+  const nextSummary = extractNodeCalls(next)
+  if (nextSummary.hasAsk || nextSummary.scanLimited) return false
+  if (prevSummary.calls.length !== nextSummary.calls.length) return false
+  for (let i = 0; i < prevSummary.calls.length; i++) {
+    if (prevSummary.calls[i].id !== nextSummary.calls[i].id) return false
+  }
+  return true
 }
 
 /** Census precedes emission: no first-wins answers from duplicate call identities. */
