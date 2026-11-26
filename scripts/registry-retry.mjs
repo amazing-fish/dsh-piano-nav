@@ -7,7 +7,7 @@ export function npmErrorCode(error) {
   return code ?? String(error.stderr).match(/(?:^|\n)npm (?:error|ERR!) code (\w+)(?:\r?\n|$)/)?.[1]
 }
 
-export async function registryRetry(operation, { attempts = 9, wait = delay, log = console.log } = {}) {
+export async function registryRetry(operation, { attempts = 17, wait = delay, log = console.log } = {}) {
   for (let attempt = 1; ; attempt++) {
     try { return await operation() }
     catch (error) {
