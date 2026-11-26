@@ -21,12 +21,12 @@ for (const code of ['E401', 'E403', 'E500', 'ECONNRESET', 'EINTEGRITY']) {
 }
 let exhausted = 0
 await assert.rejects(() => registryRetry(() => { exhausted++; throw npmError('ETARGET') }, quiet), /ETARGET/)
-assert.equal(exhausted, 9)
+assert.equal(exhausted, 17)
 assert.ok(waits.every(ms => ms === 15000))
 let stderrCalls = 0
 await registryRetry(() => { if (++stderrCalls === 1) throw { stderr: 'npm error code ETARGET\n' } }, quiet)
 assert.equal(stderrCalls, 2)
-console.log('Registry retry: both propagation codes recover; 9-attempt bound; auth/network/integrity errors fail immediately')
+console.log('Registry retry: both propagation codes recover; 17-attempt (4m) bound; auth/network/integrity errors fail immediately')
 
 const root = await mkdtemp(join(tmpdir(), 'piano-recovery-test-'))
 const bytes = Buffer.from('original frozen package fixture'), source = 'a'.repeat(40)
